@@ -1,82 +1,33 @@
 const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
 const path = require('path');
-
-// --- NUEVO: Importar los modelos de persistencia lógicos ---
-const UserModel = require('./models/User');
-const GameDataModel = require('./models/GameData');
-
 const app = express();
-const server = http.createServer(app);
-const io = new Server(server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    },
-    transports: ['websocket', 'polling']
-});
 
-// Servir archivos de la carpeta public
+// Middleware para leer datos de formularios y JSON
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Servir archivos estáticos de forma limpia
 app.use(express.static(path.join(__dirname, 'public')));
 
-// "Base de Datos" temporal en memoria del servidor
-const usuariosRegistrados = {};
-const estadosDeJuego = {};
-
-// Gestión de eventos en tiempo real con Socket.io
-io.on('connection', (socket) => {
-    console.log(`Dispositivo conectado al Árbitro: ${socket.id}`);
-
-    // Manejo de Registro de nuevos usuarios reales
-    socket.on('auth:register', (data) => {
-        const { user, password } = data;
-        
-        if (!user || !password || user.trim() === "") {
-            return socket.emit('auth:error', { mensaje: "Campos inválidos." });
-        }
-
-        if (usuariosRegistrados[user]) {
-            return socket.emit('auth:error', { mensaje: "El usuario ya existe en el servidor." });
-        }
-
-        // Instanciar y almacenar la estructura del nuevo jugador
-        usuariosRegistrados[user] = new UserModel(user, password);
-        estadosDeJuego[user] = new GameDataModel(user);
-
-        console.log(`[Servidor] Nuevo usuario creado: ${user}`);
-        socket.emit('auth:register_success', { mensaje: "Cuenta creada exitosamente." });
-    });
-
-    // Manejo de Inicio de Sesión
-    socket.on('auth:login', (data) => {
-        const { user, password } = data;
-        const cuenta = usuariosRegistrados[user];
-
-        if (!cuenta || cuenta.password !== password) {
-            return socket.emit('auth:error', { mensaje: "Credenciales incorrectas." });
-        }
-
-        // Vincular el socket del dispositivo al nombre de usuario actual
-        socket.username = user;
-
-        console.log(`[Servidor] Sesión iniciada para: ${user}`);
-        
-        // Enviar al cliente su perfil financiero y su progreso de cimientos
-        socket.emit('auth:success', {
-            user: cuenta.username,
-            saldo: cuenta.saldoDisponible,
-            poseeAldea: cuenta.poseeAldea,
-            gameData: estadosDeJuego[user]
-        });
-    });
-
-    // Desconexión del dispositivo
-    socket.on('disconnect', () => {
-        console.log(`Dispositivo desconectado: ${socket.id}`);
-    });
+// Ruta principal para servir el login de inicio
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// Enrutador para manejar las peticiones de Login / Registro de modelos/User.js
+app.post('/api/auth/login', async (req, res) => {
+    const { username, password } = req.body;
+    try {
+        // Tu lógica de autenticación con MongoDB (User.js) aquí
+        // ...
+        res.status(200).json({ success: true, message: "Acceso concedido" });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+const PORT = process.env.PORT || 5173; // Puerto según tu captura
+app.listen(PORT, () => console.log(`Servidor de Arena y Gloria corriendo en puerto ${PORT}`));
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`Servidor Árbitro de XDpro operativo en puerto ${PORT}`);
