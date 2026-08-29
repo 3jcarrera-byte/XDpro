@@ -3,6 +3,10 @@ const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
 
+// --- NUEVO: Importar los modelos de persistencia lógicos ---
+const UserModel = require('./models/User');
+const GameDataModel = require('./models/GameData');
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -10,31 +14,70 @@ const io = new Server(server, {
         origin: "*",
         methods: ["GET", "POST"]
     },
-    transports: ['websocket', 'polling'] // Garantiza fallback seguro si la red móvil es inestable
+    transports: ['websocket', 'polling']
 });
 
 // Servir archivos de la carpeta public
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Gestión de conexiones de Socket.io
-io.on('connection', (socket) => {
-    console.log(`Usuario conectado: ${socket.id}`);
+// "Base de Datos" temporal en memoria del servidor
+const usuariosRegistrados = {};
+const estadosDeJuego = {};
 
-    // Escuchar cuando un usuario intenta iniciar sesión o registrarse
-    socket.on('auth:login', (data) => {
-        // Aquí irá la validación con Base de Datos más adelante
-        console.log(`Intento de login: ${data.user}`);
-        // Respuesta simulada de éxito
-        socket.emit('auth:success', { user: data.user, slotsUsados: 0 });
+// Gestión de eventos en tiempo real con Socket.io
+io.on('connection', (socket) => {
+    console.log(`Dispositivo conectado al Árbitro: ${socket.id}`);
+
+    // Manejo de Registro de nuevos usuarios reales
+    socket.on('auth:register', (data) => {
+        const { user, password } = data;
+        
+        if (!user || !password || user.trim() === "") {
+            return socket.emit('auth:error', { mensaje: "Campos inválidos." });
+        }
+
+        if (usuariosRegistrados[user]) {
+            return socket.emit('auth:error', { mensaje: "El usuario ya existe en el servidor." });
+        }
+
+        // Instanciar y almacenar la estructura del nuevo jugador
+        usuariosRegistrados[user] = new UserModel(user, password);
+        estadosDeJuego[user] = new GameDataModel(user);
+
+        console.log(`[Servidor] Nuevo usuario creado: ${user}`);
+        socket.emit('auth:register_success', { mensaje: "Cuenta creada exitosamente." });
     });
 
-    // Desconexión
+    // Manejo de Inicio de Sesión
+    socket.on('auth:login', (data) => {
+        const { user, password } = data;
+        const cuenta = usuariosRegistrados[user];
+
+        if (!cuenta || cuenta.password !== password) {
+            return socket.emit('auth:error', { mensaje: "Credenciales incorrectas." });
+        }
+
+        // Vincular el socket del dispositivo al nombre de usuario actual
+        socket.username = user;
+
+        console.log(`[Servidor] Sesión iniciada para: ${user}`);
+        
+        // Enviar al cliente su perfil financiero y su progreso de cimientos
+        socket.emit('auth:success', {
+            user: cuenta.username,
+            saldo: cuenta.saldoDisponible,
+            poseeAldea: cuenta.poseeAldea,
+            gameData: estadosDeJuego[user]
+        });
+    });
+
+    // Desconexión del dispositivo
     socket.on('disconnect', () => {
-        console.log(`Usuario desconectado: ${socket.id}`);
+        console.log(`Dispositivo desconectado: ${socket.id}`);
     });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-    console.log(`Servidor Árbitro corriendo en el puerto ${PORT}`);
+    console.log(`Servidor Árbitro de XDpro operativo en puerto ${PORT}`);
 });
