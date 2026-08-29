@@ -1,0 +1,26 @@
+vamos a crear una juego en html con diseños html + Three.js y un arbitro en Render o Vercel, corriendo un codigo simple en Node.js con una libreria Socket.io.
+
+Partes pagina de inicio de inicio y registrarse. pagina de registro que devuelva a la gagina de inicio. inicio que envia a la pagina de menu principal.
+
+menu principal que envia a las paginas de aldea, finca, almacen, arena, carreton, mercado mundial, retiros, terminos y condiciones, soporte, correo y cualquiera que haga falta.
+
+aldea. contara con un canvas central donde mostrara los cimientos de una ciudad donde el jugador colocara los edificios corespondientes a esa pagina( maximo 12). las aldeas tienen un numeero limitado. desde esta pagina puedes acceder a finca, almacen, carreton, mercado mundial y menu principal.
+
+finca. contara con un canvas central donde mostrara los cimientos de una finca donde el jugador colocara los edificios corespondientes a esa pagina( maximo 5). todos los jugadores tienen acceso a una finca personal. desde esta pagina puedes acceder a aldea, almacen, carreton, mercado mundial y menu principal.
+
+almacen. aqui estaran contenidas las cartas de recursos producibles y consumibles.  desde esta pagina puedes acceder a finca, aldea, carreton, mercado mundial y menu principal.
+
+carreton. esta contara con 3 contenedores que tendran ciertas condiciones descrita posteriormente, en el lado izquierdo estara un contenedor llamado aldea, que solo estara habilitado si el jugador posee la aldea. en en derecho estara un contenedor llamado finca, tendra una capacidad de contener maximo 8 cartas de personaje, esta se habilitaran segun el edificio activo en dicha instancia y los niveles. en el contenedor central contara maximo con 24 slot para contener cartas de personajes. esta sera condicionada por la suma de los 16 habilitados para el poseedor de aldea mas los 8 de finca. aqui estaran las cartas que no se puedan colocar en ninguna finca o aldea por inhabilitacion de edificios. esto tambien limitara la cantidad maxima de cartas de personajes que pueda tener un jugador. desde aqui puedes ir a finca, aldea, mercado global, menu principal.
+
+mercado mundial. aqui estaran disponibles el mercado general donde los jugadores pueden comprar y vender cartas al sistema o a otros jugadores. o buscar el mercado de alguna aldea, desde aqui puedes acceder al mercado general, al mercado de las aldeas y al menu principal.
+
+retiros, aqui podras recargar o retirar tus ganancias a una billetera. siguiendo un protocolo establesido y respetando los terminos y condiciones.desde aqui puedes ir a terminos y condiciones, a la interfas de recarga, historial, retiros pendientes. menu principal.
+
+terminos y condiciones. como su nombre lo indica, aqui estaran los terminos y condiciones. puedes accederal menu principal.
+
+soporte. aqui puedes comunicarte con el soporte tecnico.
+
+correo, aqui podras resivir tus correos y notificaciones.
+
+arena. aqui estaran depositadas tus cartas de mazo de combate, donde podras personalisar tu maso para el combate, tambien podras elejir a tu personaje para la pelea y equiparlo para la pelea. puedes acceder al menu principal o ir a la pelea contra dos usuarios mas.
+
