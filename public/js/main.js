@@ -2,6 +2,11 @@ function navigate(screenId) {
     // Ocultar todas las pantallas del juego
     document.querySelectorAll('.screen').forEach(screen => {
         screen.classList.remove('active');
+        } else if (screenId === 'screen-almacen') {
+    cargarAlmacen();
+} else if (screenId === 'screen-carreton') {
+    cargarCarreton(); // <-- NUEVO: Inicializa el carretón al entrar
+}
     });
     
     // Activar sección de destino
