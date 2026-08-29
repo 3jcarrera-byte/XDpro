@@ -60,6 +60,9 @@ public/js/game3d.js (listo)
 — Esquema para guardar los 12 cimientos de Aldea, 5 de Finca y las cartas del Carretón/Almacén.
 
 
+pasos de mejora:
+1-habilitar boton registro del inicio(pendiente).
+2-poder entrar al juego con el usuario registrado(pendiente).
 
 
 
