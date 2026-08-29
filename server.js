@@ -1,32 +1,38 @@
 // server.js
 const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 const mongoose = require('mongoose');
-const path = require('path'); // <-- AGREGADO: Necesario para manejar rutas absolutas de archivos
+const path = require('path');
+const cors = require('cors');
 const User = require('./models/User'); 
 
 const app = express();
+const server = http.createServer(app);
+
+// Configuración de Socket.io (Permite conexiones desde cualquier sitio web)
+const io = new Server(server, {
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    }
+});
 
 // ========================================================
-// MIDDLEWARES ESENCIALES (Para leer JSON y servir archivos)
+// MIDDLEWARES ESENCIALES
 // ========================================================
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// CORREGIDO: Usar path.join asegura que Render encuentre la carpeta public sin importar el sistema operativo
 app.use(express.static(path.join(__dirname, 'public'))); 
 
 // ========================================================
 // CONEXIÓN A LA BASE DE DATOS MONGODB
 // ========================================================
-// CORREGIDO: En producción usará la variable de entorno de Render; localmente usará tu base de datos
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/xdpro'; 
-
 mongoose.connect(MONGO_URI)
   .then(() => console.log('✅ Conectado a la base de datos MongoDB'))
-  .catch(err => {
-    console.error('❌ Error conectando a MongoDB:', err);
-    // IMPORTANTE: No rompe el servidor de inmediato para permitir que Render complete el Health Check si es necesario
-  });
+  .catch(err => console.error('❌ Error conectando a MongoDB:', err));
 
 // ========================================================
 // ENDPOINT: REGISTRO DE NUEVOS GLADIADORES
@@ -42,13 +48,13 @@ app.post('/api/auth/register', async (req, res) => {
         await nuevoUsuario.save();
         return res.status(201).json({ success: true, message: 'Usuario creado exitosamente.' });
     } catch (error) {
-        console.error('Error en base de datos al registrar:', error);
+        console.error('Error al registrar:', error);
         return res.status(500).json({ success: false, message: 'Fallo interno del servidor.' });
     }
 });
 
 // ========================================================
-// ENDPOINT: INICIO DE SESIÓN (LOGIN) Y CONTROL DE FRAUDE
+// ENDPOINT: INICIO DE SESIÓN (LOGIN)
 // ========================================================
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
@@ -57,58 +63,58 @@ app.post('/api/auth/login', async (req, res) => {
         if (!usuario) {
             return res.status(401).json({ success: false, message: 'Usuario o contraseña inválidos.' });
         }
+        
+        // Control Antifraude Simple
         if (usuario.status === 'banned_perm') {
-            return res.status(403).json({ 
-                success: false, 
-                message: 'Cuenta suspendida permanentemente. Razón: ' + (usuario.banReason || 'Violación de términos.') 
-            });
+            return res.status(403).json({ success: false, message: 'Cuenta suspendida permanentemente.' });
         }
-        if (usuario.status === 'banned_temp') {
-            if (new Date() < usuario.banUntil) {
-                return res.status(403).json({ 
-                    success: false, 
-                    message: `Cuenta suspendida hasta ${usuario.banUntil}. Razón: ${usuario.banReason}` 
-                });
-            } else {
-                usuario.status = 'active';
-                usuario.banUntil = null;
-                await usuario.save();
-            }
-        }
-        const esValido = (typeof usuario.comparePassword === 'function') 
-            ? await usuario.comparePassword(password) 
-            : (usuario.password === password);
 
+        // Validación de contraseña directa
+        const esValido = (usuario.password === password);
         if (!esValido) {
             return res.status(401).json({ success: false, message: 'Usuario o contraseña inválidos.' });
         }
+
         return res.status(200).json({ 
             success: true, 
             userId: usuario._id,
             username: usuario.username,
-            balance: usuario.balance,
-            token: "session_activa_gladiador" 
+            balance: usuario.balance
         });
     } catch (error) {
-        console.error('Error en base de datos al autenticar:', error);
+        console.error('Error al autenticar:', error);
         return res.status(500).json({ success: false, message: 'Fallo interno del servidor.' });
     }
 });
 
 // ========================================================
-// RUTA COMODÍN PARA EL FRONTEND (FALLBACK)
+// LÓGICA DE SOCKET.IO (EL ÁRBITRO EN TIEMPO REAL)
 // ========================================================
-// AGREGADO: Esto soluciona de raíz el error de JavaScript al asegurar que cualquier petición web devuelva tu HTML principal
+io.on('connection', (socket) => {
+    console.log(`🎮 Un jugador se ha conectado: ${socket.id}`);
+
+    // Aquí escucharás las acciones de la Arena, Carreón, etc.
+    socket.on('join_arena', (data) => {
+        console.log(`Jugador ${data.username} buscando partida en la Arena...`);
+        // Lógica futura de emparejamiento de 3 jugadores
+    });
+
+    socket.on('disconnect', () => {
+        console.log(`❌ Jugador desconectado: ${socket.id}`);
+    });
+});
+
+// ========================================================
+// RUTA COMODÍN PARA TU SPA (EVITA EL ERROR DE JAVASCRIPT)
+// ========================================================
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // ========================================================
-// INICIAR EL SERVIDOR
+// INICIAR EL SERVIDOR (OBLIGATORIO Usar server.listen para Sockets)
 // ========================================================
-// CORREGIDO: Render asigna puertos aleatorios dinámicamente; process.env.PORT es obligatorio para producción
 const PORT = process.env.PORT || 5173; 
-
-app.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Servidor de Arena y Gloria corriendo en el puerto ${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Árbitro de XDpro corriendo en el puerto ${PORT}`);
 });
