@@ -1,6 +1,8 @@
 // Conexión inicial al Servidor Árbitro mediante WebSocket
-// Detecta automáticamente si el juego corre en local o en la URL de producción de Render
 const socket = io(window.location.origin.replace(/^http/, 'ws'));
+
+// Variable global para almacenar los datos del jugador una vez autenticado
+let cuentaJugador = null;
 
 /**
  * Enrutador principal de la Single Page Application (SPA)
@@ -36,17 +38,49 @@ function navigate(screenId) {
 }
 
 /**
- * Evento de envío de autenticación al servidor árbitro
+ * Envía las credenciales de inicio de sesión al servidor
  */
 function login() {
     const user = document.getElementById('username').value;
-    if (user.trim() !== "") {
-        socket.emit('auth:login', { user: user });
+    const pass = document.getElementById('password').value;
+
+    if (user.trim() !== "" && pass.trim() !== "") {
+        socket.emit('auth:login', { user: user, password: pass });
+    } else {
+        alert("Por favor rellena todos los campos.");
     }
 }
 
-// Escuchas globales de eventos Socket.io enviados por el Servidor
+/**
+ * Recopila y envía los datos para crear una nueva cuenta en el Servidor
+ */
+function registrarCuenta() {
+    const user = document.getElementById('reg-username').value;
+    const pass = document.getElementById('reg-password').value;
+
+    if (user.trim() !== "" && pass.trim() !== "") {
+        socket.emit('auth:register', { user: user, password: pass });
+    } else {
+        alert("Por favor introduce un usuario y contraseña válidos.");
+    }
+}
+
+// --- ESCUCHAS DE EVENTOS DE RED (SOCKET.IO) ---
+
+// Registro exitoso en el servidor
+socket.on('auth:register_success', (data) => {
+    alert(data.mensaje);
+    navigate('screen-auth'); // Redirigir al login para que ingrese
+});
+
+// Autenticación correcta
 socket.on('auth:success', (data) => {
-    alert(`Autenticado con éxito como: ${data.user}`);
+    cuentaJugador = data; // Almacenar datos globales de sesión
+    alert(`¡Bienvenido de vuelta, ${data.user}!`);
     navigate('screen-menu');
+});
+
+// Captura de errores devueltos por el backend
+socket.on('auth:error', (data) => {
+    alert(`Error: ${data.mensaje}`);
 });
