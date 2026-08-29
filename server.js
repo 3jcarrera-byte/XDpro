@@ -1,34 +1,70 @@
+// server.js
 const express = require('express');
-const path = require('path');
+const mongoose = require('mongoose');
+const User = require('./models/User'); // Importamos tu modelo de usuario
 const app = express();
 
-// Middleware para leer datos de formularios y JSON
+// Middlewares esenciales para procesar datos
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static('public'));
 
-// Servir archivos estáticos de forma limpia
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Ruta principal para servir el login de inicio
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// Enrutador para manejar las peticiones de Login / Registro de modelos/User.js
-app.post('/api/auth/login', async (req, res) => {
+// ========================================================
+// ENDPOINT: REGISTRO DE NUEVOS GLADIADORES
+// ========================================================
+app.post('/api/auth/register', async (req, res) => {
     const { username, password } = req.body;
+
     try {
-        // Tu lógica de autenticación con MongoDB (User.js) aquí
-        // ...
-        res.status(200).json({ success: true, message: "Acceso concedido" });
+        // Verificar si el usuario ya está registrado en MongoDB
+        const userExists = await User.findOne({ username });
+        if (userExists) {
+            return res.status(400).json({ success: false, message: 'El nombre de usuario ya está en uso.' });
+        }
+
+        // Crear y guardar el nuevo usuario
+        const newUser = new User({ username, password });
+        await newUser.save();
+
+        res.status(201).json({ success: true, message: 'Usuario creado correctamente.' });
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+        console.error('Error en registro:', error);
+        res.status(500).json({ success: false, message: 'Error interno del servidor.' });
     }
 });
 
-const PORT = process.env.PORT || 5173; // Puerto según tu captura
-app.listen(PORT, () => console.log(`Servidor de Arena y Gloria corriendo en puerto ${PORT}`));
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`Servidor Árbitro de XDpro operativo en puerto ${PORT}`);
+// ========================================================
+// ENDPOINT: INICIO DE SESIÓN (LOGIN)
+// ========================================================
+app.post('/api/auth/login', async (req, res) => {
+    const { username, password } = req.body;
+
+    try {
+        // Buscar el usuario
+        const user = await User.findOne({ username });
+        if (!user) {
+            return res.status(401).json({ success: false, message: 'Usuario o contraseña incorrectos.' });
+        }
+
+        // Verificar la contraseña (si usas bcrypt en tu modelo, invoca tu método de comparación)
+        // Si aún guardas texto plano en pruebas, usa: const isMatch = (password === user.password);
+        const isMatch = typeof user.comparePassword === 'function' 
+            ? await user.comparePassword(password) 
+            : (password === user.password);
+
+        if (!isMatch) {
+            return res.status(401).json({ success: false, message: 'Usuario o contraseña incorrectos.' });
+        }
+
+        // Responder con éxito si todo coincide
+        res.status(200).json({ 
+            success: true, 
+            message: 'Autenticación exitosa', 
+            userId: user._id 
+        });
+
+    } catch (error) {
+        console.error('Error en login:', error);
+        res.status(500).json({ success: false, message: 'Error interno del servidor.' });
+    }
 });
