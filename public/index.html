@@ -4,11 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dominio de Arena y Gloria</title>
+  <!-- OBLIGATORIO: Script del cliente de Socket.io que provee tu servidor en Render -->
+  <script src="/socket.io/socket.io.js"></script>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-  <!-- CONTENEDOR PRINCIPAL (El marco dorado) -->
+  <!-- ======================================================== -->
+  <!-- 1. PANTALLA DE AUTENTICACIÓN (LOGIN / REGISTRO)          -->
+  <!-- ======================================================== -->
   <main class="login-card">
     
     <!-- Título principal estilizado -->
@@ -37,16 +41,121 @@
       </div>
     </section>
 
-    <!-- BOTÓN REGISTRARSE (Dentro del marco dorado, abajo del cuadro del formulario) -->
+    <!-- BOTÓN REGISTRARSE -->
     <footer class="card-action">
       <button id="btnRegister" class="btn-secondary">Registrarse</button>
     </footer>
 
   </main>
 
-  <!-- BOTÓN FLOTANTE MENÚ (Fuera del flujo principal, abajo a la derecha) -->
-  <button id="btnFloatingMenu" class="floating-menu">Menú</button>
+  <!-- ======================================================== -->
+  <!-- 2. PANTALLA: MENÚ PRINCIPAL (Eje Central de Navegación)   -->
+  <!-- ======================================================== -->
+  <div id="pantalla-menu-principal" class="seccion-juego" style="display: none;">
+    <div class="game-menu-wrapper">
+      <h2>Panel del Imperio</h2>
+      <div class="menu-grid">
+        <button onclick="cambiarPantalla('pantalla-aldea')" class="btn-menu">🗺️ Aldea</button>
+        <button onclick="cambiarPantalla('pantalla-finca')" class="btn-menu">🏡 Finca</button>
+        <button onclick="cambiarPantalla('pantalla-almacen')" class="btn-menu">📦 Almacén</button>
+        <button onclick="cambiarPantalla('pantalla-carreton')" class="btn-menu">🛒 Carretón</button>
+        <button onclick="cambiarPantalla('pantalla-mercado')" class="btn-menu">⚖️ Mercado Mundial</button>
+        <button onclick="cambiarPantalla('pantalla-arena')" class="btn-menu">⚔️ Arena de Combate</button>
+        <button onclick="cambiarPantalla('pantalla-finanzas')" class="btn-menu">💰 Retiros y Recargas</button>
+        <button onclick="cambiarPantalla('pantalla-correo')" class="btn-menu">📬 Correo</button>
+        <button onclick="cambiarPantalla('pantalla-soporte')" class="btn-menu">🛠️ Soporte</button>
+        <button onclick="cambiarPantalla('pantalla-terminos')" class="btn-menu">📜 Términos</button>
+      </div>
+    </div>
+  </div>
 
+  <!-- ======================================================== -->
+  <!-- 3. MÓDULOS VISUALES (THREE.JS CANVAS)                    -->
+  <!-- ======================================================== -->
+  <!-- ALDEA -->
+  <div id="pantalla-aldea" class="seccion-juego" style="display: none;">
+    <h2>Cimientos de la Aldea (Máx. 12 Edificios)</h2>
+    <div id="canvas-aldea-container" class="canvas-3d"></div>
+    <div class="submenu-nav">
+      <button onclick="cambiarPantalla('pantalla-finca')">🏡 Ir a Finca</button>
+      <button onclick="cambiarPantalla('pantalla-almacen')">📦 Ir a Almacén</button>
+      <button onclick="cambiarPantalla('pantalla-carreton')">🛒 Ir a Carretón</button>
+      <button onclick="cambiarPantalla('pantalla-mercado')">⚖️ Ir a Mercado</button>
+      <button onclick="cambiarPantalla('pantalla-menu-principal')" class="btn-back">🔙 Menú Principal</button>
+    </div>
+  </div>
+
+  <!-- FINCA -->
+  <div id="pantalla-finca" class="seccion-juego" style="display: none;">
+    <h2>Cimientos de tu Finca Personal (Máx. 5 Edificios)</h2>
+    <div id="canvas-finca-container" class="canvas-3d"></div>
+    <div class="submenu-nav">
+      <button onclick="cambiarPantalla('pantalla-aldea')">🗺️ Ir a Aldea</button>
+      <button onclick="cambiarPantalla('pantalla-almacen')">📦 Ir a Almacén</button>
+      <button onclick="cambiarPantalla('pantalla-carreton')">🛒 Ir a Carretón</button>
+      <button onclick="cambiarPantalla('pantalla-mercado')">⚖️ Ir a Mercado</button>
+      <button onclick="cambiarPantalla('pantalla-menu-principal')" class="btn-back">🔙 Menú Principal</button>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- 4. MÓDULOS DE GESTIÓN, ECONOMÍA Y SOPORTE                -->
+  <!-- ======================================================== -->
+  <!-- ALMACÉN -->
+  <div id="pantalla-almacen" class="seccion-juego" style="display: none;">
+    <h2>Almacén de Recursos y Cartas</h2>
+    <button onclick="cambiarPantalla('pantalla-menu-principal')">🔙 Volver</button>
+  </div>
+
+  <!-- CARRETÓN -->
+  <div id="pantalla-carreton" class="seccion-juego" style="display: none;">
+    <h2>Módulo del Carretón (Máx. 24 Slots)</h2>
+    <button onclick="cambiarPantalla('pantalla-menu-principal')">🔙 Volver</button>
+  </div>
+
+  <!-- MERCADO MUNDIAL -->
+  <div id="pantalla-mercado" class="seccion-juego" style="display: none;">
+    <h2>Mercado Mundial P2P</h2>
+    <button onclick="cambiarPantalla('pantalla-menu-principal')">🔙 Volver</button>
+  </div>
+
+  <!-- ARENA -->
+  <div id="pantalla-arena" class="seccion-juego" style="display: none;">
+    <h2>Mazo de Combate y Emparejamiento (3 Jugadores)</h2>
+    <button onclick="cambiarPantalla('pantalla-menu-principal')">🔙 Volver</button>
+  </div>
+
+  <!-- RETIROS -->
+  <div id="pantalla-finanzas" class="seccion-juego" style="display: none;">
+    <h2>Billetera, Recargas e Historial de Retiros</h2>
+    <button onclick="cambiarPantalla('pantalla-menu-principal')">🔙 Volver</button>
+  </div>
+
+  <!-- CORREO -->
+  <div id="pantalla-correo" class="seccion-juego" style="display: none;">
+    <h2>Buzón de Notificaciones y Mensajes</h2>
+    <button onclick="cambiarPantalla('pantalla-menu-principal')">🔙 Volver</button>
+  </div>
+
+  <!-- SOPORTE -->
+  <div id="pantalla-soporte" class="seccion-juego" style="display: none;">
+    <h2>Soporte Técnico Especializado</h2>
+    <button onclick="cambiarPantalla('pantalla-menu-principal')">🔙 Volver</button>
+  </div>
+
+  <!-- TÉRMINOS -->
+  <div id="pantalla-terminos" class="seccion-juego" style="display: none;">
+    <h2>Términos y Condiciones del Dominio</h2>
+    <button onclick="cambiarPantalla('pantalla-menu-principal')">🔙 Volver</button>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- 5. INTERFAZ FLOTANTE Y CONTROL SCRIPTS                   -->
+  <!-- ======================================================== -->
+  <!-- BOTÓN FLOTANTE MENÚ (Solo visible tras loguearse) -->
+  <button id="btnFloatingMenu" class="floating-menu" style="display: none;" onclick="cambiarPantalla('pantalla-menu-principal')">Menú</button>
+
+  <!-- Tus scripts lógicos ordenados -->
   <script src="js/main.js"></script>
 </body>
 </html>
