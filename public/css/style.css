@@ -122,3 +122,47 @@ button:hover {
     background: #2196F3;
 }
 .slot-vacio-txt { color: #777; }
+
+/* ==========================================================================
+   OPTIMIZACIONES PARA TELÉFONOS MÓVILES (PANTALLAS INTERACTIVAS Y TÁCTILES)
+   ========================================================================== */
+@media (max-width: 768px) {
+    /* Ajustar las cajas de autenticación para que no queden cortadas */
+    .auth-box {
+        width: 85%;
+        padding: 20px;
+    }
+
+    /* Redefinir el menú principal a dos columnas en lugar de tres para evitar desbordamiento */
+    .grid-menu {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        width: 90%;
+    }
+
+    /* Ajustar los lienzos de Three.js (Aldea y Finca) para dar espacio a los controles táctiles */
+    #canvas-aldea-container, #canvas-finca-container {
+        width: 100%;
+        height: 55vh; /* Reduce la altura para que el botón de volver sea visible sin hacer scroll */
+        border: 1px solid #444;
+    }
+
+    /* Reestructurar las tres columnas del Carretón en un flujo vertical deslizable */
+    .carreton-tres-columnas {
+        flex-direction: column;
+        overflow-y: auto;
+        height: 85%;
+    }
+
+    .carreton-columna {
+        width: 100%;
+        box-sizing: border-box;
+        margin-bottom: 15px;
+    }
+
+    /* Reducir los grids de cartas a una sola columna para facilitar la lectura en teléfonos */
+    .almacen-grid-cartas, .mercado-p2p-lista, .arena-mazo-grid {
+        grid-template-columns: 1fr !important;
+        width: 100%;
+    }
+}
