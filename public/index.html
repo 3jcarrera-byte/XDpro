@@ -1,129 +1,52 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>XDpro - Juego Web</title>
-    <link rel="stylesheet" href="css/style.css">
-    <!-- Carga de Three.js y Socket.io desde CDN -->
-    <script src="https://cloudflare.com"></script>
-    <script src="/socket.io/socket.io.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dominio de Arena y Gloria</title>
+  <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
-    <!-- 1. Pantalla de Inicio / Login -->
-    <section id="screen-auth" class="screen active">
-        <!-- Dentro de public/index.html -->
-<div class="login-card">
-  <div class="title-container">
-    <h1>ARENA Y GLORIA</h1>
-  </div>
-  
-  <form id="loginForm" class="login-form">
-    <h2>Iniciar sesión</h2>
+  <!-- CONTENEDOR PRINCIPAL (El marco dorado) -->
+  <main class="login-card">
     
-    <div class="input-group">
-      <input type="text" id="username" placeholder="Usuario" required>
-    </div>
-    
-    <div class="input-group">
-      <input type="password" id="password" placeholder="Contraseña" required>
-    </div>
-    
-    <button type="submit" class="btn-submit">Entrar</button>
-    
-    <a href="#" class="forgot-link">Olvidé mi contraseña</a>
-  </form>
+    <!-- Título principal estilizado -->
+    <header class="title-container">
+      <h1 class="game-title">ARENA Y GLORIA</h1>
+    </header>
 
-  <!-- El botón de registrarse DEBE estar dentro del contenedor principal -->
-  <button id="btnRegister" class="btn-register">Registrarse</button>
-</div>
+    <!-- FORMULARIO INTERNO (El cuadro color crema/blanco translúcido) -->
+    <section class="form-wrapper">
+      <form id="loginForm">
+        <h2>Iniciar sesión</h2>
+        
+        <div class="input-field">
+          <input type="text" id="username" placeholder="Usuario" required>
+        </div>
+        
+        <div class="input-field">
+          <input type="password" id="password" placeholder="Contraseña" required>
+        </div>
+        
+        <button type="submit" class="btn-primary">Entrar</button>
+      </form>
+      
+      <div class="form-footer">
+        <a href="#" class="forgot-link">Olvidé mi contraseña</a>
+      </div>
     </section>
 
-    <!-- 2. Pantalla de Registro -->
-<section id="screen-register" class="screen">
-    <div class="auth-box">
-        <h2>Crear Cuenta</h2>
-        <input type="text" id="reg-username" placeholder="Nuevo Usuario">
-        <input type="password" id="reg-password" placeholder="Nueva Contraseña">
-        <button onclick="registrarCuenta()">Confirmar Registro</button>
-        <button onclick="navigate('screen-auth')">Volver al Inicio</button>
-    </div>
-</section>
+    <!-- BOTÓN REGISTRARSE (Dentro del marco dorado, abajo del cuadro del formulario) -->
+    <footer class="card-action">
+      <button id="btnRegister" class="btn-secondary">Registrarse</button>
+    </footer>
 
-    <!-- 3. Menú Principal -->
-    <section id="screen-menu" class="screen">
-        <h2>Menú Principal</h2>
-        <nav class="grid-menu">
-            <button onclick="navigate('screen-aldea')">Aldea</button>
-            <button onclick="navigate('screen-finca')">Finca</button>
-            <button onclick="navigate('screen-almacen')">Almacén</button>
-            <button onclick="navigate('screen-carreton')">Carretón</button>
-            <button onclick="navigate('screen-mercado')">Mercado Mundial</button>
-            <button onclick="navigate('screen-arena')">Arena</button>
-            <button onclick="navigate('screen-retiros')">Retiros</button>
-        </nav>
-    </section>
+  </main>
 
-    <!-- 4. Vista Aldea (Contenedor Canvas 3D) -->
-    <section id="screen-aldea" class="screen">
-        <header>
-            <h3>Mi Aldea (Máx 12 Edificios)</h3>
-            <button onclick="navigate('screen-menu')">Volver al Menú</button>
-        </header>
-        <div id="canvas-aldea-container"></div>
-    </section>
+  <!-- BOTÓN FLOTANTE MENÚ (Fuera del flujo principal, abajo a la derecha) -->
+  <button id="btnFloatingMenu" class="floating-menu">Menú</button>
 
-    <!-- 5.  Vista Finca (Contenedor Canvas 3D) -->
-<section id="screen-finca" class="screen">
-    <header>
-        <h3>Mi Finca Personal (Máx 5 Edificios)</h3>
-        <button onclick="navigate('screen-menu')">Volver al Menú</button>
-    </header>
-    <div id="canvas-finca-container"></div> <!-- Inyectar este elemento contenedor -->
-</section>
-
-    <!-- 6. carreton (x) -->
-    <section id="screen-carreton" class="screen">
-    <header>
-        <h3>Módulo Carretón de Personajes</h3>
-        <button onclick="navigate('screen-menu')">Volver al Menú</button>
-    </header>
-    <div class="carreton-tres-columnas">
-        <!-- Izquierda: Aldea -->
-        <div class="carreton-columna">
-            <h4>Contenedor Aldea</h4>
-            <div id="carreton-aldea-lista" class="carreton-grid"></div>
-        </div>
-        <!-- Centro: Almacenamiento General -->
-        <div class="carreton-columna principal">
-            <h4>Contenedor Central</h4>
-            <span id="carreton-central-capacidad">Slots: 0 / 0</span>
-            <div id="carreton-central-lista" class="carreton-grid"></div>
-        </div>
-        <!-- Derecha: Finca -->
-        <div class="carreton-columna">
-            <h4>Contenedor Finca</h4>
-            <div id="carreton-finca-lista" class="carreton-grid"></div>
-        </div>
-    </div>
-</section>
-
-        <!-- 7. almacen (x) -->
-    <section id="screen-almacen" class="screen">
-    <header>
-        <h3>Mi Almacén de Recursos</h3>
-        <button onclick="navigate('screen-menu')">Volver al Menú</button>
-    </header>
-    <div id="almacen-cartas-container"></div> <!-- Contenedor Dinámico -->
-</section>
-    <!-- Otras secciones se estructuran de forma similar... -->
-
-    <!-- Carga de lógica de videojuegos -->
-    <script src="js/game3d.js"></script>
-    <script src="js/almacen.js"></script>
-    <script src="js/carreton.js"></script>
-    <script src="js/main.js"></script>
-    
+  <script src="js/main.js"></script>
 </body>
 </html>
