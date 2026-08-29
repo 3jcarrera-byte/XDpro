@@ -167,3 +167,72 @@ button:hover {
         width: 100%;
     }
 }
+
+/* Corrección universal para evitar que los inputs se desborden */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-family: 'Cinzel', serif; /* O la fuente romana que estés usando */
+}
+
+/* El marco dorado que se ve en la captura */
+.login-card {
+  width: 90%;
+  max-width: 450px;
+  background: url('../images/coliseo.png') no-repeat center center;
+  background-size: cover;
+  border: 5px solid #d4af37; /* Oro */
+  border-radius: 25px;
+  box-shadow: 0 0 20px #d4af37;
+  padding: 30px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Formulario blanco flotante en el centro */
+.login-form {
+  background: rgba(255, 255, 255, 0.9);
+  padding: 20px;
+  border-radius: 15px;
+  width: 80%;
+  margin: 20px 0;
+}
+
+.login-form input {
+  width: 100%;
+  padding: 10px;
+  margin: 10px 0;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  text-align: center; /* Centra el texto del marcador de posición */
+}
+
+/* Botones corregidos para que no se corten */
+.btn-submit, .btn-register {
+  width: 100%;
+  padding: 12px;
+  background-color: #8b0000; /* Rojo gladiador */
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: 0.3s;
+}
+
+.btn-register {
+  background-color: #d4af37;
+  color: #000;
+  margin-top: 10px;
+}
