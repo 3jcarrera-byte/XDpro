@@ -23,14 +23,15 @@
     </section>
 
     <!-- 2. Pantalla de Registro -->
-    <section id="screen-register" class="screen">
-        <div class="auth-box">
-            <h2>Crear Cuenta</h2>
-            <input type="text" placeholder="Nuevo Usuario">
-            <input type="password" placeholder="Nueva Contraseña">
-            <button onclick="navigate('screen-auth')">Volver al Inicio</button>
-        </div>
-    </section>
+<section id="screen-register" class="screen">
+    <div class="auth-box">
+        <h2>Crear Cuenta</h2>
+        <input type="text" id="reg-username" placeholder="Nuevo Usuario">
+        <input type="password" id="reg-password" placeholder="Nueva Contraseña">
+        <button onclick="registrarCuenta()">Confirmar Registro</button>
+        <button onclick="navigate('screen-auth')">Volver al Inicio</button>
+    </div>
+</section>
 
     <!-- 3. Menú Principal -->
     <section id="screen-menu" class="screen">
