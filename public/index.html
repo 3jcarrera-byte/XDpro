@@ -1,1 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XDpro - Juego Web</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Carga de Three.js y Socket.io desde CDN -->
+    <script src="https://cloudflare.com"></script>
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
 
+    <!-- 1. Pantalla de Inicio / Login -->
+    <section id="screen-auth" class="screen active">
+        <div class="auth-box">
+            <h2>Bienvenido a XDpro</h2>
+            <input type="text" id="username" placeholder="Usuario">
+            <input type="password" id="password" placeholder="Contraseña">
+            <button onclick="login()">Ingresar</button>
+            <button onclick="navigate('screen-register')">Registrarse</button>
+        </div>
+    </section>
+
+    <!-- 2. Pantalla de Registro -->
+    <section id="screen-register" class="screen">
+        <div class="auth-box">
+            <h2>Crear Cuenta</h2>
+            <input type="text" placeholder="Nuevo Usuario">
+            <input type="password" placeholder="Nueva Contraseña">
+            <button onclick="navigate('screen-auth')">Volver al Inicio</button>
+        </div>
+    </section>
+
+    <!-- 3. Menú Principal -->
+    <section id="screen-menu" class="screen">
+        <h2>Menú Principal</h2>
+        <nav class="grid-menu">
+            <button onclick="navigate('screen-aldea')">Aldea</button>
+            <button onclick="navigate('screen-finca')">Finca</button>
+            <button onclick="navigate('screen-almacen')">Almacén</button>
+            <button onclick="navigate('screen-carreton')">Carretón</button>
+            <button onclick="navigate('screen-mercado')">Mercado Mundial</button>
+            <button onclick="navigate('screen-arena')">Arena</button>
+            <button onclick="navigate('screen-retiros')">Retiros</button>
+        </nav>
+    </section>
+
+    <!-- 4. Vista Aldea (Contenedor Canvas 3D) -->
+    <section id="screen-aldea" class="screen">
+        <header>
+            <h3>Mi Aldea (Máx 12 Edificios)</h3>
+            <button onclick="navigate('screen-menu')">Volver al Menú</button>
+        </header>
+        <div id="canvas-aldea-container"></div>
+    </section>
+
+    <!-- Otras secciones se estructuran de forma similar... -->
+
+    <script src="js/main.js"></script>
+</body>
+</html>
