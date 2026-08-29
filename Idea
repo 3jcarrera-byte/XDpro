@@ -26,3 +26,37 @@ arena. aqui estaran depositadas tus cartas de mazo de combate, donde podras pers
 
 
 🗺️ Flujo de Pantallas y Componentes PrinciplesAutenticación: Inicio de sesión y Registro.Menú Principal: El centro de navegación hacia los demás módulos del juego.Módulos Visuales (Canvas con Three.js):Aldea: Gestión de hasta 12 edificios principales en cimientos específicos.Finca: Gestión de hasta 5 edificios en una finca personal básica.Módulos de Gestión (Cartas y Recursos):Almacén: Inventario de cartas consumibles y producibles.Carretón: Distribución y almacenamiento dinámico de personajes (máx. 24 slots) vinculados a los edificios y niveles activos.Economía e Interacción:Mercado Mundial: Comercio P2P (entre jugadores) y transacciones con el sistema.Arena: Personalización de mazos, equipamiento y sistema de emparejamiento para peleas en tiempo real (3 jugadores).Retiros: Sistema de recarga, historial y retiros a billeteras.Módulos de Soporte: Términos, Correo/Notificaciones y Soporte Técnico.🚀 Recomendación Inicial de ArquitecturaFrontend: HTML5 básico estructurado como una Single Page Application (SPA) mediante capas ocultables (divs de pantallas) para facilitar la transición rápida, integrando Three.js en los contenedores específicos de Aldea y Finca.Servidor ("Árbitro"): Node.js con Express y Socket.io alojado en Render.(Nota importante: Para conexiones en tiempo real de Socket.io, Render requiere configuraciones persistentes (Websockets habilitados). Vercel está optimizado para funciones Serverless y no mantiene conexiones websocket persistentes nativas de forma eficiente sin servicios externos como Pusher).Base de Datos: Necesitarás almacenar el estado de las cartas del jugador, recursos y coordenadas de los cimientos. MongoDB o PostgreSQL son excelentes opciones para integrarse con Node.js.
+
+
+📂 Estructura inicial del proyectoTe sugiero organizar los archivos de tu repositorio de la siguiente manera:
+
+textXDpro/
+├── public/
+│   ├── index.html        # Estructura SPA y Canvas
+│   ├── css/
+│   │   └── style.css     # Estilos de menús y capas ocultas
+│   └── js/
+│       ├── main.js       # Manejo de interfaz y Socket.io en cliente
+│       └── game3d.js     # Lógica básica de Three.js (Aldea/Finca)
+├── server.js             # Código principal del servidor (Árbitro)
+├── package.json          # Dependencias del proyecto
+└── Idea                  # Tu documento de diseño
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
