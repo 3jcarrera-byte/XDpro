@@ -63,6 +63,32 @@
         </header>
         <div id="canvas-finca-container" class="canvas-3d-box"></div>
     </section>
+
+    <!-- 6. carreton () -->
+    <section id="screen-carreton" class="screen">
+    <header>
+        <h3>Módulo Carretón de Personajes</h3>
+        <button onclick="navigate('screen-menu')">Volver al Menú</button>
+    </header>
+    <div class="carreton-tres-columnas">
+        <!-- Izquierda: Aldea -->
+        <div class="carreton-columna">
+            <h4>Contenedor Aldea</h4>
+            <div id="carreton-aldea-lista" class="carreton-grid"></div>
+        </div>
+        <!-- Centro: Almacenamiento General -->
+        <div class="carreton-columna principal">
+            <h4>Contenedor Central</h4>
+            <span id="carreton-central-capacidad">Slots: 0 / 0</span>
+            <div id="carreton-central-lista" class="carreton-grid"></div>
+        </div>
+        <!-- Derecha: Finca -->
+        <div class="carreton-columna">
+            <h4>Contenedor Finca</h4>
+            <div id="carreton-finca-lista" class="carreton-grid"></div>
+        </div>
+    </div>
+</section>
     
     <!-- Otras secciones se estructuran de forma similar... -->
 
