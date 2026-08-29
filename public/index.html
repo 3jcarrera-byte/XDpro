@@ -13,13 +13,31 @@
 
     <!-- 1. Pantalla de Inicio / Login -->
     <section id="screen-auth" class="screen active">
-        <div class="auth-box">
-            <h2>Bienvenido a XDpro</h2>
-            <input type="text" id="username" placeholder="Usuario">
-            <input type="password" id="password" placeholder="Contraseña">
-            <button onclick="login()">Ingresar</button>
-            <button onclick="navigate('screen-register')">Registrarse</button>
-        </div>
+        <!-- Dentro de public/index.html -->
+<div class="login-card">
+  <div class="title-container">
+    <h1>ARENA Y GLORIA</h1>
+  </div>
+  
+  <form id="loginForm" class="login-form">
+    <h2>Iniciar sesión</h2>
+    
+    <div class="input-group">
+      <input type="text" id="username" placeholder="Usuario" required>
+    </div>
+    
+    <div class="input-group">
+      <input type="password" id="password" placeholder="Contraseña" required>
+    </div>
+    
+    <button type="submit" class="btn-submit">Entrar</button>
+    
+    <a href="#" class="forgot-link">Olvidé mi contraseña</a>
+  </form>
+
+  <!-- El botón de registrarse DEBE estar dentro del contenedor principal -->
+  <button id="btnRegister" class="btn-register">Registrarse</button>
+</div>
     </section>
 
     <!-- 2. Pantalla de Registro -->
