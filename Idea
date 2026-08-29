@@ -56,11 +56,11 @@ public/js/game3d.js (listo)
 — Interfaz de comercio P2P y transacciones con el sistema.public/js/arena.js (listo) 
 — Personalización de mazos de combate y emparejamiento 3 jugadores.public/js/finanzas.js (listo)
 — Módulo de recargas, historial y pasarela de retiros a billeteras.🗄️ Base de Datos y Persistencia (Futuro)models/User.js (listo) 
-— Esquema de credenciales y billetera del jugador.models/GameData.js (Pendiente) 
+— Esquema de credenciales y billetera del jugador.models/GameData.js (listo) 
 — Esquema para guardar los 12 cimientos de Aldea, 5 de Finca y las cartas del Carretón/Almacén.
 
 
-pasos de mejora:
+pasos urgentes:
 1-habilitar boton registro del inicio(pendiente).
 2-poder entrar al juego con el usuario registrado(pendiente).
 
