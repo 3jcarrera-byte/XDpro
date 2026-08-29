@@ -57,3 +57,68 @@ button:hover {
     height: 70%;
     background: #000;
 }
+
+/* Layout del Carretón */
+.carreton-tres-columnas {
+    display: flex;
+    gap: 20px;
+    width: 95%;
+    height: 80%;
+    margin-top: 15px;
+}
+.carreton-columna {
+    flex: 1;
+    background: #25252b;
+    border: 2px solid #3e3e4a;
+    border-radius: 6px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.carreton-columna.principal {
+    border-color: #4CAF50;
+    background: #1c261c;
+}
+.carreton-columna.bloqueado {
+    opacity: 0.4;
+    background: #151518;
+}
+.carreton-bloqueado-msg {
+    margin: auto;
+    color: #ff3333;
+    font-weight: bold;
+    text-align: center;
+}
+.carreton-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    width: 100%;
+    overflow-y: auto;
+    margin-top: 10px;
+}
+.carreton-slot {
+    background: #33333c;
+    border: 1px dashed #555;
+    height: 90px;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    font-size: 12px;
+}
+.carreton-slot.ocupado {
+    background: #444450;
+    border-style: solid;
+}
+.pj-icono { font-size: 20px; }
+.pj-nombre { font-weight: bold; color: #ffeb3b; }
+.btn-pj-mover {
+    padding: 2px 8px;
+    font-size: 10px;
+    margin-top: 4px;
+    background: #2196F3;
+}
+.slot-vacio-txt { color: #777; }
