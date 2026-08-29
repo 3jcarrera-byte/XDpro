@@ -16,42 +16,50 @@
 
   <!-- Abre el contenedor centrado -->
 <div class="auth-screen">
-  
   <main class="login-card">
     
-    <!-- Título principal estilizado -->
     <header class="title-container">
       <h1 class="game-title">ARENA Y GLORIA</h1>
     </header>
 
-    <!-- FORMULARIO INTERNO (El cuadro color crema/blanco translúcido) -->
+    <!-- CONTENEDOR DE FORMULARIOS DINÁMICOS -->
     <section class="form-wrapper">
+      
+      <!-- FORMULARIO 1: INICIAR SESIÓN -->
       <form id="loginForm">
         <h2>Iniciar sesión</h2>
-        
         <div class="input-field">
           <input type="text" id="username" placeholder="Usuario" required>
         </div>
-        
         <div class="input-field">
           <input type="password" id="password" placeholder="Contraseña" required>
         </div>
-        
         <button type="submit" class="btn-primary">Entrar</button>
+        <div class="form-footer">
+          <a href="#" class="forgot-link" onclick="alert('Sistema de recuperación temporalmente en mantenimiento. Contacta a soporte.')">Olvidé mi contraseña</a>
+        </div>
+      </form>
+
+      <!-- FORMULARIO 2: REGISTRO (Oculto al inicio) -->
+      <form id="registerForm" style="display: none;">
+        <h2>Registrar Gladiador</h2>
+        <div class="input-field">
+          <input type="text" id="reg-username" placeholder="Nuevo Usuario" required>
+        </div>
+        <div class="input-field">
+          <input type="password" id="reg-password" placeholder="Contraseña" required>
+        </div>
+        <button type="submit" class="btn-primary">Crear Cuenta</button>
       </form>
       
-      <div class="form-footer">
-        <a href="#" class="forgot-link">Olvidé mi contraseña</a>
-      </div>
     </section>
 
-    <!-- BOTÓN REGISTRARSE -->
+    <!-- ACCIÓN INFERIOR INTERCAMBIABLE -->
     <footer class="card-action">
-      <button id="btnRegister" class="btn-secondary">Registrarse</button>
+      <button id="btnToggleAuth" class="btn-secondary">Registrarse</button>
     </footer>
 
   </main>
-
 </div> <!-- Cierra el contenedor centrado -->
   
   <!-- ======================================================== -->
