@@ -1,174 +1,6 @@
-body {
-    margin: 0;
-    font-family: Arial, sans-serif;
-    background-color: #1a1a1a;
-    color: white;
-    overflow: hidden;
-}
-
-/* Control de Pantallas SPA */
-.screen {
-    display: none;
-    width: 100vw;
-    height: 100vh;
-    box-sizing: border-box;
-    padding: 20px;
-}
-
-.screen.active {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-}
-
-/* Cajas e Interfaces */
-.auth-box {
-    background: #2a2a2a;
-    padding: 30px;
-    border-radius: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.grid-menu {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 15px;
-    margin-top: 20px;
-}
-
-button {
-    padding: 10px 20px;
-    cursor: pointer;
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 4px;
-}
-
-button:hover {
-    background-color: #45a049;
-}
-
-#canvas-aldea-container, #canvas-finca-container {
-    width: 80%;
-    height: 70%;
-    background: #000;
-    margin-top: 15px;
-}
-
-/* Layout del Carretón */
-.carreton-tres-columnas {
-    display: flex;
-    gap: 20px;
-    width: 95%;
-    height: 80%;
-    margin-top: 15px;
-}
-.carreton-columna {
-    flex: 1;
-    background: #25252b;
-    border: 2px solid #3e3e4a;
-    border-radius: 6px;
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-.carreton-columna.principal {
-    border-color: #4CAF50;
-    background: #1c261c;
-}
-.carreton-columna.bloqueado {
-    opacity: 0.4;
-    background: #151518;
-}
-.carreton-bloqueado-msg {
-    margin: auto;
-    color: #ff3333;
-    font-weight: bold;
-    text-align: center;
-}
-.carreton-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-    width: 100%;
-    overflow-y: auto;
-    margin-top: 10px;
-}
-.carreton-slot {
-    background: #33333c;
-    border: 1px dashed #555;
-    height: 90px;
-    border-radius: 4px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    font-size: 12px;
-}
-.carreton-slot.ocupado {
-    background: #444450;
-    border-style: solid;
-}
-.pj-icono { font-size: 20px; }
-.pj-nombre { font-weight: bold; color: #ffeb3b; }
-.btn-pj-mover {
-    padding: 2px 8px;
-    font-size: 10px;
-    margin-top: 4px;
-    background: #2196F3;
-}
-.slot-vacio-txt { color: #777; }
-
 /* ==========================================================================
-   OPTIMIZACIONES PARA TELÉFONOS MÓVILES (PANTALLAS INTERACTIVAS Y TÁCTILES)
+   1. RESETEO Y CONFIGURACIÓN BASE UNIVERSAL
    ========================================================================== */
-@media (max-width: 768px) {
-    /* Ajustar las cajas de autenticación para que no queden cortadas */
-    .auth-box {
-        width: 85%;
-        padding: 20px;
-    }
-
-    /* Redefinir el menú principal a dos columnas en lugar de tres para evitar desbordamiento */
-    .grid-menu {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 10px;
-        width: 90%;
-    }
-
-    /* Ajustar los lienzos de Three.js (Aldea y Finca) para dar espacio a los controles táctiles */
-    #canvas-aldea-container, #canvas-finca-container {
-        width: 100%;
-        height: 55vh; /* Reduce la altura para que el botón de volver sea visible sin hacer scroll */
-        border: 1px solid #444;
-    }
-
-    /* Reestructurar las tres columnas del Carretón en un flujo vertical deslizable */
-    .carreton-tres-columnas {
-        flex-direction: column;
-        overflow-y: auto;
-        height: 85%;
-    }
-
-    .carreton-columna {
-        width: 100%;
-        box-sizing: border-box;
-        margin-bottom: 15px;
-    }
-
-    /* Reducir los grids de cartas a una sola columna para facilitar la lectura en teléfonos */
-    .almacen-grid-cartas, .mercado-p2p-lista, .arena-mazo-grid {
-        grid-template-columns: 1fr !important;
-        width: 100%;
-    }
-}
-
-/* Corrección universal para evitar que los inputs se desborden */
 * {
   box-sizing: border-box;
   margin: 0;
@@ -176,109 +8,58 @@ button:hover {
 }
 
 body {
-  background-color: #000;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  font-family: 'Cinzel', serif; /* O la fuente romana que estés usando */
-}
-
-/* El marco dorado que se ve en la captura */
-.login-card {
-  width: 90%;
-  max-width: 450px;
-  background: url('../images/coliseo.png') no-repeat center center;
-  background-size: cover;
-  border: 5px solid #d4af37; /* Oro */
-  border-radius: 25px;
-  box-shadow: 0 0 20px #d4af37;
-  padding: 30px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-/* Formulario blanco flotante en el centro */
-.login-form {
-  background: rgba(255, 255, 255, 0.9);
-  padding: 20px;
-  border-radius: 15px;
-  width: 80%;
-  margin: 20px 0;
-}
-
-.login-form input {
-  width: 100%;
-  padding: 10px;
-  margin: 10px 0;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  text-align: center; /* Centra el texto del marcador de posición */
-}
-
-/* Botones corregidos para que no se corten */
-.btn-submit, .btn-register {
-  width: 100%;
-  padding: 12px;
-  background-color: #8b0000; /* Rojo gladiador */
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-weight: bold;
-  transition: 0.3s;
-}
-
-.btn-register {
-  background-color: #d4af37;
-  color: #000;
-  margin-top: 10px;
-}
-
-/* ==========================================================================
-   1. RESETEO Y CONFIGURACIÓN BASE
-   ========================================================================== */
-* {
-  box-sizing: border-box; /* Clave para que los inputs no rompan su tamaño */
   margin: 0;
-  padding: 0;
-}
-
-body {
-  background-color: #000000;
+  background-color: #141419;
   color: #ffffff;
   font-family: 'Cinzel', 'Times New Roman', serif;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* ==========================================================================
+   2. CONTROL DE PANTALLAS (SISTEMA SPA)
+   ========================================================================== */
+/* Oculta los módulos del juego hasta que el método cambiarPantalla() actúe */
+.seccion-juego {
+  display: none;
+  width: 100vw;
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 30px;
+  background: radial-gradient(circle, #202026 0%, #111115 100%);
+}
+
+/* Envoltura centrada exclusiva para la pantalla de Login/Registro */
+.auth-screen {
   display: flex;
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  overflow-x: hidden;
+  width: 100vw;
   padding: 20px;
+  background-color: #050508;
 }
 
 /* ==========================================================================
-   2. MARCO DORADO (CONTENEDOR CENTRAL)
+   3. MARCO ROMANO DORADO (TARJETA DE AUTENTICACIÓN)
    ========================================================================== */
 .login-card {
   position: relative;
   width: 100%;
   max-width: 480px;
-  min-height: 620px; /* Asegura espacio vertical suficiente */
+  min-height: 620px;
   background: url('../images/coliseo.png') no-repeat center center;
   background-size: cover;
-  border: 5px solid #d4af37; /* Borde dorado */
+  border: 5px solid #d4af37;
   border-radius: 35px;
   box-shadow: 0 0 25px rgba(212, 175, 55, 0.6);
   padding: 40px 30px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between; /* Distribuye arriba, centro y abajo */
+  justify-content: space-between;
   align-items: center;
 }
 
-/* Título de Arena y Gloria */
 .title-container {
   width: 100%;
   text-align: center;
@@ -293,11 +74,9 @@ body {
   font-weight: bold;
 }
 
-/* ==========================================================================
-   3. CAJA DEL FORMULARIO CENTRAL (Color Crema)
-   ========================================================================== */
+/* Caja de Formulario Color Crema */
 .form-wrapper {
-  background: rgba(245, 240, 225, 0.95); /* Color crema sólido pero limpio */
+  background: rgba(245, 240, 225, 0.95);
   border-radius: 18px;
   width: 85%;
   padding: 25px 20px;
@@ -306,12 +85,11 @@ body {
 }
 
 .form-wrapper h2 {
-  color: #4a1515; /* Sabor a Imperio Romano oscuro */
+  color: #4a1515;
   font-size: 1.4rem;
   margin-bottom: 15px;
 }
 
-/* Campos de Entrada */
 .input-field {
   width: 100%;
   margin-bottom: 12px;
@@ -325,7 +103,7 @@ body {
   background-color: #ffffff;
   color: #2b2b2b;
   font-size: 1rem;
-  text-align: center; /* Soluciona los textos desalineados */
+  text-align: center;
   outline: none;
   transition: border-color 0.2s;
 }
@@ -335,7 +113,7 @@ body {
   box-shadow: 0 0 5px rgba(139, 0, 0, 0.3);
 }
 
-/* Botón Entrar Interno */
+/* Botones Principales */
 .btn-primary {
   width: 80%;
   padding: 10px;
@@ -345,6 +123,7 @@ body {
   border-radius: 6px;
   font-size: 1rem;
   cursor: pointer;
+  font-weight: bold;
   transition: background-color 0.2s;
 }
 
@@ -352,7 +131,6 @@ body {
   background-color: #8b0000;
 }
 
-/* Enlaces internos */
 .form-footer {
   margin-top: 12px;
 }
@@ -363,9 +141,6 @@ body {
   text-decoration: underline;
 }
 
-/* ==========================================================================
-   4. ACCIÓN INFERIOR (Registrarse)
-   ========================================================================== */
 .card-action {
   width: 100%;
   display: flex;
@@ -393,27 +168,202 @@ body {
 }
 
 /* ==========================================================================
-   5. BOTÓN FLOTANTE MENÚ
+   4. ESTRUCTURA DE MENÚS Y CONTENEDORES DE JUEGO (Mosaicos)
+   ========================================================================== */
+.game-menu-wrapper {
+  max-width: 800px;
+  margin: 40px auto;
+  text-align: center;
+}
+
+.game-menu-wrapper h2 {
+  color: #d4af37;
+  margin-bottom: 25px;
+  font-size: 2rem;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+}
+
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+  margin-top: 20px;
+}
+
+.btn-menu, .submenu-nav button {
+  padding: 15px 20px;
+  cursor: pointer;
+  background-color: #2a2a35;
+  color: white;
+  border: 1px solid #444454;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: bold;
+  transition: all 0.2s ease;
+}
+
+.btn-menu:hover, .submenu-nav button:hover {
+  background-color: #8b0000;
+  border-color: #d4af37;
+  transform: translateY(-2px);
+}
+
+.submenu-nav {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 15px;
+  flex-wrap: wrap;
+}
+
+.btn-back {
+  background-color: #4a1515 !important;
+}
+
+/* Lienzos del motor 3D */
+.canvas-3d {
+  width: 100%;
+  max-width: 1000px;
+  height: 60vh;
+  background: #000000;
+  border: 2px solid #d4af37;
+  border-radius: 12px;
+  margin: 20px auto;
+}
+
+/* ==========================================================================
+   5. LAYOUT DEL CARRETÓN Y SUS CARTAS
+   ========================================================================== */
+.carreton-tres-columnas {
+  display: flex;
+  gap: 20px;
+  width: 95%;
+  height: 80vh;
+  margin: 20px auto;
+}
+
+.carreton-columna {
+  flex: 1;
+  background: #25252b;
+  border: 2px solid #3e3e4a;
+  border-radius: 6px;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.carreton-columna.principal {
+  border-color: #4CAF50;
+  background: #1c261c;
+}
+
+.carreton-columna.bloqueado {
+  opacity: 0.4;
+  background: #151518;
+}
+
+.carreton-bloqueado-msg {
+  margin: auto;
+  color: #ff3333;
+  font-weight: bold;
+  text-align: center;
+}
+
+.carreton-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  width: 100%;
+  overflow-y: auto;
+  margin-top: 10px;
+}
+
+.carreton-slot {
+  background: #33333c;
+  border: 1px dashed #555;
+  height: 90px;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-size: 12px;
+}
+
+.carreton-slot.ocupado {
+  background: #444450;
+  border-style: solid;
+}
+
+.pj-icono { font-size: 20px; }
+.pj-nombre { font-weight: bold; color: #ffeb3b; }
+
+.btn-pj-mover {
+  padding: 4px 8px;
+  font-size: 10px;
+  margin-top: 4px;
+  background: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.slot-vacio-txt { color: #777; }
+
+/* ==========================================================================
+   6. INTERFAZ FLOTANTE (BOTÓN DE EMERGENCIA)
    ========================================================================== */
 .floating-menu {
   position: fixed;
   bottom: 25px;
   right: 25px;
-  background-color: #0056b3;
+  background-color: #8b0000;
   color: white;
-  border: none;
+  border: 2px solid #d4af37;
   border-radius: 50%;
   width: 60px;
   height: 60px;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: bold;
   cursor: pointer;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
   transition: transform 0.2s, background-color 0.2s;
   z-index: 100;
 }
 
 .floating-menu:hover {
-  background-color: #004085;
+  background-color: #5c1111;
   transform: scale(1.05);
+}
+
+/* ==========================================================================
+   7. OPTIMIZACIONES PARA TELÉFONOS MÓVILES (RESPONSIVE TÁCTIL)
+   ========================================================================== */
+@media (max-width: 768px) {
+  .menu-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .canvas-3d {
+    height: 50vh;
+  }
+
+  .carreton-tres-columnas {
+    flex-direction: column;
+    overflow-y: auto;
+    height: auto;
+  }
+
+  .carreton-columna {
+    width: 100%;
+    margin-bottom: 15px;
+  }
+
+  .almacen-grid-cartas, .mercado-p2p-lista, .arena-mazo-grid {
+    grid-template-columns: 1fr !important;
+    width: 100%;
+  }
 }
