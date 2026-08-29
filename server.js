@@ -68,3 +68,8 @@ app.post('/api/auth/login', async (req, res) => {
         res.status(500).json({ success: false, message: 'Error interno del servidor.' });
     }
 });
+const PORT = process.env.PORT || 5173; 
+
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Servidor de Arena y Gloria corriendo en el puerto ${PORT}`);
+});
