@@ -9,7 +9,8 @@ const io = new Server(server, {
     cors: {
         origin: "*",
         methods: ["GET", "POST"]
-    }
+    },
+    transports: ['websocket', 'polling'] // Garantiza fallback seguro si la red móvil es inestable
 });
 
 // Servir archivos de la carpeta public
