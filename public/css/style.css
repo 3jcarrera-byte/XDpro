@@ -236,3 +236,184 @@ body {
   color: #000;
   margin-top: 10px;
 }
+
+/* ==========================================================================
+   1. RESETEO Y CONFIGURACIÓN BASE
+   ========================================================================== */
+* {
+  box-sizing: border-box; /* Clave para que los inputs no rompan su tamaño */
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: #000000;
+  color: #ffffff;
+  font-family: 'Cinzel', 'Times New Roman', serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  overflow-x: hidden;
+  padding: 20px;
+}
+
+/* ==========================================================================
+   2. MARCO DORADO (CONTENEDOR CENTRAL)
+   ========================================================================== */
+.login-card {
+  position: relative;
+  width: 100%;
+  max-width: 480px;
+  min-height: 620px; /* Asegura espacio vertical suficiente */
+  background: url('../images/coliseo.png') no-repeat center center;
+  background-size: cover;
+  border: 5px solid #d4af37; /* Borde dorado */
+  border-radius: 35px;
+  box-shadow: 0 0 25px rgba(212, 175, 55, 0.6);
+  padding: 40px 30px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between; /* Distribuye arriba, centro y abajo */
+  align-items: center;
+}
+
+/* Título de Arena y Gloria */
+.title-container {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.game-title {
+  color: #d4af37;
+  font-size: 2.5rem;
+  letter-spacing: 2px;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.9), 0 0 10px rgba(212, 175, 55, 0.5);
+  font-weight: bold;
+}
+
+/* ==========================================================================
+   3. CAJA DEL FORMULARIO CENTRAL (Color Crema)
+   ========================================================================== */
+.form-wrapper {
+  background: rgba(245, 240, 225, 0.95); /* Color crema sólido pero limpio */
+  border-radius: 18px;
+  width: 85%;
+  padding: 25px 20px;
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+.form-wrapper h2 {
+  color: #4a1515; /* Sabor a Imperio Romano oscuro */
+  font-size: 1.4rem;
+  margin-bottom: 15px;
+}
+
+/* Campos de Entrada */
+.input-field {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.input-field input {
+  width: 100%;
+  padding: 11px 15px;
+  border: 1px solid #b8a98f;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #2b2b2b;
+  font-size: 1rem;
+  text-align: center; /* Soluciona los textos desalineados */
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.input-field input:focus {
+  border-color: #8b0000;
+  box-shadow: 0 0 5px rgba(139, 0, 0, 0.3);
+}
+
+/* Botón Entrar Interno */
+.btn-primary {
+  width: 80%;
+  padding: 10px;
+  background-color: #5c1111;
+  color: #ffffff;
+  border: 1px solid #3d0b0b;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+  background-color: #8b0000;
+}
+
+/* Enlaces internos */
+.form-footer {
+  margin-top: 12px;
+}
+
+.forgot-link {
+  color: #5c1111;
+  font-size: 0.85rem;
+  text-decoration: underline;
+}
+
+/* ==========================================================================
+   4. ACCIÓN INFERIOR (Registrarse)
+   ========================================================================== */
+.card-action {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-top: 15px;
+}
+
+.btn-secondary {
+  background-color: #1a1a1a;
+  color: #d4af37;
+  border: 2px solid #d4af37;
+  padding: 10px 30px;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: bold;
+  cursor: pointer;
+  width: 70%;
+  transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+  background-color: #d4af37;
+  color: #1a1a1a;
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.4);
+}
+
+/* ==========================================================================
+   5. BOTÓN FLOTANTE MENÚ
+   ========================================================================== */
+.floating-menu {
+  position: fixed;
+  bottom: 25px;
+  right: 25px;
+  background-color: #0056b3;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+  transition: transform 0.2s, background-color 0.2s;
+  z-index: 100;
+}
+
+.floating-menu:hover {
+  background-color: #004085;
+  transform: scale(1.05);
+}
