@@ -1,5 +1,6 @@
 // Conexión inicial al Servidor Árbitro mediante WebSocket
-const socket = io();
+// Detecta automáticamente si el juego corre en local o en la URL de producción de Render
+const socket = io(window.location.origin.replace(/^http/, 'ws'));
 
 /**
  * Enrutador principal de la Single Page Application (SPA)
