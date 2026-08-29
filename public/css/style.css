@@ -52,10 +52,11 @@ button:hover {
     background-color: #45a049;
 }
 
-#canvas-aldea-container {
+#canvas-aldea-container, #canvas-finca-container {
     width: 80%;
     height: 70%;
     background: #000;
+    margin-top: 15px;
 }
 
 /* Layout del Carretón */
