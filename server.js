@@ -5,8 +5,7 @@ const { Server } = require('socket.io');
 const mongoose = require('mongoose');
 const path = require('path');
 const cors = require('cors');
-const bcrypt = require('bcrypt'); // <-- CORRECCIÓN: Librería obligatoria de encriptación
-const User = require('./models/User'); 
+const User = require('./models/User'); // Mapea directamente con tu esquema limpio
 
 const app = express();
 const server = http.createServer(app);
@@ -17,7 +16,7 @@ const io = new Server(server, {
         origin: "*",
         methods: ["GET", "POST"]
     },
-    transports: ['websocket'] // <-- CORRECCIÓN: Evita el long-polling y microcortes de proxies
+    transports: ['websocket'] // Evita el long-polling y microcortes de proxies en Render
 });
 
 // ========================================================
@@ -40,7 +39,7 @@ mongoose.connect(MONGO_URI)
 // ENDPOINT: REGISTRO DE NUEVOS GLADIADORES (EXTENDIDO)
 // ========================================================
 app.post('/api/auth/register', async (req, res) => {
-    // Recibe todos los nuevos campos del frontend extendido
+    // Recibe los 8 campos estructurados desde el frontend reactivo
     const { username, password, email, pais, nombre, apellido, wallet } = req.body;
     
     try {
@@ -48,7 +47,7 @@ app.post('/api/auth/register', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Usuario y contraseña son requeridos.' });
         }
 
-        // Búsqueda insensible a mayúsculas para evitar duplicidad de nicks
+        // Búsqueda insensible a mayúsculas para evitar duplicidad de nicks en el Dominio
         const existingUser = await User.findOne({ 
             username: { $regex: new RegExp(`^${username.trim()}$`, 'i') } 
         });
@@ -57,14 +56,11 @@ app.post('/api/auth/register', async (req, res) => {
             return res.status(400).json({ success: false, message: 'El nombre de usuario ya está tomado.' });
         }
 
-        // CORRECCIÓN: Encriptamos la contraseña con un factor de coste estándar (10) antes de guardar
-        const salt = await bcrypt.genSalt(10);
-        const passwordEncriptado = await bcrypt.hash(password, salt);
-
-        // Instanciamos el modelo con los 8 campos estructurados del frontend
+        // SOLUCIÓN: Pasamos la contraseña en texto plano. 
+        // Tu models/User.js se encargará de encriptarla automáticamente al ejecutar .save()
         const nuevoUsuario = new User({ 
             username: username.trim(), 
-            password: passwordEncriptado, // Guardamos la versión segura
+            password: password, 
             email: email ? email.trim() : null,
             pais: pais ? pais.trim() : null,
             nombre: nombre ? nombre.trim() : null,
@@ -82,7 +78,7 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // ========================================================
-// ENDPOINT: INICIO DE SESIÓN (LOGIN CORREGIDO)
+// ENDPOINT: INICIO DE SESIÓN (LOGIN TOTALMENTE CORREGIDO)
 // ========================================================
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
@@ -92,7 +88,7 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Campos incompletos.' });
         }
 
-        // CORRECCIÓN: Búsqueda flexible e insensible a mayúsculas/minúsculas
+        // Búsqueda flexible e insensible a mayúsculas/minúsculas
         const usuario = await User.findOne({ 
             username: { $regex: new RegExp(`^${username.trim()}$`, 'i') } 
         });
@@ -106,13 +102,13 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(403).json({ success: false, message: 'Cuenta suspendida permanentemente.' });
         }
 
-        // SOLUCIÓN AL ERROR DE ACCESO: Comparación matemática usando la función nativa de Bcrypt
-        const esValido = await bcrypt.compare(password, usuario.password);
+        // SOLUCIÓN AL ACCESO: Usamos el método matemático comparePassword definido en tu models/User.js
+        const esValido = await usuario.comparePassword(password);
         if (!esValido) {
             return res.status(401).json({ success: false, message: 'Usuario o contraseña inválidos.' });
         }
 
-        // Si todo coincide, damos acceso inmediato al Panel del Imperio
+        // Si las credenciales coinciden, otorgamos acceso inmediato al Panel del Imperio
         return res.status(200).json({ 
             success: true, 
             userId: usuario._id,
