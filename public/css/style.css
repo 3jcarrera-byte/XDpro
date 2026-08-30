@@ -833,3 +833,91 @@ body {
   color: #ffd700;
   border-radius: 6px;
 }
+css/* ==========================================================================
+   ESTILOS ADICIONALES PARA LAS RANURAS DE CARTAS 3D (BLENDER)
+   ========================================================================== */
+.market-items-showcase.flex-showcase {
+  display: block !important; /* Cambia a bloque para permitir la cuadrícula */
+  background: #060608;
+  padding: 15px;
+  border: 2px solid #423126;
+  border-radius: 12px;
+}
+
+.market-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 15px;
+  width: 100%;
+}
+
+.carta-mercado-3d-box {
+  background: linear-gradient(135deg, #1f1813 0%, #110d0a 100%);
+  border: 3px solid #5c4033;
+  border-radius: 14px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.7);
+  transition: transform 0.2s;
+}
+
+.carta-mercado-3d-box:hover {
+  transform: translateY(-4px);
+}
+
+.canvas-carta-container {
+  width: 100%;
+  height: 180px;
+  background: #000000;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.05);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+
+.info-carta-mercado {
+  width: 100%;
+  text-align: center;
+}
+
+.nombre-item-mercado {
+  font-size: 1.05rem;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+
+.precio-item-mercado {
+  color: #ffd700;
+  font-weight: bold;
+  font-size: 0.95rem;
+  margin-bottom: 10px;
+}
+
+.btn-comprar-market {
+  width: 100%;
+  padding: 8px;
+  background: #5c1111;
+  color: white;
+  border: 1px solid #d4af37;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  transition: background-color 0.2s;
+}
+
+.btn-comprar-market:hover {
+  background: #8b0000;
+}
+
+/* MARCOS EXCLUSIVOS PARA RAREZAS */
+.borde-rareza-comun { border-color: #555555 !important; }
+.borde-rareza-poco-comun { border-color: #4caf50 !important; }
+.borde-rareza-raro { border-color: #2196f3 !important; }
+.borde-rareza-muy-raro { border-color: #9c27b0 !important; }
+.borde-rareza-epico { border-color: #ff9800 !important; }
+.borde-rareza-mitico { border-color: #e91e63 !important; }
+.borde-rareza-legendario { border-color: #ffd700 !important; }
