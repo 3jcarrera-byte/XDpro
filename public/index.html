@@ -184,7 +184,8 @@
     <button onclick="cambiarPantalla('pantalla-menu-principal')">🔙 Volver</button>
   </div>
 
-   <!-- 4. PANTALLA: MERCADO MUNDIAL P2P (Sistema Avanzado)      -->
+  <!-- ======================================================== -->
+  <!-- 4. PANTALLA: MERCADO MUNDIAL P2P (Sistema Avanzado)      -->
   <!-- ======================================================== -->
   <div id="pantalla-mercado" class="seccion-juego" style="display: none;">
     <div class="market-layout-container">
@@ -254,10 +255,11 @@
 
         </div>
 
-        <!-- ESCAPARATE DE CARTAS COMERCIALES -->
-        <div id="contenedor-items-mercado" class="market-items-showcase">
-          <!-- Las cartas a la venta se pintarán aquí vía JS -->
-          <div class="market-empty-msg">Selecciona los rubros para cargar las ofertas del Dominio...</div>
+        <!-- ESCAPARATE DE CARTAS COMERCIALES INTEGRADO PARA MUNDO 3D -->
+        <div id="contenedor-items-mercado" class="market-items-showcase flex-showcase">
+          <div id="grid-cartas-3d" class="market-cards-grid">
+            <!-- Las cartas 3D se inyectarán de forma dinámica aquí desde mercado.js -->
+          </div>
         </div>
       </section>
 
@@ -300,12 +302,16 @@
   </div>
 
   <!-- ======================================================== -->
-  <!-- 5. INTERFAZ FLOTANTE Y CONTROL SCRIPTS                   -->
+  <!-- 5. CONTROL SCRIPTS (Limpio sin el botón de menú rojo flotante) -->
   <!-- ======================================================== -->
-  <!-- BOTÓN FLOTANTE MENÚ (Solo visible tras loguearse) -->
-  <button id="btnFloatingMenu" class="floating-menu" style="display: none;" onclick="cambiarPantalla('pantalla-menu-principal')">Menú</button>
+  
+  <!-- Importación de librerías gráficas necesarias -->
+  <script src="https://cloudflare.com"></script>
+  <script src="https://jsdelivr.net"></script>
 
-  <!-- Tus scripts lógicos ordenados -->
+  <!-- Tus scripts ordenados -->
+  <script src="js/mercado.js"></script>
+  <script src="js/game3d.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>
