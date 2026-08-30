@@ -184,10 +184,89 @@
     <button onclick="cambiarPantalla('pantalla-menu-principal')">🔙 Volver</button>
   </div>
 
-  <!-- MERCADO MUNDIAL -->
+   <!-- 4. PANTALLA: MERCADO MUNDIAL P2P (Sistema Avanzado)      -->
+  <!-- ======================================================== -->
   <div id="pantalla-mercado" class="seccion-juego" style="display: none;">
-    <h2>Mercado Mundial P2P</h2>
-    <button onclick="cambiarPantalla('pantalla-menu-principal')">🔙 Volver</button>
+    <div class="market-layout-container">
+      
+      <!-- ENCABEZADO Y PESTAÑAS DE MODALIDAD -->
+      <header class="market-header">
+        <h2>⚖️ Mercado Comercial del Imperio</h2>
+        <div class="market-modes-tabs">
+          <button id="btn-mercado-general" class="tab-market active" onclick="cambiarModoMercado('general')">🏛️ Mercado General (Sistema)</button>
+          <button id="btn-mercado-interno" class="tab-market" onclick="cambiarModoMercado('interno')">🏘️ Ubicar Aldeas (Mercado Interno)</button>
+        </div>
+      </header>
+
+      <!-- SECCIÓN DINÁMICA 1: BUSCADOR DE ALDEAS (Oculto por defecto) -->
+      <section id="subpantalla-buscador-aldeas" class="market-sub-view" style="display: none;">
+        <div class="village-search-bar">
+          <input type="text" id="input-buscar-aldea" placeholder="Escribe el nombre o ID de la aldea objetivo...">
+          <button class="btn-primary-market" onclick="ejecutarBusquedaAldea()">🔍 Buscar Aldea</button>
+        </div>
+        <div id="lista-aldeas-resultado" class="villages-grid-results">
+          <!-- Se inyectarán dinámicamente las aldeas encontradas -->
+        </div>
+      </section>
+
+      <!-- SECCIÓN DINÁMICA 2: FILTROS DE PRODUCTOS (Se muestra al operar) -->
+      <section id="subpantalla-filtros-productos" class="market-sub-view">
+        <div class="market-filter-dashboard">
+          
+          <!-- FILTRO 1: RUBROS PRINCIPALES -->
+          <div class="filter-group">
+            <label class="filter-label">🏷️ Seleccionar Rubro:</label>
+            <div class="filter-buttons-row">
+              <button class="btn-filter-rubro active" onclick="cambiarRubro('edificios')">🏢 Edificios</button>
+              <button class="btn-filter-rubro" onclick="cambiarRubro('aldeanos')">👨‍🌾 Aldeanos</button>
+              <button class="btn-filter-rubro" onclick="cambiarRubro('equipamiento')">⚔️ Equipamiento</button>
+              <button class="btn-filter-rubro" onclick="cambiarRubro('recursos')">🌾 Recursos</button>
+              <button class="btn-filter-rubro" onclick="cambiarRubro('especiales')">✨ Especiales</button>
+            </div>
+          </div>
+
+          <!-- SUB-FILTRO: SUB-RUBROS DE EQUIPAMIENTO (Solo visible si Rubro == Equipamiento) -->
+          <div id="grupo-subfiltro-equipamiento" class="filter-group sub-filter-box" style="display: none;">
+            <label class="filter-label">🛡️ Tipo de Equipamiento:</label>
+            <div class="filter-buttons-row">
+              <button class="btn-filter-subrubro active" onclick="cambiarSubRubro('todos')">Todos</button>
+              <button class="btn-filter-subrubro" onclick="cambiarSubRubro('armas')">⚔️ Armas</button>
+              <button class="btn-filter-subrubro" onclick="cambiarSubRubro('escudos')">🛡️ Escudos</button>
+              <button class="btn-filter-subrubro" onclick="cambiarSubRubro('joyas')">📿 Joyas</button>
+              <button class="btn-filter-subrubro" onclick="cambiarSubRubro('armadura')">🥋 Armaduras</button>
+            </div>
+          </div>
+
+          <!-- FILTRO 2: RAREZAS CRUCIALES -->
+          <div class="filter-group">
+            <label class="filter-label">💎 Rareza del Item:</label>
+            <div class="filter-buttons-row grid-rarezas">
+              <button class="btn-filter-rareza active" onclick="cambiarRareza('todas')">Todas</button>
+              <button class="btn-filter-rareza rareza-comun" onclick="cambiarRareza('comun')">Común</button>
+              <button class="btn-filter-rareza rareza-poco-comun" onclick="cambiarRareza('poco-comun')">Poco Común</button>
+              <button class="btn-filter-rareza rareza-raro" onclick="cambiarRareza('raro')">Raro</button>
+              <button class="btn-filter-rareza rareza-muy-raro" onclick="cambiarRareza('muy-raro')">Muy Raro</button>
+              <button class="btn-filter-rareza rareza-epico" onclick="cambiarRareza('epico')">Épico</button>
+              <button class="btn-filter-rareza rareza-mitico" onclick="cambiarRareza('mitico')">Mítico</button>
+              <button class="btn-filter-rareza rareza-legendario" onclick="cambiarRareza('legendario')">Legendario</button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ESCAPARATE DE CARTAS COMERCIALES -->
+        <div id="contenedor-items-mercado" class="market-items-showcase">
+          <!-- Las cartas a la venta se pintarán aquí vía JS -->
+          <div class="market-empty-msg">Selecciona los rubros para cargar las ofertas del Dominio...</div>
+        </div>
+      </section>
+
+      <!-- BOTÓN GLOBAL DE RETORNO -->
+      <footer class="market-footer-actions">
+        <button onclick="cambiarPantalla('pantalla-menu-principal')" class="btn-back-menu">🔙 Volver al Menú Principal</button>
+      </footer>
+
+    </div>
   </div>
 
   <!-- ARENA -->
