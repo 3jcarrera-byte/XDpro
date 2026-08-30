@@ -15,6 +15,7 @@
   <!-- ======================================================== -->
 
   <!-- Abre el contenedor centrado -->
+<!-- Envoltura centrada de Autenticación -->
 <div class="auth-screen">
   <main class="login-card">
     
@@ -22,34 +23,50 @@
       <h1 class="game-title">ARENA Y GLORIA</h1>
     </header>
 
-    <!-- CONTENEDOR DE FORMULARIOS DINÁMICOS -->
+    <!-- CAJA DE FORMULARIOS DINÁMICOS -->
     <section class="form-wrapper">
       
       <!-- FORMULARIO 1: INICIAR SESIÓN -->
       <form id="loginForm">
         <h2>Iniciar sesión</h2>
         <div class="input-field">
-          <input type="text" id="username" placeholder="Usuario" required>
+          <input type="text" id="username" placeholder="Usuario / Nick" required>
         </div>
         <div class="input-field">
           <input type="password" id="password" placeholder="Contraseña" required>
         </div>
         <button type="submit" class="btn-primary">Entrar</button>
         <div class="form-footer">
-          <a href="#" class="forgot-link" onclick="alert('Sistema de recuperación temporalmente en mantenimiento. Contacta a soporte.')">Olvidé mi contraseña</a>
+          <a href="#" class="forgot-link" onclick="alert('Sistema en mantenimiento. Contacta a soporte.')">Olvidé mi contraseña</a>
         </div>
       </form>
 
-      <!-- FORMULARIO 2: REGISTRO (Oculto al inicio) -->
-      <form id="registerForm" style="display: none;">
-        <h2>Registrar Gladiador</h2>
-        <div class="input-field">
-          <input type="text" id="reg-username" placeholder="Nuevo Usuario" required>
+      <!-- FORMULARIO 2: NUEVO REGISTRO ESTILIZADO -->
+      <form id="registerForm" class="registro-form-extendido" style="display: none;">
+        <h2>📝 Crear cuenta</h2>
+        
+        <div class="grid-registro-inputs">
+          <input type="email" id="reg-email" placeholder="Correo electrónico" required />
+          <input type="text" id="reg-pais" placeholder="País" required />
+          <input type="text" id="reg-nombre" placeholder="Nombre" required />
+          <input type="text" id="reg-apellido" placeholder="Apellido" required />
+          <input type="text" id="reg-nick" placeholder="Nick del jugador" required />
+          <input type="text" id="reg-wallet" placeholder="Dirección de Billetera (Wallet)" required />
+          <input type="password" id="reg-password" placeholder="Contraseña" required />
+          <input type="password" id="reg-repetirPassword" placeholder="Repetir contraseña" required />
         </div>
-        <div class="input-field">
-          <input type="password" id="reg-password" placeholder="Contraseña" required>
-        </div>
-        <button type="submit" class="btn-primary">Crear Cuenta</button>
+
+        <label class="checkbox-label">
+          <input type="checkbox" id="reg-aceptaTerminos" />
+          Confirmo que he leído los términos y condiciones
+        </label>
+
+        <label class="checkbox-label">
+          <input type="checkbox" id="reg-noRobot" />
+          No soy un robot
+        </label>
+
+        <button type="submit" id="btnEnviarRegistro" class="btn-primary" disabled>Registrar</button>
       </form>
       
     </section>
@@ -60,7 +77,7 @@
     </footer>
 
   </main>
-</div> <!-- Cierra el contenedor centrado -->
+</div><!-- Cierra el contenedor centrado -->
   
   <!-- ======================================================== -->
   <!-- 2. PANTALLA: MENÚ PRINCIPAL (Eje Central de Navegación)   -->
