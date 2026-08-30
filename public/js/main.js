@@ -169,13 +169,20 @@ if (loginForm) {
             const data = await response.json();
 
             if (response.ok && data.success) {
-                // Ocultar landing de autenticación
+                // 1. Ocultar landing de autenticación
                 if (authScreen) authScreen.style.display = 'none';
                 
-                // Entrar al Panel del Imperio
+                // 2. INYECCIÓN DINÁMICA: Mostrar el perfil real del Gladiador en la Barra del Menú
+                const txtNick = document.getElementById('menu-player-nick');
+                const txtBalance = document.getElementById('menu-player-balance');
+                
+                if (txtNick) txtNick.textContent = data.username;
+                if (txtBalance) txtBalance.textContent = parseFloat(data.balance || 0).toFixed(2);
+                
+                // 3. Entrar al Panel del Imperio
                 cambiarPantalla('pantalla-menu-principal');
                 
-                // Conectar sesión al WebSocket en tiempo real
+                // 4. Conectar sesión al WebSocket en tiempo real
                 if (socket && socket.connected) {
                     socket.emit('jugador:autenticado', { username: data.username });
                 }
