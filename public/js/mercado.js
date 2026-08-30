@@ -8,6 +8,20 @@ let filtroMercado = {
     rareza: 'todas'        // 'todas', 'comun', 'poco-comun', 'raro', etc.
 };
 
+// Arreglo global para almacenar los identificadores de animación de Three.js y liberar memoria RAM
+let animacionesCartasActivas = [];
+
+// Base de Datos de prueba con los ítems y sus respectivos archivos de Blender (.glb)
+// Nota técnica: Tus archivos de Blender deben exportarse como .glb e ir en: public/models3d/
+const baseDatosItems3D = [
+    { id: 1, nombre: "Barracón del Imperio", rubro: "edificios", subrubro: "todos", rareza: "comun", precio: 45.00, archivo: "barracas.glb" },
+    { id: 2, nombre: "Herrero Real", rubro: "aldeanos", subrubro: "todos", rareza: "poco-comun", precio: 12.50, archivo: "herrero.glb" },
+    { id: 3, nombre: "Gladius de Acero", rubro: "equipamiento", subrubro: "armas", rareza: "raro", precio: 25.00, archivo: "gladius.glb" },
+    { id: 4, nombre: "Escudo Centurión", rubro: "equipamiento", subrubro: "escudos", rareza: "muy-raro", precio: 60.00, archivo: "escudo_centurion.glb" },
+    { id: 5, nombre: "Amuleto de Marte", rubro: "equipamiento", subrubro: "joyas", rareza: "mitico", precio: 150.00, archivo: "amuleto_marte.glb" },
+    { id: 6, nombre: "Armadura Pretoriana", rubro: "equipamiento", subrubro: "armadura", rareza: "legendario", precio: 350.00, archivo: "armadura_pretoriana.glb" }
+];
+
 // 1. Conmutador principal: Mercado General vs Búsqueda de Aldeas
 function cambiarModoMercado(modoSeleccionado) {
     filtroMercado.modo = modoSeleccionado;
@@ -91,7 +105,6 @@ function ejecutarBusquedaAldea() {
         return;
     }
     
-    // Simulamos respuesta exitosa inyectando un botón de acceso a la aldea encontrada
     const resultadoContenedor = document.getElementById('lista-aldeas-resultado');
     resultadoContenedor.innerHTML = `
         <div class="village-search-card" style="background:#221a15; border:1px solid #d4af37; padding:15px; border-radius:8px; margin-top:15px; display:flex; justify-content:space-between; align-items:center; width:100%;">
@@ -105,7 +118,6 @@ function ejecutarBusquedaAldea() {
 }
 
 function entrarMercadoInternoAldea(nombreAldea) {
-    // Una vez elegida la aldea, abrimos sus filtros específicos
     document.getElementById('subpantalla-buscador-aldeas').style.display = 'none';
     document.getElementById('subpantalla-filtros-productos').style.display = 'block';
     
@@ -113,23 +125,98 @@ function entrarMercadoInternoAldea(nombreAldea) {
     refrescarCatalogoMercado();
 }
 
-// 6. Refrescar contenedor visual de items en base a filtros combinados
+// 6. RENDERIZADOR 3D AVANZADO: Crea el catálogo de slots interactivos
 function refrescarCatalogoMercado() {
-    const escaparate = document.getElementById('contenedor-items-mercado');
-    console.log("Filtros aplicados en red:", filtroMercado);
-    
-    // Renderizado informativo temporal mientras se conecta al socket de ofertas
-    escaparate.innerHTML = `
-        <div style="text-align:center; color:#ebdcb9;">
-            <p>🔍 Filtrando catálogo por:</p>
-            <strong style="color:#ffd700;">Modo:</strong> ${filtroMercado.modo.toUpperCase()} | 
-            <strong style="color:#ffd700;">Rubro:</strong> ${filtroMercado.rubro} 
-            ${filtroMercado.rubro === 'equipamiento' ? `(${filtroMercado.subrubro})` : ''} | 
-            <strong style="color:#ffd700;">Rareza:</strong> ${filtroMercado.rareza}
-        </div>
-    `;
+    const grid = document.getElementById('grid-cartas-3d');
+    if (!grid) return;
+
+    // Detener bucles de render anteriores para que Render/Navegador no se queden sin memoria
+    animacionesCartasActivas.forEach(idAnim => cancelAnimationFrame(idAnim));
+    animacionesCartasActivas = [];
+    grid.innerHTML = '';
+
+    // Filtrar los ítems cruzando rubro, subrubro y rareza
+    const itemsFiltrados = baseDatosItems3D.filter(item => {
+        const coincideRubro = item.rubro === filtroMercado.rubro;
+        const coincideSubRubro = filtroMercado.rubro !== 'equipamiento' || filtroMercado.subrubro === 'todos' || item.subrubro === filtroMercado.subrubro;
+        const coincideRareza = filtroMercado.rareza === 'todas' || item.rareza === filtroMercado.rareza;
+        return coincideRubro && coincideSubRubro && coincideRareza;
+    });
+
+    if (itemsFiltrados.length === 0) {
+        grid.innerHTML = `<div class="market-empty-msg" style="grid-column: 1/-1; padding: 40px; text-align:center;">No hay cartas tridimensionales con esta rareza a la venta.</div>`;
+        return;
+    }
+
+    // Inyectamos las tarjetas físicas en el DOM
+    itemsFiltrados.forEach(item => {
+        const cardBox = document.createElement('div');
+        cardBox.className = `carta-mercado-3d-box borde-rareza-${item.rareza}`;
+
+        const containerId = `canvas-container-item-${item.id}`;
+
+        cardBox.innerHTML = `
+            <div id="${containerId}" class="canvas-carta-container"></div>
+            <div class="info-carta-mercado">
+                <div class="nombre-item-mercado">${item.nombre}</div>
+                <div class="precio-item-mercado">🪙 ${item.precio.toFixed(2)}</div>
+                <button class="btn-comprar-market" onclick="procesarCompraItem(${item.id})">Adquirir Objeto</button>
+            </div>
+        `;
+
+        grid.appendChild(cardBox);
+
+        // Inicializar el canvas de Three.js exclusivo para este slot de carta
+        construirMiniEscena3D(containerId, item.archivo, item.rareza);
+    });
 }
-function procesarCompraItem(idItem) {
-    console.log(`Enviando evento de compra al árbitro para el ítem: ${idItem}`);
-    alert(`Solicitud de transacción enviada al servidor para el objeto ID: ${idItem}`);
-}
+
+// 7. Mini motor de renderizado individual por ranura
+function construirMiniEscena3D(containerId, nombreArchivoGLB, rareza) {
+    const contenedor = document.getElementById(containerId);
+    if (!contenedor) return;
+
+    const escena = new THREE.Scene();
+    escena.background = new THREE.Color('#050507');
+
+    const camara = new THREE.PerspectiveCamera(45, contenedor.clientWidth / contenedor.clientHeight, 0.1, 100);
+    camara.position.set(0, 0, 3.2);
+
+    const render = new THREE.WebGLRenderer({ antialias: true });
+    render.setSize(contenedor.clientWidth, contenedor.clientHeight);
+    render.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    contenedor.appendChild(render.domElement);
+
+    // Luces para reflejar de forma realista tus texturas PBR de Blender
+    escena.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const luzDireccional = new THREE.DirectionalLight(0xffffff, 1.2);
+    luzDireccional.position.set(3, 4, 5);
+    escena.add(luzDireccional);
+
+    // Aura lumínica del color de la rareza
+    let colorAura = 0xffffff;
+    if (rareza === 'legendario') colorAura = 0ffd700;
+    if (rareza === 'mitico') colorAura = 0xe91e63;
+    if (rareza === 'epico') colorAura = 0xff9800;
+    if (rareza === 'raro') colorAura = 0x2196f3;
+
+    const luzAura = new THREE.PointLight(colorAura, 1.8, 8);
+    luzAura.position.set(0, 0, -1);
+    escena.add(luzAura);
+
+    let modeloMalla = null;
+
+    // Carga segura del modelo .glb de Blender usando GLTFLoader
+    if (typeof THREE.GLTFLoader !== 'undefined') {
+        const loader = new THREE.GLTFLoader();
+        loader.load(
+            `/models3d/${nombreArchivoGLB}`,
+            (gltf) => {
+                modeloMalla = gltf.scene;
+                
+                // Auto-ajustar centrado y escala al mini canvas
+                const box = new THREE.Box3().setFromObject(modeloMalla);
+                const center = box.getCenter(new THREE.Vector3());
+                modeloMalla.position.x += (modeloMalla.position.x - center.x);
+                modeloMalla.position.y += (modeloMalla.position.y - center.y);modeloMalla.position.z += (modeloMalla.position.z - center.z);escena.add(modeloMalla);},undefined,() => {// Si aún no subes el .glb a la carpeta models3d, inyecta una figura interactiva elegantecargarMallaRespaldo(escena, rareza, (malla) => { modeloMalla = malla; });});} else {cargarMallaRespaldo(escena, rareza, (malla) => { modeloMalla = malla; });}function animarMiniCarta() {const idAnimacion = requestAnimationFrame(animarMiniCarta);animacionesCartasActivas.push(idAnimacion);if (modeloMalla) {modeloMalla.rotation.y += 0.015; // Rotación lenta de vitrina}render.render(escena, camara);}animarMiniCarta();}function cargarMallaRespaldo(escena, rareza, callback) {let colorMaterial = 0x555555;if (rareza === 'legendario') colorMaterial = 0xffd700;if (rareza === 'epico') colorMaterial = 0xff9800;if (rareza === 'raro') colorMaterial = 0x2196f3;// Geometría en anillo dorado de exhibiciónconst geometria = new THREE.TorusKnotGeometry(0.38, 0.12, 64, 8);const material = new THREE.MeshStandardMaterial({color: colorMaterial,metalness: 0.8,roughness: 0.2});const malla = new THREE.Mesh(geometria, material);escena.add(malla);callback(malla);}// 8. Procesador de Compras conectado a tu consolafunction procesarCompraItem(idItem) {console.log(Enviando evento de compra al árbitro para el ítem: ${idItem});alert(Solicitud de transacción enviada al servidor para el objeto ID: ${idItem});}
+            
