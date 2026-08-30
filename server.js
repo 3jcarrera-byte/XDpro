@@ -5,17 +5,19 @@ const { Server } = require('socket.io');
 const mongoose = require('mongoose');
 const path = require('path');
 const cors = require('cors');
+const bcrypt = require('bcrypt'); // <-- CORRECCIÓN: Librería obligatoria de encriptación
 const User = require('./models/User'); 
 
 const app = express();
 const server = http.createServer(app);
 
-// Configuración de Socket.io (Permite conexiones desde cualquier sitio web)
+// Configuración de Socket.io (Configurada para mitigar caídas en Render)
 const io = new Server(server, {
     cors: {
         origin: "*",
         methods: ["GET", "POST"]
-    }
+    },
+    transports: ['websocket'] // <-- CORRECCIÓN: Evita el long-polling y microcortes de proxies
 });
 
 // ========================================================
@@ -35,18 +37,44 @@ mongoose.connect(MONGO_URI)
   .catch(err => console.error('❌ Error conectando a MongoDB:', err));
 
 // ========================================================
-// ENDPOINT: REGISTRO DE NUEVOS GLADIADORES
+// ENDPOINT: REGISTRO DE NUEVOS GLADIADORES (EXTENDIDO)
 // ========================================================
 app.post('/api/auth/register', async (req, res) => {
-    const { username, password } = req.body;
+    // Recibe todos los nuevos campos del frontend extendido
+    const { username, password, email, pais, nombre, apellido, wallet } = req.body;
+    
     try {
-        const existingUser = await User.findOne({ username });
+        if (!username || !password) {
+            return res.status(400).json({ success: false, message: 'Usuario y contraseña son requeridos.' });
+        }
+
+        // Búsqueda insensible a mayúsculas para evitar duplicidad de nicks
+        const existingUser = await User.findOne({ 
+            username: { $regex: new RegExp(`^${username.trim()}$`, 'i') } 
+        });
+
         if (existingUser) {
             return res.status(400).json({ success: false, message: 'El nombre de usuario ya está tomado.' });
         }
-        const nuevoUsuario = new User({ username, password });
+
+        // CORRECCIÓN: Encriptamos la contraseña con un factor de coste estándar (10) antes de guardar
+        const salt = await bcrypt.genSalt(10);
+        const passwordEncriptado = await bcrypt.hash(password, salt);
+
+        // Instanciamos el modelo con los 8 campos estructurados del frontend
+        const nuevoUsuario = new User({ 
+            username: username.trim(), 
+            password: passwordEncriptado, // Guardamos la versión segura
+            email: email ? email.trim() : null,
+            pais: pais ? pais.trim() : null,
+            nombre: nombre ? nombre.trim() : null,
+            apellido: apellido ? apellido.trim() : null,
+            wallet: wallet ? wallet.trim() : null
+        });
+
         await nuevoUsuario.save();
         return res.status(201).json({ success: true, message: 'Usuario creado exitosamente.' });
+        
     } catch (error) {
         console.error('Error al registrar:', error);
         return res.status(500).json({ success: false, message: 'Fallo interno del servidor.' });
@@ -54,33 +82,44 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // ========================================================
-// ENDPOINT: INICIO DE SESIÓN (LOGIN)
+// ENDPOINT: INICIO DE SESIÓN (LOGIN CORREGIDO)
 // ========================================================
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
+    
     try {
-        const usuario = await User.findOne({ username });
+        if (!username || !password) {
+            return res.status(400).json({ success: false, message: 'Campos incompletos.' });
+        }
+
+        // CORRECCIÓN: Búsqueda flexible e insensible a mayúsculas/minúsculas
+        const usuario = await User.findOne({ 
+            username: { $regex: new RegExp(`^${username.trim()}$`, 'i') } 
+        });
+
         if (!usuario) {
             return res.status(401).json({ success: false, message: 'Usuario o contraseña inválidos.' });
         }
         
-        // Control Antifraude Simple
+        // Control Antifraude
         if (usuario.status === 'banned_perm') {
             return res.status(403).json({ success: false, message: 'Cuenta suspendida permanentemente.' });
         }
 
-        // Validación de contraseña directa
-        const esValido = (usuario.password === password);
+        // SOLUCIÓN AL ERROR DE ACCESO: Comparación matemática usando la función nativa de Bcrypt
+        const esValido = await bcrypt.compare(password, usuario.password);
         if (!esValido) {
             return res.status(401).json({ success: false, message: 'Usuario o contraseña inválidos.' });
         }
 
+        // Si todo coincide, damos acceso inmediato al Panel del Imperio
         return res.status(200).json({ 
             success: true, 
             userId: usuario._id,
             username: usuario.username,
-            balance: usuario.balance
+            balance: usuario.balance || 0
         });
+
     } catch (error) {
         console.error('Error al autenticar:', error);
         return res.status(500).json({ success: false, message: 'Fallo interno del servidor.' });
@@ -93,10 +132,13 @@ app.post('/api/auth/login', async (req, res) => {
 io.on('connection', (socket) => {
     console.log(`🎮 Un jugador se ha conectado: ${socket.id}`);
 
-    // Aquí escucharás las acciones de la Arena, Carreón, etc.
+    // Evento de autenticación en tiempo real para emparejar la sesión
+    socket.on('jugador:autenticado', (data) => {
+        console.log(`Gladiador verificado en red de sockets: ${data.username}`);
+    });
+
     socket.on('join_arena', (data) => {
         console.log(`Jugador ${data.username} buscando partida en la Arena...`);
-        // Lógica futura de emparejamiento de 3 jugadores
     });
 
     socket.on('disconnect', () => {
