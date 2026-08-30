@@ -84,19 +84,44 @@
   <!-- ======================================================== -->
   <div id="pantalla-menu-principal" class="seccion-juego" style="display: none;">
     <div class="game-menu-wrapper">
+      
+      <!-- BARRA DE ESTADO DEL GLADIADOR -->
+      <header class="player-top-bar">
+        <div class="player-profile">
+          <span class="pj-icono">👤</span>
+          <span id="menu-player-nick" class="pj-nombre">Cargando...</span>
+        </div>
+        <div class="player-resources">
+          <div class="resource-item">
+            <span class="resource-icon">🪙</span>
+            <span id="menu-player-balance" class="resource-value">0.00</span>
+          </div>
+        </div>
+      </header>
+
       <h2>Panel del Imperio</h2>
+
+      <!-- MOSAICO PRINCIPAL DE MÓDULOS -->
       <div class="menu-grid">
-        <button onclick="cambiarPantalla('pantalla-aldea')" class="btn-menu">🗺️ Aldea</button>
-        <button onclick="cambiarPantalla('pantalla-finca')" class="btn-menu">🏡 Finca</button>
-        <button onclick="cambiarPantalla('pantalla-almacen')" class="btn-menu">📦 Almacén</button>
-        <button onclick="cambiarPantalla('pantalla-carreton')" class="btn-menu">🛒 Carretón</button>
-        <button onclick="cambiarPantalla('pantalla-mercado')" class="btn-menu">⚖️ Mercado Mundial</button>
-        <button onclick="cambiarPantalla('pantalla-arena')" class="btn-menu">⚔️ Arena de Combate</button>
-        <button onclick="cambiarPantalla('pantalla-finanzas')" class="btn-menu">💰 Retiros y Recargas</button>
-        <button onclick="cambiarPantalla('pantalla-correo')" class="btn-menu">📬 Correo</button>
-        <button onclick="cambiarPantalla('pantalla-soporte')" class="btn-menu">🛠️ Soporte</button>
-        <button onclick="cambiarPantalla('pantalla-terminos')" class="btn-menu">📜 Términos</button>
+        <!-- ZONA DE EXPANSIÓN Y CONSTRUCCIÓN -->
+        <button onclick="cambiarPantalla('pantalla-aldea')" class="btn-menu btn-categoria-gestion">🗺️ Aldea (3D)</button>
+        <button onclick="cambiarPantalla('pantalla-finca')" class="btn-menu btn-categoria-gestion">🏡 Finca (3D)</button>
+        
+        <!-- ZONA DE ECONOMÍA E INVENTARIO -->
+        <button onclick="cambiarPantalla('pantalla-almacen')" class="btn-menu btn-categoria-economia">📦 Almacén</button>
+        <button onclick="cambiarPantalla('pantalla-carreton')" class="btn-menu btn-categoria-economia">🛒 Carretón</button>
+        <button onclick="cambiarPantalla('pantalla-mercado')" class="btn-menu btn-categoria-economia">⚖️ Mercado Mundial</button>
+        <button onclick="cambiarPantalla('pantalla-finanzas')" class="btn-menu btn-categoria-economia">💰 Billetera y Retiros</button>
+        
+        <!-- ZONA DE GLORIA Y ACCIÓN -->
+        <button onclick="cambiarPantalla('pantalla-arena')" class="btn-menu btn-categoria-combate">⚔️ Arena de Combate</button>
+        
+        <!-- ZONA DE COMUNIDAD Y AYUDA -->
+        <button onclick="cambiarPantalla('pantalla-correo')" class="btn-menu btn-categoria-soporte">📬 Correo</button>
+        <button onclick="cambiarPantalla('pantalla-soporte')" class="btn-menu btn-categoria-soporte">🛠️ Soporte Técnico</button>
+        <button onclick="cambiarPantalla('pantalla-terminos')" class="btn-menu btn-categoria-soporte">📜 Términos</button>
       </div>
+
     </div>
   </div>
 
