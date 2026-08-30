@@ -169,24 +169,26 @@ if (loginForm) {
             const data = await response.json();
 
             if (response.ok && data.success) {
-                // 1. Ocultar landing de autenticación
-                if (authScreen) authScreen.style.display = 'none';
-                
-                // 2. INYECCIÓN DINÁMICA: Mostrar el perfil real del Gladiador en la Barra del Menú
-                const txtNick = document.getElementById('menu-player-nick');
-                const txtBalance = document.getElementById('menu-player-balance');
-                
-                if (txtNick) txtNick.textContent = data.username;
-                if (txtBalance) txtBalance.textContent = parseFloat(data.balance || 0).toFixed(2);
-                
-                // 3. Entrar al Panel del Imperio
-                cambiarPantalla('pantalla-menu-principal');
-                
-                // 4. Conectar sesión al WebSocket en tiempo real
-                if (socket && socket.connected) {
-                    socket.emit('jugador:autenticado', { username: data.username });
-                }
-            } else {
+    if (authScreen) authScreen.style.display = 'none';
+    
+    const txtNick = document.getElementById('menu-player-nick');
+    const txtBalance = document.getElementById('menu-player-balance');
+    
+    if (txtNick) txtNick.textContent = data.username;
+    if (txtBalance) txtBalance.textContent = parseFloat(data.balance || 0).toFixed(2);
+    
+    // 1. Saltamos a la pantalla del menú
+    cambiarPantalla('pantalla-menu-principal');
+    
+    // 2. DISPARADOR 3D: Ejecuta la inicialización de Three.js en el nuevo contenedor central
+    if (typeof inicializarMundo3D === 'function') {
+        setTimeout(inicializarMundo3D, 50); // Pequeño retraso para asegurar que el DOM calculó su tamaño visible
+    }
+    
+    if (socket && socket.connected) {
+        socket.emit('jugador:autenticado', { username: data.username });
+    }
+}else {
                 alert('Acceso denegado: ' + (data.message || 'Credenciales erróneas.'));
             }
         } catch (error) {
