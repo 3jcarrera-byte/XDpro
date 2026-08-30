@@ -1,160 +1,92 @@
-// public/js/main.js
-document.addEventListener('DOMContentLoaded', () => {
-    // 🔌 Conexión automática en tiempo real con el servidor (Árbitro) de Render o Vercel
-    const socket = io(); 
-
     // ========================================================
-    // REFERENCIAS A LOS ELEMENTOS DEL HTML
+    // LÓGICA DE REGISTRO EXTENDIDO (ESTILO VUE REACTIVO)
     // ========================================================
-    const loginForm = document.getElementById('loginForm');
-    const registerForm = document.getElementById('registerForm');
-    const btnToggleAuth = document.getElementById('btnToggleAuth');
+    const btnEnviarRegistro = document.getElementById('btnEnviarRegistro');
     
-    // Inputs de Inicio de Sesión
-    const usernameInput = document.getElementById('username');
-    const passwordInput = document.getElementById('password');
-    
-    // Inputs de Registro
-    const regUsernameInput = document.getElementById('reg-username');
-    const regPasswordInput = document.getElementById('reg-password');
+    // Captura de todos los nuevos campos del formulario
+    const regEmail = document.getElementById('reg-email');
+    const regPais = document.getElementById('reg-pais');
+    const regNombre = document.getElementById('reg-nombre');
+    const regApellido = document.getElementById('reg-apellido');
+    const regNick = document.getElementById('reg-nick');
+    const regWallet = document.getElementById('reg-wallet');
+    const regPassword = document.getElementById('reg-password');
+    const regRepetirPassword = document.getElementById('reg-repetirPassword');
+    const regAceptaTerminos = document.getElementById('reg-aceptaTerminos');
+    const regNoRobot = document.getElementById('reg-noRobot');
 
-    // Estado local para alternar la vista de autenticación
-    let modoRegistro = false;
+    // Función para validar el formulario completo en tiempo real
+    function verificarFormularioValido() {
+        const esValido = (
+            regEmail.value.trim() !== "" &&
+            regPais.value.trim() !== "" &&
+            regNombre.value.trim() !== "" &&
+            regApellido.value.trim() !== "" &&
+            regNick.value.trim() !== "" &&
+            regWallet.value.trim() !== "" &&
+            regPassword.value !== "" &&
+            regRepetirPassword.value !== "" &&
+            regPassword.value === regRepetirPassword.value &&
+            regAceptaTerminos.checked &&
+            regNoRobot.checked
+        );
 
-    // Escuchar confirmación de conexión con el Árbitro
-    socket.on('connect', () => {
-        console.log('⚡ Conectado al Árbitro en tiempo real (Socket ID):', socket.id);
-    });
-
-    // ========================================================
-    // CONTROL DEL FORMULARIO INTERCAMBIABLE (Login <-> Registro)
-    // ========================================================
-    if (btnToggleAuth) {
-        btnToggleAuth.addEventListener('click', (e) => {
-            e.preventDefault();
-            modoRegistro = !modoRegistro;
-
-            if (modoRegistro) {
-                loginForm.style.display = 'none';
-                registerForm.style.display = 'block';
-                btnToggleAuth.innerText = 'Volver al Login';
-            } else {
-                loginForm.style.display = 'block';
-                registerForm.style.display = 'none';
-                btnToggleAuth.innerText = 'Registrarse';
-            }
-        });
+        // Activa o desactiva el botón emulando la propiedad computada de Vue
+        btnEnviarRegistro.disabled = !esValido;
     }
 
-    // ========================================================
-    // 1. SOLUCIÓN PASO URGENTE: LÓGICA DE REGISTRO
-    // ========================================================
+    // Escuchar cambios en cada elemento para refrescar el estado del botón
+    const camposRegistro = [regEmail, regPais, regNombre, regApellido, regNick, regWallet, regPassword, regRepetirPassword, regAceptaTerminos, regNoRobot];
+    camposRegistro.forEach(elemento => {
+        if(elemento) {
+            elemento.addEventListener('input', verificarFormularioValido);
+            elemento.addEventListener('change', verificarFormularioValido);
+        }
+    });
+
+    // Envío de datos al Árbitro en Render
     if (registerForm) {
         registerForm.addEventListener('submit', async (e) => {
-            e.preventDefault(); 
+            e.preventDefault();
 
-            const username = regUsernameInput.value.trim();
-            const password = regPasswordInput.value.trim();
-
-            if (!username || !password) {
-                return alert('Por favor, completa todos los campos para registrarte.');
-            }
+            // Mapeamos el campo 'nick' al 'username' que espera tu base de datos actual
+            const username = regNick.value.trim();
+            const password = regPassword.value;
 
             try {
                 const response = await fetch('/api/auth/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ 
+                        username, 
+                        password,
+                        email: regEmail.value.trim(),
+                        pais: regPais.value.trim(),
+                        nombre: regNombre.value.trim(),
+                        apellido: regApellido.value.trim(),
+                        wallet: regWallet.value.trim()
+                    })
                 });
 
                 const data = await response.json();
 
                 if (response.ok && data.success) {
-                    alert('¡Gladiador registrado exitosamente! Redirigiendo al ingreso...');
-                    // Limpiamos los campos por seguridad
-                    regUsernameInput.value = '';
-                    regPasswordInput.value = '';
-                    // Forzamos el click para regresar automáticamente a la vista de login
-                    btnToggleAuth.click(); 
+                    alert(`¡Gladiador registrado exitosamente! Se ha enviado un correo de verificación simulado a ${regEmail.value.trim()}`);
+                    
+                    // Limpieza total de los campos
+                    camposRegistro.forEach(c => {
+                        if(c.type === 'checkbox') c.checked = false;
+                        else c.value = '';
+                    });
+                    
+                    // Regresar a la vista de login
+                    btnToggleAuth.click();
                 } else {
                     alert('Error al registrar: ' + data.message);
                 }
             } catch (error) {
                 console.error('Error de conexión en registro:', error);
-                alert('Error al conectar con el servidor para el registro.');
+                alert('Error al conectar con el servidor para procesar el Imperio.');
             }
         });
     }
-
-    // ========================================================
-    // 2. SOLUCIÓN PASO URGENTE: INICIO DE SESIÓN
-    // ========================================================
-    if (loginForm) {
-        loginForm.addEventListener('submit', async (e) => {
-            e.preventDefault(); 
-
-            const username = usernameInput.value.trim();
-            const password = passwordInput.value.trim();
-
-            if (!username || !password) {
-                return alert('Por favor, ingresa tu usuario y contraseña.');
-            }
-
-            try {
-                const response = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-
-                const data = await response.json();
-
-                if (response.ok && data.success) {
-                    // ¡Login exitoso! Guardamos los datos de la sesión en el navegador
-                    localStorage.setItem('userId', data.userId);
-                    localStorage.setItem('username', data.username);
-                    localStorage.setItem('balance', data.balance);
-                    localStorage.setItem('token', data.token);
-
-                    alert(`¡Bienvenido a la Arena, ${data.username}!`);
-                    
-                    // Ocultamos de forma definitiva la pantalla entera de Login/Registro
-                    const authScreen = document.querySelector('.auth-screen');
-                    if (authScreen) authScreen.style.display = 'none';
-                    
-                    // Activamos el botón flotante de menú
-                    const floatingMenu = document.getElementById('btnFloatingMenu');
-                    if (floatingMenu) floatingMenu.style.display = 'block';
-                    
-                    // Avisamos al Árbitro por sockets que el gladiador ingresó al ecosistema de juego
-                    socket.emit('join_arena', { username: data.username });
-
-                    // Cambiar la vista de la SPA al Menú Principal de forma segura
-                    cambiarPantalla('pantalla-menu-principal');
-                    
-                } else {
-                    alert('Fallo al entrar: ' + data.message);
-                }
-            } catch (error) {
-                console.error('Error de conexión en login:', error);
-                alert('Error al conectar con el servidor. Verifica que tu base de datos y backend en Render estén activos.');
-            }
-        });
-    }
-
-    // ========================================================
-    // SISTEMA DE NAVEGACIÓN ENTRE SECCIONES (SPA)
-    // ========================================================
-    // Función global para mover al usuario entre Aldea, Finca, Mercado, etc.
-    window.cambiarPantalla = function(idPantallaTarget) {
-        const pantallas = document.querySelectorAll('.seccion-juego');
-        
-        pantallas.forEach(pantalla => {
-            if (pantalla.id === idPantallaTarget) {
-                pantalla.style.display = 'block'; // Muestra la pantalla destino
-            } else {
-                pantalla.style.display = 'none';  // Oculta las demás
-            }
-        });
-    };
-});
