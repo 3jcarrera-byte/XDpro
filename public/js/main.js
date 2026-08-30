@@ -1,17 +1,61 @@
 // ========================================================
-// INITIALIZACIÓN SEGURO DE SOCKETS (Para evitar caídas en Render)
+// 1. INICIALIZACIÓN SEGURO DE SOCKETS (Evita caídas en Render)
 // ========================================================
-// Nota: Si ya declaraste 'socket' en otra parte superior de main.js, puedes omitir esta línea.
 const socket = window.io ? window.io({ transports: ['websocket'], upgrade: false }) : null;
 
 // ========================================================
-// LÓGICA DE REGISTRO EXTENDIDO (ESTILO VUE REACTIVO)
+// 2. ELEMENTOS DE INTERFAZ Y NAVEGACIÓN SPA
 // ========================================================
+const loginForm = document.getElementById('loginForm');
 const registerForm = document.getElementById('registerForm');
-const btnEnviarRegistro = document.getElementById('btnEnviarRegistro');
+const authScreen = document.querySelector('.auth-screen');
 const btnToggleAuth = document.getElementById('btnToggleAuth');
+const btnFloatingMenu = document.getElementById('btnFloatingMenu');
 
-// Captura segura de todos los nuevos campos del formulario
+// Intercambiador Dinámico entre Login y Registro
+if (btnToggleAuth && loginForm && registerForm) {
+    btnToggleAuth.addEventListener('click', () => {
+        if (registerForm.style.display === 'none') {
+            loginForm.style.display = 'none';
+            registerForm.style.display = 'flex'; // Flex mapea con el diseño CSS implementado
+            btnToggleAuth.textContent = 'Volver al Login';
+        } else {
+            registerForm.style.display = 'none';
+            loginForm.style.display = 'block';
+            btnToggleAuth.textContent = 'Registrarse';
+        }
+    });
+}
+
+// Función Global para alternar módulos del Imperio
+window.cambiarPantalla = function(pantallaId) {
+    // Ocultar todas las pantallas de juego
+    const secciones = document.querySelectorAll('.seccion-juego');
+    secciones.forEach(seccion => seccion.style.display = 'none');
+    
+    // Visibilizar la pantalla seleccionada
+    const destino = document.getElementById(pantallaId);
+    if (destino) {
+        destino.style.display = 'block';
+        
+        // Control inteligente del botón flotante
+        if (btnFloatingMenu) {
+            // Si está en el menú principal o deslogueado, se oculta el botón flotante
+            if (pantallaId === 'pantalla-menu-principal') {
+                btnFloatingMenu.style.display = 'none';
+            } else {
+                btnFloatingMenu.style.display = 'block';
+            }
+        }
+    } else {
+        console.warn(`La vista con ID '${pantallaId}' no existe en el DOM.`);
+    }
+};
+
+// ========================================================
+// 3. LÓGICA DE REGISTRO EXTENDIDO (ESTILO VUE REACTIVO)
+// ========================================================
+const btnEnviarRegistro = document.getElementById('btnEnviarRegistro');
 const regEmail = document.getElementById('reg-email');
 const regPais = document.getElementById('reg-pais');
 const regNombre = document.getElementById('reg-nombre');
@@ -23,20 +67,15 @@ const regRepetirPassword = document.getElementById('reg-repetirPassword');
 const regAceptaTerminos = document.getElementById('reg-aceptaTerminos');
 const regNoRobot = document.getElementById('reg-noRobot');
 
-// Agrupamos los elementos existentes para evitar evaluar nulls
 const camposRegistro = [
     regEmail, regPais, regNombre, regApellido, regNick, 
     regWallet, regPassword, regRepetirPassword, regAceptaTerminos, regNoRobot
 ].filter(Boolean);
 
-// Expresión regular estándar para validar correos electrónicos
 const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Función para validar el formulario completo en tiempo real
 function verificarFormularioValido() {
     if (!btnEnviarRegistro) return;
-
-    // Evaluamos que todos los campos cumplan con las reglas de negocio
     const esValido = (
         regEmail && regexEmail.test(regEmail.value.trim()) &&
         regPais && regPais.value.trim() !== "" &&
@@ -50,34 +89,26 @@ function verificarFormularioValido() {
         regAceptaTerminos && regAceptaTerminos.checked &&
         regNoRobot && regNoRobot.checked
     );
-
-    // Activa o desactiva el botón emulando la propiedad computada de Vue
     btnEnviarRegistro.disabled = !esValido;
 }
 
-// Escuchar cambios en cada elemento para refrescar el estado del botón
 camposRegistro.forEach(elemento => {
     elemento.addEventListener('input', verificarFormularioValido);
     elemento.addEventListener('change', verificarFormularioValido);
 });
 
-// Envío de datos al Árbitro en Render
 if (registerForm) {
     registerForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-
-        // Doble verificación de seguridad antes de disparar la red
         if (regPassword.value !== regRepetirPassword.value) {
             alert('Las contraseñas no coinciden.');
             return;
         }
 
-        // Mapeamos el campo 'nick' al 'username' que espera tu base de datos actual
         const username = regNick.value.trim();
         const password = regPassword.value;
-
-        // Feedback visual de carga y bloqueo de re-envíos
         const textoOriginalBtn = btnEnviarRegistro.innerHTML;
+        
         btnEnviarRegistro.disabled = true;
         btnEnviarRegistro.innerHTML = '⚙️ Registrando Gladiador...';
 
@@ -86,8 +117,7 @@ if (registerForm) {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    username, 
-                    password,
+                    username, password,
                     email: regEmail.value.trim(),
                     pais: regPais.value.trim(),
                     nombre: regNombre.value.trim(),
@@ -95,31 +125,66 @@ if (registerForm) {
                     wallet: regWallet.value.trim()
                 })
             });
-
             const data = await response.json();
 
             if (response.ok && data.success) {
-                alert(`¡Gladiador registrado exitosamente! Se ha enviado un correo de verificación simulado a ${regEmail.value.trim()}`);
-                
-                // Limpieza total y segura de los campos
+                alert(`¡Gladiador registrado! Correo enviado a ${regEmail.value.trim()}`);
                 registerForm.reset();
-                
-                // Forzar actualización del estado del botón
                 verificarFormularioValido();
-                
-                // Regresar a la vista de login de forma automática
                 if (btnToggleAuth) btnToggleAuth.click();
             } else {
-                alert('Error al registrar: ' + (data.message || 'Error desconocido del servidor.'));
+                alert('Error al registrar: ' + (data.message || 'Error del servidor.'));
                 btnEnviarRegistro.disabled = false;
             }
         } catch (error) {
-            console.error('Error de conexión en registro:', error);
-            alert('Error al conectar con el servidor para procesar el Imperio.');
+            console.error('Error en registro:', error);
+            alert('Error al conectar con el servidor.');
             btnEnviarRegistro.disabled = false;
         } finally {
-            // Restaurar el texto del botón pase lo que pase
             btnEnviarRegistro.innerHTML = textoOriginalBtn;
+        }
+    });
+}
+
+// ========================================================
+// 4. LÓGICA DE INICIO DE SESIÓN (LOGIN)
+// ========================================================
+if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const usernameInput = document.getElementById('username');
+        const passwordInput = document.getElementById('password');
+        
+        if (!usernameInput || !passwordInput) return;
+
+        try {
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: usernameInput.value.trim(),
+                    password: passwordInput.value
+                })
+            });
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                // Ocultar landing de autenticación
+                if (authScreen) authScreen.style.display = 'none';
+                
+                // Entrar al Panel del Imperio
+                cambiarPantalla('pantalla-menu-principal');
+                
+                // Conectar sesión al WebSocket en tiempo real
+                if (socket && socket.connected) {
+                    socket.emit('jugador:autenticado', { username: data.username });
+                }
+            } else {
+                alert('Acceso denegado: ' + (data.message || 'Credenciales erróneas.'));
+            }
+        } catch (error) {
+            console.error('Error en login:', error);
+            alert('Error de red al intentar acceder al Dominio.');
         }
     });
 }
