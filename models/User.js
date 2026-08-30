@@ -1,6 +1,6 @@
 // models/User.js
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcryptjs'); // Nota: Asegúrate de usar 'bcryptjs' en tus componentes para evitar fallos de compilación nativa en Render
 
 const UserSchema = new mongoose.Schema({
   // ==========================================
@@ -18,6 +18,30 @@ const UserSchema = new mongoose.Schema({
   },
   
   // ==========================================
+  // EXTENSIÓN DEL IMPERIO (NUEVOS CAMPOS FORMULARIO)
+  // ==========================================
+  email: {
+    type: String,
+    trim: true
+  },
+  pais: {
+    type: String,
+    trim: true
+  },
+  nombre: {
+    type: String,
+    trim: true
+  },
+  apellido: {
+    type: String,
+    trim: true
+  },
+  wallet: {
+    type: String,
+    trim: true
+  },
+  
+  // ==========================================
   // ECONOMÍA Y CONTROL DE FRAUDE (ADMINISTRACIÓN)
   // ==========================================
   balance: {
@@ -31,11 +55,11 @@ const UserSchema = new mongoose.Schema({
   },
   banReason: { 
     type: String, 
-    default: null // Razón del baneo (ej: "Duplicación de oro en el mercado")
+    default: null // Razón del baneo
   },
   banUntil: { 
     type: Date, 
-    default: null // Fecha hasta la que dura el castigo (si es temporal)
+    default: null // Fecha hasta la que dura el castigo
   },
 
   // ==========================================
@@ -48,15 +72,11 @@ const UserSchema = new mongoose.Schema({
 });
 
 // ==========================================
-// MIDDLEWARE: ENCRIPTAR LA CONTRASEÑA
+// MIDDLEWARE: ENCRIPTAR LA CONTRASEÑA AUTOMÁTICO
 // ==========================================
-// Esto se ejecuta automáticamente antes de guardar un usuario en la Base de Datos
 UserSchema.pre('save', async function(next) {
-  // Si la contraseña no se ha modificado, continuamos
   if (!this.isModified('password')) return next();
-  
   try {
-    // Generamos el "salt" y encriptamos la contraseña por seguridad
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
     next();
@@ -68,12 +88,8 @@ UserSchema.pre('save', async function(next) {
 // ==========================================
 // MÉTODO: VERIFICAR LA CONTRASEÑA (LOGIN)
 // ==========================================
-// Compara la contraseña que escribe el usuario con la encriptada en la base de datos
 UserSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
 };
 
-// ==========================================
-// EXPORTACIÓN (Solo debe exportarse UNA vez)
-// ==========================================
 module.exports = mongoose.model('User', UserSchema);
