@@ -80,47 +80,62 @@
 </div><!-- Cierra el contenedor centrado -->
   
   <!-- ======================================================== -->
-  <!-- 2. PANTALLA: MENÚ PRINCIPAL (Eje Central de Navegación)   -->
+  <!-- 2. PANTALLA: MENÚ PRINCIPAL (Layout Profesional Lateral)  -->
   <!-- ======================================================== -->
   <div id="pantalla-menu-principal" class="seccion-juego" style="display: none;">
-    <div class="game-menu-wrapper">
-      
-      <!-- BARRA DE ESTADO DEL GLADIADOR -->
-      <header class="player-top-bar">
+    
+    <!-- BARRA SUPERIOR IMPERIAL -->
+    <header class="player-top-bar">
+      <div class="top-bar-left">
+        <h1 class="menu-brand-title">🏛️ ARENA Y GLORIA</h1>
+      </div>
+      <div class="top-bar-right">
         <div class="player-profile">
           <span class="pj-icono">👤</span>
-          <span id="menu-player-nick" class="pj-nombre">Cargando...</span>
+          <span id="menu-player-nick" class="pj-nombre">Gladiador</span>
         </div>
-        <div class="player-resources">
-          <div class="resource-item">
-            <span class="resource-icon">🪙</span>
-            <span id="menu-player-balance" class="resource-value">0.00</span>
-          </div>
+        <div class="resource-item">
+          <span class="resource-icon">🪙</span>
+          <span id="menu-player-balance" class="resource-value">0.00</span>
         </div>
-      </header>
-
-      <h2>Panel del Imperio</h2>
-
-      <!-- MOSAICO PRINCIPAL DE MÓDULOS -->
-      <div class="menu-grid">
-        <!-- ZONA DE EXPANSIÓN Y CONSTRUCCIÓN -->
-        <button onclick="cambiarPantalla('pantalla-aldea')" class="btn-menu btn-categoria-gestion">🗺️ Aldea (3D)</button>
-        <button onclick="cambiarPantalla('pantalla-finca')" class="btn-menu btn-categoria-gestion">🏡 Finca (3D)</button>
-        
-        <!-- ZONA DE ECONOMÍA E INVENTARIO -->
-        <button onclick="cambiarPantalla('pantalla-almacen')" class="btn-menu btn-categoria-economia">📦 Almacén</button>
-        <button onclick="cambiarPantalla('pantalla-carreton')" class="btn-menu btn-categoria-economia">🛒 Carretón</button>
-        <button onclick="cambiarPantalla('pantalla-mercado')" class="btn-menu btn-categoria-economia">⚖️ Mercado Mundial</button>
-        <button onclick="cambiarPantalla('pantalla-finanzas')" class="btn-menu btn-categoria-economia">💰 Billetera y Retiros</button>
-        
-        <!-- ZONA DE GLORIA Y ACCIÓN -->
-        <button onclick="cambiarPantalla('pantalla-arena')" class="btn-menu btn-categoria-combate">⚔️ Arena de Combate</button>
-        
-        <!-- ZONA DE COMUNIDAD Y AYUDA -->
-        <button onclick="cambiarPantalla('pantalla-correo')" class="btn-menu btn-categoria-soporte">📬 Correo</button>
-        <button onclick="cambiarPantalla('pantalla-soporte')" class="btn-menu btn-categoria-soporte">🛠️ Soporte Técnico</button>
-        <button onclick="cambiarPantalla('pantalla-terminos')" class="btn-menu btn-categoria-soporte">📜 Términos</button>
       </div>
+    </header>
+
+    <!-- CONTENEDOR EN L (MENÚ IZQUIERDO + CANVAS CENTRAL) -->
+    <div class="main-layout-container">
+      
+      <!-- NAV LATERAL IZQUIERDA -->
+      <aside class="sidebar-navigation">
+        <div class="nav-section-title">🗺️ EXPANSIÓN</div>
+        <button onclick="cambiarPantalla('pantalla-aldea')" class="btn-sidebar">🗺️ Aldea (3D)</button>
+        <button onclick="cambiarPantalla('pantalla-finca')" class="btn-sidebar">🏡 Finca (3D)</button>
+        
+        <div class="nav-section-title">⚖️ ECONOMÍA</div>
+        <button onclick="cambiarPantalla('pantalla-almacen')" class="btn-sidebar">📦 Almacén</button>
+        <button onclick="cambiarPantalla('pantalla-carreton')" class="btn-sidebar">🛒 Carretón</button>
+        <button onclick="cambiarPantalla('pantalla-mercado')" class="btn-sidebar">⚖️ Mercado Mundial</button>
+        <button onclick="cambiarPantalla('pantalla-finanzas')" class="btn-sidebar">💰 Billetera / Retiros</button>
+        
+        <div class="nav-section-title">⚔️ GLORIA</div>
+        <button onclick="cambiarPantalla('pantalla-arena')" class="btn-sidebar btn-highlight-arena">⚔️ Arena de Combate</button>
+        
+        <div class="nav-section-title">⚙️ CONFIGURACIÓN</div>
+        <button onclick="cambiarPantalla('pantalla-correo')" class="btn-sidebar">📬 Correo</button>
+        <button onclick="cambiarPantalla('pantalla-soporte')" class="btn-sidebar">🛠️ Soporte Técnico</button>
+        <button onclick="cambiarPantalla('pantalla-terminos')" class="btn-sidebar">📜 Términos</button>
+      </aside>
+
+      <!-- ÁREA CENTRAL DE JUEGO (CANVAS O PANEL INMERSIÓN) -->
+      <main class="center-game-canvas-wrapper">
+        <div class="canvas-header-info">
+          <h3>Vista de la Ciudadela</h3>
+          <span class="status-indicator-online">● Árbitro Conectado</span>
+        </div>
+        <!-- Contenedor del Canvas Principal del Menú -->
+        <div id="canvas-menu-central" class="canvas-menu-3d">
+          <div class="canvas-placeholder-msg">El motor gráfico tridimensional se está inicializando...</div>
+        </div>
+      </main>
 
     </div>
   </div>
