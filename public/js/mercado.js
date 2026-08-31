@@ -52,29 +52,35 @@ function cambiarModoMercado(modoSeleccionado) {
 function cambiarRubro(rubroSeleccionado) {
     filtroMercado.rubro = rubroSeleccionado;
     
+    // 1. Limpiar el estado de TODOS los botones de rubros eliminando la clase active
     const botones = document.querySelectorAll('.btn-filter-rubro');
-    botones.forEach(btn => {
-        const onclickTexto = btn.getAttribute('onclick') || '';
-        btn.classList.toggle('active', onclickTexto.includes(`'${rubroSeleccionado}'`));
-    });
+    botones.forEach(btn => btn.classList.remove('active'));
 
-    const cajaSubRubros = document.getElementById('grupo-subfiltro-equipamiento');
-    if (cajaSubRubros) {
-        if (rubroSeleccionado === 'equipamiento') {
-            cajaSubRubros.style.display = 'flex';
-        } else {
-            cajaSubRubros.style.display = 'none';
-            filtroMercado.subrubro = 'todos';
-        }
+    // 2. Buscar únicamente el botón al que se le hizo clic y encenderlo
+    // Filtramos buscando exactamente cuál botón tiene el string del rubro en su atributo onclick
+    const botonActivo = Array.from(botones).find(btn => {
+        const onclickAttr = btn.getAttribute('onclick') || '';
+        return onclickAttr.includes(`'${rubroSeleccionado}'`);
+    });
+    
+    if (botonActivo) {
+        botonActivo.classList.add('active');
     }
 
+    // Control de la caja de sub-rubros de equipamiento
+    const cajaSubRubros = document.getElementById('grupo-subfiltro-equipamiento');
+    if (cajaSubRubros) {
+        cajaSubRubros.style.display = (rubroSeleccionado === 'equipamiento') ? 'flex' : 'none';
+        if (rubroSeleccionado !== 'equipamiento') filtroMercado.subrubro = 'todos';
+    }
+
+    // Solicitar el stock limpio al Árbitro en tiempo real
     if (typeof socket !== 'undefined' && socket && socket.connected) {
         socket.emit('tienda:solicitar-stock');
     } else {
         refrescarCatalogoMercado();
     }
 }
-
 // 3. Controlador de Sub-Rubros para el Equipamiento
 function cambiarSubRubro(subrubroSeleccionado) {
     filtroMercado.subrubro = subrubroSeleccionado;
