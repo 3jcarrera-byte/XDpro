@@ -40,10 +40,9 @@ function cambiarModoMercado(modoSeleccionado) {
         if (panelBuscador) panelBuscador.style.display = 'none';
         if (panelProductos) panelProductos.style.display = 'block';
         
+        refrescarCatalogoMercado(); 
         if (typeof socket !== 'undefined' && socket && socket.connected) {
             socket.emit('tienda:solicitar-stock');
-        } else {
-            refrescarCatalogoMercado();
         }
     }
 }
@@ -57,7 +56,6 @@ function cambiarRubro(rubroSeleccionado) {
     botones.forEach(btn => btn.classList.remove('active'));
 
     // 2. Buscar únicamente el botón al que se le hizo clic y encenderlo
-    // Filtramos buscando exactamente cuál botón tiene el string del rubro en su atributo onclick
     const botonActivo = Array.from(botones).find(btn => {
         const onclickAttr = btn.getAttribute('onclick') || '';
         return onclickAttr.includes(`'${rubroSeleccionado}'`);
@@ -81,6 +79,7 @@ function cambiarRubro(rubroSeleccionado) {
         refrescarCatalogoMercado();
     }
 }
+
 // 3. Controlador de Sub-Rubros para el Equipamiento
 function cambiarSubRubro(subrubroSeleccionado) {
     filtroMercado.subrubro = subrubroSeleccionado;
@@ -90,6 +89,8 @@ function cambiarSubRubro(subrubroSeleccionado) {
         const onclickAttr = btn.getAttribute('onclick') || '';
         btn.classList.toggle('active', onclickAttr.includes(`'${subrubroSeleccionado}'`));
     });
+
+    refrescarCatalogoMercado(); // 🚀 CORRECCIÓN: Indispensable para actualizar vista
 }
 
 // 4. Controlador de Rarezas
@@ -141,7 +142,6 @@ function refrescarCatalogoMercado() {
     animacionesCartasActivas = [];
     grid.innerHTML = '';
 
-    // CORRECCIÓN DE BÚSQUEDA: Comparación insensible a mayúsculas (.toLowerCase())
     const itemsFiltrados = baseDatosItems3D.filter(item => {
         const coincideRubro = item.rubro === filtroMercado.rubro;
         const coincideSubRubro = filtroMercado.rubro !== 'equipamiento' || filtroMercado.subrubro === 'todos' || item.subrubro === filtroMercado.subrubro;
@@ -198,7 +198,6 @@ function construirMiniEscena3D(containerId, nombreArchivoGLB, rareza) {
     luzDireccional.position.set(3, 4, 5);
     escena.add(luzDireccional);
 
-    // CORRECCIÓN DE SINTAXIS: Prefijo 0x para colores hexadecimales de Three.js
     let colorAura = 0xffffff;
     if (rareza === 'legendario') colorAura = 0xffd700;
     if (rareza === 'mitico') colorAura = 0xe91e63;
@@ -219,11 +218,97 @@ function construirMiniEscena3D(containerId, nombreArchivoGLB, rareza) {
                 modeloMalla = gltf.scene;
                 const box = new THREE.Box3().setFromObject(modeloMalla);
                 const center = box.getCenter(new THREE.Vector3());
+                   // Auto-ajustar centrado y escala al mini canvas
                 modeloMalla.position.x += (modeloMalla.position.x - center.x);
                 modeloMalla.position.y += (modeloMalla.position.y - center.y);
                 modeloMalla.position.z += (modeloMalla.position.z - center.z);
                 escena.add(modeloMalla);
             },
-            undefined,() => { cargarMallaRespaldo(escena, rareza, (malla) => { modeloMalla = malla; }); });} else {cargarMallaRespaldo(escena, rareza, (malla) => { modeloMalla = malla; });}function animarMiniCarta() {const idAnimacion = requestAnimationFrame(animarMiniCarta);animacionesCartasActivas.push(idAnimacion);if (modeloMalla) {modeloMalla.rotation.y += 0.015;}render.render(escena, camara);}animarMiniCarta();}function cargarMallaRespaldo(escena, rareza, callback) {let colorMaterial = 0x555555;if (rareza === 'legendario') colorMaterial = 0xffd700;if (rareza === 'epico') colorMaterial = 0xff9800;if (rareza === 'raro') colorMaterial = 0x2196f3;const geometria = new THREE.TorusKnotGeometry(0.38, 0.12, 64, 8);const material = new THREE.MeshStandardMaterial({color: colorMaterial,metalness: 0.8,roughness: 0.2});const malla = new THREE.Mesh(geometria, material);escena.add(malla);callback(malla);}
-// 8. Procesador de Compras conectado al Árbitro//
-function procesarCompraItem(idItem) {console.log(Enviando evento de compra al árbitro para el ítem: ${idItem});if (typeof socket !== 'undefined' && socket && socket.connected) {socket.emit('tienda:comprar-carta', {itemId: idItem,rubro: filtroMercado.rubro});}}// ========================================================// ESCUCHADORES DE SOCKETS PARA TRANSACCIONES REALES ANTI-FRAUDE// ========================================================if (typeof socket !== 'undefined' && socket) {socket.on('connect', () => {socket.emit('tienda:solicitar-stock');});socket.on('tienda:recibir-stock', (stockServidor) => {console.log("Vitrina autorizada por el Árbitro recibida:", stockServidor);const rubroActual = filtroMercado.rubro;if (stockServidor[rubroActual]) {baseDatosItems3D.length = 0;stockServidor[rubroActual].forEach((item, index) => {baseDatosItems3D.push({id: item.tiendaItemId,nombre: item.nombre,rubro: rubroActual,subrubro: 'todos',rareza: item.rareza,precio: item.precio,archivo: rubroActual === 'edificios' ? (index % 2 === 0 ? "barracas.glb" : "aserradero.glb") : "gladius.glb"});});refrescarCatalogoMercado();}});socket.on('tienda:compra-exitosa', (data) => {alert(¡Transacción confirmada por el Árbitro! Nueva carta añadida a tu inventario. Balance: 🪙 ${data.newBalance || data.nuevoBalance});const txtBalance = document.getElementById('menu-player-balance');if (txtBalance) txtBalance.textContent = parseFloat(data.newBalance || data.nuevoBalance || 0).toFixed(2);});socket.on('tienda:error', (mensaje) => {alert(❌ Transacción Denegada: ${mensaje});});}
+            undefined,
+            () => { 
+                cargarMallaRespaldo(escena, rareza, (malla) => { modeloMalla = malla; }); 
+            }
+        );
+    } else {
+        cargarMallaRespaldo(escena, rareza, (malla) => { modeloMalla = malla; });
+    }
+
+    function animarMiniCarta() {
+        const idAnimacion = requestAnimationFrame(animarMiniCarta);
+        animacionesCartasActivas.push(idAnimacion);
+        if (modeloMalla) {
+            modeloMalla.rotation.y += 0.015;
+        }
+        render.render(escena, camara);
+    }
+    animarMiniCarta();
+}
+
+function cargarMallaRespaldo(escena, rareza, callback) {
+    let colorMaterial = 0x555555;
+    if (rareza === 'legendario') colorMaterial = 0xffd700;
+    if (rareza === 'epico') colorMaterial = 0xff9800;
+    if (rareza === 'raro') colorMaterial = 0x2196f3;
+
+    const geometria = new THREE.TorusKnotGeometry(0.38, 0.12, 64, 8);
+    const material = new THREE.MeshStandardMaterial({
+        color: colorMaterial,
+        metalness: 0.8,
+        roughness: 0.2
+    });
+    const malla = new THREE.Mesh(geometria, material);
+    escena.add(malla);
+    callback(malla);
+}
+
+// 8. Procesador de Compras conectado al Árbitro
+function procesarCompraItem(idItem) {
+    console.log(`Enviando evento de compra al árbitro para el ítem: ${idItem}`);
+    
+    if (typeof socket !== 'undefined' && socket && socket.connected) {
+        socket.emit('tienda:comprar-carta', {
+            itemId: idItem,
+            rubro: filtroMercado.rubro
+        });
+    }
+}
+
+// ========================================================
+// ESCUCHADORES DE SOCKETS PARA TRANSACCIONES REALES ANTI-FRAUDE
+// ========================================================
+if (typeof socket !== 'undefined' && socket) {
+    
+    socket.on('connect', () => {
+        socket.emit('tienda:solicitar-stock');
+    });
+
+    socket.on('tienda:recibir-stock', (stockServidor) => {
+        console.log("Vitrina autorizada por el Árbitro recibida:", stockServidor);
+        const rubroActual = filtroMercado.rubro;
+        if (stockServidor[rubroActual]) {
+            baseDatosItems3D.length = 0;
+            stockServidor[rubroActual].forEach((item, index) => {
+                baseDatosItems3D.push({
+                    id: item.tiendaItemId,
+                    nombre: item.nombre,
+                    rubro: rubroActual,
+                    subrubro: 'todos',
+                    rareza: item.rareza,
+                    precio: item.precio,
+                    archivo: rubroActual === 'edificios' ? (index % 2 === 0 ? "barracas.glb" : "aserradero.glb") : "gladius.glb"
+                });
+            });
+            refrescarCatalogoMercado();
+        }
+    });
+
+    socket.on('tienda:compra-exitosa', (data) => {
+        alert(`¡Transacción confirmada por el Árbitro! Nueva carta añadida a tu inventario. Balance: 🪙 ${data.nuevoBalance}`);
+        const txtBalance = document.getElementById('menu-player-balance');
+        if (txtBalance) txtBalance.textContent = parseFloat(data.nuevoBalance).toFixed(2);
+    });
+
+    socket.on('tienda:error', (mensaje) => {
+        alert(`❌ Transacción Denegada: ${mensaje}`);
+    });
+}
