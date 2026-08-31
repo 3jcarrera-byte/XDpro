@@ -78,6 +78,16 @@ el p2p se hara con un sistema de cartas que asignaran movimientos a tu personaje
 
 
 
+Plan de Acción para Incorporar el Mercado P2P
+Para conectar este modelo de usuario con el sistema P2P sin exploits de duplicación, el Árbitro (Node.js) debe orquestar el flujo de la siguiente manera:
+
+[Comprador] --- (Socket: 'p2p-comprar') ---> [Árbitro Node.js] <---> [Base de Datos (User & GameData)]
+                                                    │
+                                         (Validación Atómica)
+                                                    │
+                                                    ▼
+[Vendedor] <--- (Socket: 'p2p-exito') <------ [Balance] 🔄 [Cartas]
+
 
 
 
