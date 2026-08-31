@@ -1,6 +1,6 @@
 // public/js/mercado.js
 
-// Estado global de los filtros del mercado activo en memoria
+// Estado global de los filtros del mercado activo en memoria (Estructura lógica estricta)
 let filtroMercado = {
     modo: 'general',       // 'general' o 'interno'
     rubro: 'edificios',    // 'edificios', 'aldeanos', 'equipamiento', 'recursos', 'especiales'
@@ -11,7 +11,7 @@ let filtroMercado = {
 // Arreglo global para almacenar los identificadores de animación de Three.js y liberar memoria RAM
 let animacionesCartasActivas = [];
 
-// Base de Datos de prueba con los ítems y sus respectivos archivos de Blender (.glb)
+// Base de Datos local/respaldo con los ítems cruzados en minúsculas y sin acentos
 const baseDatosItems3D = [
     { id: 1, nombre: "Barracón del Imperio", rubro: "edificios", subrubro: "todos", rareza: "comun", precio: 45.00, archivo: "barracas.glb" },
     { id: 2, nombre: "Herrero Real", rubro: "aldeanos", subrubro: "todos", rareza: "poco-comun", precio: 12.50, archivo: "herrero.glb" },
@@ -25,11 +25,9 @@ const baseDatosItems3D = [
 function cambiarModoMercado(modoSeleccionado) {
     filtroMercado.modo = modoSeleccionado;
     
-    // UI de las pestañas superiores
     document.getElementById('btn-mercado-general').classList.toggle('active', modoSeleccionado === 'general');
     document.getElementById('btn-mercado-interno').classList.toggle('active', modoSeleccionado === 'interno');
     
-    // Contenedores de sub-pantallas
     const panelBuscador = document.getElementById('subpantalla-buscador-aldeas');
     const panelProductos = document.getElementById('subpantalla-filtros-productos');
     
@@ -47,40 +45,40 @@ function cambiarModoMercado(modoSeleccionado) {
     }
 }
 
-// 2. Controlador de Rubros (Limpia las clases duplicadas de forma estricta)
+// 2. Controlador de Rubros (CORREGIDO: Cruza filtros de forma limpia y reactiva)
 function cambiarRubro(rubroSeleccionado) {
     filtroMercado.rubro = rubroSeleccionado;
     
-    // 1. Limpiar el estado de TODOS los botones de rubros eliminando la clase active
+    // Si cambiamos de rubro, el subrubro vuelve automáticamente a 'todos' para no arrastrar filtros viejos
+    filtroMercado.subrubro = 'todos'; 
+
+    // Visual: Apagar todos los botones de rubros y encender solo el seleccionado
     const botones = document.querySelectorAll('.btn-filter-rubro');
     botones.forEach(btn => btn.classList.remove('active'));
 
-    // 2. Buscar únicamente el botón al que se le hizo clic y encenderlo
     const botonActivo = Array.from(botones).find(btn => {
         const onclickAttr = btn.getAttribute('onclick') || '';
         return onclickAttr.includes(`'${rubroSeleccionado}'`);
     });
-    
-    if (botonActivo) {
-        botonActivo.classList.add('active');
-    }
+    if (botonActivo) botonActivo.classList.add('active');
 
-    // Control de la caja de sub-rubros de equipamiento
+    // Visual: Resetear también la visual de los sub-rubros de equipamiento a 'Todos'
+    const botonesSub = document.querySelectorAll('.btn-filter-subrubro');
+    botonesSub.forEach(btn => {
+        const onclickAttr = btn.getAttribute('onclick') || '';
+        btn.classList.toggle('active', onclickAttr.includes("'todos'"));
+    });
+
+    // Control de la caja desplegable de sub-rubros
     const cajaSubRubros = document.getElementById('grupo-subfiltro-equipamiento');
     if (cajaSubRubros) {
         cajaSubRubros.style.display = (rubroSeleccionado === 'equipamiento') ? 'flex' : 'none';
-        if (rubroSeleccionado !== 'equipamiento') filtroMercado.subrubro = 'todos';
     }
 
-    // Solicitar el stock limpio al Árbitro en tiempo real
-    if (typeof socket !== 'undefined' && socket && socket.connected) {
-        socket.emit('tienda:solicitar-stock');
-    } else {
-        refrescarCatalogoMercado();
-    }
+    ejecutarRefrescoFiltrado();
 }
 
-// 3. Controlador de Sub-Rubros para el Equipamiento
+// 3. Controlador de Sub-Rubros
 function cambiarSubRubro(subrubroSeleccionado) {
     filtroMercado.subrubro = subrubroSeleccionado;
     
@@ -90,10 +88,10 @@ function cambiarSubRubro(subrubroSeleccionado) {
         btn.classList.toggle('active', onclickAttr.includes(`'${subrubroSeleccionado}'`));
     });
 
-    refrescarCatalogoMercado(); // 🚀 CORRECCIÓN: Indispensable para actualizar vista
+    ejecutarRefrescoFiltrado();
 }
 
-// 4. Controlador de Rarezas
+// 4. Controlador de Rarezas (CORREGIDO: Filtra de forma cruzada con el rubro)
 function cambiarRareza(rarezaSeleccionada) {
     filtroMercado.rareza = rarezaSeleccionada;
     
@@ -103,10 +101,21 @@ function cambiarRareza(rarezaSeleccionada) {
         btn.classList.toggle('active', onclickAttr.includes(`'${rarezaSeleccionada}'`));
     });
 
-    refrescarCatalogoMercado();
+    ejecutarRefrescoFiltrado();
 }
 
-// 5. Simulación de búsqueda de Aldeas locales
+/**
+ * Orquesta si el refresco se hace con datos locales o se le solicita al Árbitro en tiempo real
+ */
+function ejecutarRefrescoFiltrado() {
+    if (typeof socket !== 'undefined' && socket && socket.connected) {
+        socket.emit('tienda:solicitar-stock');
+    } else {
+        refrescarCatalogoMercado();
+    }
+}
+
+// 5. Búsqueda de Aldeas
 function ejecutarBusquedaAldea() {
     const input = document.getElementById('input-buscar-aldea').value.trim();
     if (!input) {
@@ -129,11 +138,10 @@ function ejecutarBusquedaAldea() {
 function entrarMercadoInternoAldea(nombreAldea) {
     document.getElementById('subpantalla-buscador-aldeas').style.display = 'none';
     document.getElementById('subpantalla-filtros-productos').style.display = 'block';
-    console.log(`Operando en el mercado local de la aldea: ${nombreAldea}`);
     refrescarCatalogoMercado();
 }
 
-// 6. RENDERIZADOR 3D AVANZADO: Filtra y dibuja el escaparate
+// 6. RENDERIZADOR 3D AVANZADO (FILTRADO EXACTO CRUZADO EN MINÚSCULAS)
 function refrescarCatalogoMercado() {
     const grid = document.getElementById('grid-cartas-3d');
     if (!grid) return;
@@ -142,25 +150,32 @@ function refrescarCatalogoMercado() {
     animacionesCartasActivas = [];
     grid.innerHTML = '';
 
+    // LOGICA FILTRADO CRUZADO TOTALMENTE CORRECTO
     const itemsFiltrados = baseDatosItems3D.filter(item => {
+        // Regla 1: Debe coincidir el Rubro (Edificios, Equipamiento, etc.)
         const coincideRubro = item.rubro === filtroMercado.rubro;
-        const coincideSubRubro = filtroMercado.rubro !== 'equipamiento' || filtroMercado.subrubro === 'todos' || item.subrubro === filtroMercado.subrubro;
         
-        const rarezaItemLimpia = (item.rareza || '').toLowerCase();
-        const coincideRareza = filtroMercado.rareza === 'todas' || rarezaItemLimpia === filtroMercado.rareza.toLowerCase();
+        // Regla 2: Si el rubro es equipamiento, valida subrubro (Armas, escudos). Si no, pasa directo.
+        const coincideSubRubro = filtroMercado.rubro !== 'equipamiento' || 
+                                 filtroMercado.subrubro === 'todos' || 
+                                 item.subrubro === filtroMercado.subrubro;
+        
+        // Regla 3: Si rareza es 'todas' muestra todo, sino compara estrictamente en minúsculas
+        const rarezaItemLimpia = (item.rareza || '').toLowerCase().trim();
+        const rarezaFiltroLimpia = filtroMercado.rareza.toLowerCase().trim();
+        const coincideRareza = filtroMercado.rareza === 'todas' || rarezaItemLimpia === rarezaFiltroLimpia;
         
         return coincideRubro && coincideSubRubro && coincideRareza;
     });
 
     if (itemsFiltrados.length === 0) {
-        grid.innerHTML = `<div class="market-empty-msg" style="grid-column: 1/-1; padding: 40px; text-align:center; color:#888;">No hay cartas tridimensionales con esta rareza a la venta.</div>`;
+        grid.innerHTML = `<div class="market-empty-msg" style="grid-column: 1/-1; padding: 40px; text-align:center; color:#888;">No hay cartas tridimensionales que cumplan estos filtros cruzados.</div>`;
         return;
     }
 
     itemsFiltrados.forEach(item => {
         const cardBox = document.createElement('div');
         cardBox.className = `carta-mercado-3d-box borde-rareza-${item.rareza.toLowerCase()}`;
-
         const containerId = `canvas-container-item-${item.id}`;
 
         cardBox.innerHTML = `
@@ -173,11 +188,13 @@ function refrescarCatalogoMercado() {
         `;
 
         grid.appendChild(cardBox);
+        
+        // Ejecutamos el mini motor pasando las dimensiones de tus cartas de Blender
         construirMiniEscena3D(containerId, item.archivo, item.rareza.toLowerCase());
     });
 }
 
-// 7. Mini motor de renderizado individual por ranura
+// 7. MINI MOTOR 3D CALIBRADO EXCLUSIVAMENTE PARA EL TAMAÑO DE TU CARTA DE BLENDER
 function construirMiniEscena3D(containerId, nombreArchivoGLB, rareza) {
     const contenedor = document.getElementById(containerId);
     if (!contenedor) return;
@@ -185,17 +202,19 @@ function construirMiniEscena3D(containerId, nombreArchivoGLB, rareza) {
     const escena = new THREE.Scene();
     escena.background = new THREE.Color('#050507');
 
-    const camara = new THREE.PerspectiveCamera(45, contenedor.clientWidth / contenedor.clientHeight, 0.1, 100);
-    camara.position.set(0, 0, 3.2);
+    // CÁMARA CALIBRADA: Al ser cartas muy pequeñas (0.088m), acercamos la cámara a 0.18 unidades
+    const camara = new THREE.PerspectiveCamera(45, contenedor.clientWidth / contenedor.clientHeight, 0.01, 10);
+    camara.position.set(0, 0, 0.18); 
 
     const render = new THREE.WebGLRenderer({ antialias: true });
     render.setSize(contenedor.clientWidth, contenedor.clientHeight);
     render.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     contenedor.appendChild(render.domElement);
-
-    escena.add(new THREE.AmbientLight(0xffffff, 0.6));
-    const luzDireccional = new THREE.DirectionalLight(0xffffff, 1.2);
-    luzDireccional.position.set(3, 4, 5);
+// Iluminación ajustada a la micro-escala para texturas PBR de Blender
+    escena.add(new THREE.AmbientLight(0xffffff, 0.7));
+    
+    const luzDireccional = new THREE.DirectionalLight(0xffffff, 1.5);
+    luzDireccional.position.set(0.2, 0.5, 0.5);
     escena.add(luzDireccional);
 
     let colorAura = 0xffffff;
@@ -204,8 +223,8 @@ function construirMiniEscena3D(containerId, nombreArchivoGLB, rareza) {
     if (rareza === 'epico') colorAura = 0xff9800;
     if (rareza === 'raro') colorAura = 0x2196f3;
 
-    const luzAura = new THREE.PointLight(colorAura, 1.8, 8);
-    luzAura.position.set(0, 0, -1);
+    const luzAura = new THREE.PointLight(colorAura, 2, 0.5);
+    luzAura.position.set(0, 0, -0.05);
     escena.add(luzAura);
 
     let modeloMalla = null;
@@ -216,12 +235,14 @@ function construirMiniEscena3D(containerId, nombreArchivoGLB, rareza) {
             `/models3d/${nombreArchivoGLB}`,
             (gltf) => {
                 modeloMalla = gltf.scene;
+                // Centrado matemático estricto en base al micro-tamaño (0.002 x 0.088 x 0.062)
                 const box = new THREE.Box3().setFromObject(modeloMalla);
                 const center = box.getCenter(new THREE.Vector3());
-                   // Auto-ajustar centrado y escala al mini canvas
+                
                 modeloMalla.position.x += (modeloMalla.position.x - center.x);
                 modeloMalla.position.y += (modeloMalla.position.y - center.y);
                 modeloMalla.position.z += (modeloMalla.position.z - center.z);
+                
                 escena.add(modeloMalla);
             },
             undefined,
@@ -237,34 +258,35 @@ function construirMiniEscena3D(containerId, nombreArchivoGLB, rareza) {
         const idAnimacion = requestAnimationFrame(animarMiniCarta);
         animacionesCartasActivas.push(idAnimacion);
         if (modeloMalla) {
-            modeloMalla.rotation.y += 0.015;
+            modeloMalla.rotation.y += 0.015; // Efecto vitrina tridimensional rotativo
         }
         render.render(escena, camara);
     }
     animarMiniCarta();
 }
 
+// Malla geométrica de respaldo escalada milimétricamente si el .glb no se ha cargado
 function cargarMallaRespaldo(escena, rareza, callback) {
     let colorMaterial = 0x555555;
     if (rareza === 'legendario') colorMaterial = 0xffd700;
     if (rareza === 'epico') colorMaterial = 0xff9800;
     if (rareza === 'raro') colorMaterial = 0x2196f3;
 
-    const geometria = new THREE.TorusKnotGeometry(0.38, 0.12, 64, 8);
+    // Caja simulando el tamaño real de la carta de Blender: 0.062 ancho, 0.088 alto, 0.002 grosor
+    const geometria = new THREE.BoxGeometry(0.062, 0.088, 0.002);
     const material = new THREE.MeshStandardMaterial({
         color: colorMaterial,
-        metalness: 0.8,
-        roughness: 0.2
+        metalness: 0.7,
+        roughness: 0.3
     });
     const malla = new THREE.Mesh(geometria, material);
     escena.add(malla);
     callback(malla);
 }
 
-// 8. Procesador de Compras conectado al Árbitro
+// 8. Procesador de Compras
 function procesarCompraItem(idItem) {
     console.log(`Enviando evento de compra al árbitro para el ítem: ${idItem}`);
-    
     if (typeof socket !== 'undefined' && socket && socket.connected) {
         socket.emit('tienda:comprar-carta', {
             itemId: idItem,
@@ -274,7 +296,7 @@ function procesarCompraItem(idItem) {
 }
 
 // ========================================================
-// ESCUCHADORES DE SOCKETS PARA TRANSACCIONES REALES ANTI-FRAUDE
+// ESCUCHADORES DE SOCKETS (Sincronización en tiempo real)
 // ========================================================
 if (typeof socket !== 'undefined' && socket) {
     
@@ -285,6 +307,7 @@ if (typeof socket !== 'undefined' && socket) {
     socket.on('tienda:recibir-stock', (stockServidor) => {
         console.log("Vitrina autorizada por el Árbitro recibida:", stockServidor);
         const rubroActual = filtroMercado.rubro;
+        
         if (stockServidor[rubroActual]) {
             baseDatosItems3D.length = 0;
             stockServidor[rubroActual].forEach((item, index) => {
@@ -293,7 +316,7 @@ if (typeof socket !== 'undefined' && socket) {
                     nombre: item.nombre,
                     rubro: rubroActual,
                     subrubro: 'todos',
-                    rareza: item.rareza,
+                    rareza: (item.rareza || 'comun').toLowerCase().trim(), // Forzar minúsculas anti-acentos
                     precio: item.precio,
                     archivo: rubroActual === 'edificios' ? (index % 2 === 0 ? "barracas.glb" : "aserradero.glb") : "gladius.glb"
                 });
