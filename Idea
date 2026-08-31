@@ -74,7 +74,7 @@ el carreton, es el contenedor principal de las cartas de poblacion del jugador, 
 en el centro el contenedor de cartas que tendra una habilitacion de 8 para todos los usuarios(porque es la capacidad maxima de finca) + 16 de aldea ( si el usuario compro una aldea). y el contenedor de la derecha para las cartas de poblacion asignada a finca. la habilitacion de los slot de aldea(maximo16) y finca (maximo 8) estara dada por las cartas de edificio activos.
 por ejemplo. en la pagina aldea hay una carta de casona en el cambas central, esta habilitara 2 slot en la pagina de carreton, y podre poner 2 cartas de poblacion en el contenedor de poblacion de finca del la pagina carreton, a su ves en la pagina de finca tendre disponible esas dos cartas en el contenedor de cartas de poblacion y podre arrastrar esas cartas para habilitarlas en un edificio activo en el cambas, si yo retiro el edificio, descuento 2 de poblacion y al no tener habilitado slot de poblacion estas cartas dejan de estar disponibles en finca, y en la pagina de carreto pasan al contenedor central de carreto.
 
-
+el p2p se hara con un sistema de cartas que asignaran movimientos a tu personaje. entrara en combate con otros dos usuarios, uno perdera todo, otro perdera la mita y el ganador duplicara. posteriormente ire agregando mas la idea.
 
 
 
