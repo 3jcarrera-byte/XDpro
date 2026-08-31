@@ -1,22 +1,39 @@
+// public/js/carreton.js
+
 // Estado lógico del Carretón y propiedad de instancias
 let datosCarreton = {
-    poseeAldea: false, // Cambiar a true para pruebas o mediante eventos del servidor
+    poseeAldea: false, // Cambiar a true para pruebas o mediante eventos del servidor (NFT)
     slotsAldeaMax: 16,
     slotsFincaMax: 8,
     slotsCentralMax: 24,
     
-    // Listas de cartas de personajes actualmente depositadas en cada contenedor
+    // Listas de cartas de personajes depositadas con su ranura fija asignada (slotIndex)
     cartasAldea: [
-        { id: "pj_a1", nombre: "Minero Ancestral", nivel: 2, icono: "⛏️" }
+        { id: "pj_a1", nombre: "Minero Ancestral", nivel: 2, icono: "⛏️", slotIndex: 0 }
     ],
     cartasFinca: [
-        { id: "pj_f1", nombre: "Granjero Beta", nivel: 1, icono: "👨‍🌾" },
-        { id: "pj_f2", nombre: "Recolector Alfa", nivel: 3, icono: "🧺" }
+        { id: "pj_f1", nombre: "Granjero Beta", nivel: 1, icono: "👨‍🌾", slotIndex: 0 },
+        { id: "pj_f2", nombre: "Recolector Alfa", nivel: 3, icono: "🧺", slotIndex: 2 } // Slot 1 queda vacío
     ],
     cartasCentral: [
-        { id: "pj_c1", nombre: "Guerrero Exiliado", nivel: 1, icono: "⚔️" }
+        { id: "pj_c1", nombre: "Guerrero Exiliado", nivel: 1, icono: "⚔️", slotIndex: 0 }
     ]
 };
+
+/**
+ * Validador estricto de límite máximo de personajes permitidos en el Carretón Central
+ * @returns {boolean} - true si el inventario tiene espacio disponible
+ */
+function puedeAgregarPersonajeCentral() {
+    const limiteMaximo = datosCarreton.poseeAldea ? datosCarreton.slotsCentralMax : datosCarreton.slotsFincaMax; // 24 o 8
+    
+    if (datosCarreton.cartasCentral.length >= limiteMaximo) {
+        console.warn(`⚠️ Límite alcanzado: El carretón central está lleno (${datosCarreton.cartasCentral.length}/${limiteMaximo}).`);
+        alert(`¡El Carretón Central ha alcanzado su capacidad máxima de ${limiteMaximo} pobladores! No puedes añadir más cartas.`);
+        return false;
+    }
+    return true;
+}
 
 /**
  * Inicializa y renderiza los tres bloques del Carretón en la interfaz
@@ -37,9 +54,14 @@ function cargarCarreton() {
         "Contenedor Bloqueado: Requiere propiedad de Aldea"
     );
 
-    // 2. Renderizar Bloque Central: Almacenamiento General (Condicionado)
-    // El límite total depende de si posee aldea (16+8=24) o solo finca (8)
-    const slotsHabilitadosCentral = datosCarreton.poseeAldea ? 24 : 8;
+    // 2. Renderizar Bloque Central: Almacenamiento de Personajes (Estrictamente limitado a 8 o 24)
+    const slotsHabilitadosCentral = datosCarreton.poseeAldea ? datosCarreton.slotsCentralMax : datosCarreton.slotsFincaMax;
+    
+    // Si por algún cambio del servidor el array excede el límite real, truncamos para evitar exploits visuales
+    if (datosCarreton.cartasCentral.length > slotsHabilitadosCentral) {
+        datosCarreton.cartasCentral = datosCarreton.cartasCentral.slice(0, slotsHabilitadosCentral);
+    }
+
     renderizarBloqueCarreton(
         contCentral, 
         datosCarreton.cartasCentral, 
@@ -65,7 +87,7 @@ function cargarCarreton() {
 }
 
 /**
- * Helper para renderizar los slots de cartas o la interfaz de bloqueo
+ * Helper para renderizar los slots de cartas o la interfaz de bloqueo (Optimizado para ranuras fijas)
  */
 function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabilitado, mensajeBloqueo) {
     elementoDOM.innerHTML = '';
@@ -83,9 +105,10 @@ function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabili
         const slotDiv = document.createElement('div');
         slotDiv.className = 'carreton-slot';
 
-        // Si existe una carta asignada a este índice de la lista, la dibuja
-        if (listaCartas[i]) {
-            const carta = listaCartas[i];
+        // CORRECCIÓN DE ASIGNACIÓN: Buscamos si hay una carta asignada específicamente a ESTA ranura (i)
+        const carta = listaCartas.find(c => c.slotIndex === i);
+
+        if (carta) {
             slotDiv.className += ' ocupado';
             slotDiv.innerHTML = `
                 <div class="pj-icono">${carta.icono}</div>
@@ -105,5 +128,23 @@ function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabili
  */
 function moverPersonaje(idCarta) {
     console.log(`Solicitud para mover el personaje ID: ${idCarta}`);
-    // Aquí se procesarán los intercambios de slots mediante Socket.io en las siguientes fases
+    
+    // Conexión segura con el Árbitro en Render
+    if (typeof socket !== 'undefined' && socket && socket.connected) {
+        socket.emit('carreton:mover-personaje', { idCarta: idCarta });
+    }
+}
+
+// Escuchador de Socket para actualizar el carretón cuando el Árbitro aprueba un cambio de inventario
+if (typeof socket !== 'undefined' && socket) {
+    socket.on('carreton:actualizar-estado', (nuevoEstadoCarreton) => {
+        // El servidor nos envía el inventario verificado anti-fraude
+        datosCarreton.poseeAldea = nuevoEstadoCarreton.poseeAldea;
+        datosCarreton.cartasAldea = nuevoEstadoCarreton.cartasAldea;
+        datosCarreton.cartasFinca = nuevoEstadoCarreton.cartasFinca;
+        datosCarreton.cartasCentral = nuevoEstadoCarreton.cartasCentral;
+        
+        // Re-pintar la interfaz de forma reactiva
+        cargarCarreton();
+    });
 }
