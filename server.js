@@ -116,7 +116,7 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // ========================================================
-// ENDPOINT: INICIO DE SESIÓN
+// ENDPOINT: INICIO DE SESIÓN (REPARADO Y BLINDADO)
 // ========================================================
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
@@ -124,25 +124,66 @@ app.post('/api/auth/login', async (req, res) => {
         if (!username || !password) {
             return res.status(400).json({ success: false, message: 'Campos incompletos.' });
         }
+
+        // Buscar al gladiador ignorando mayúsculas/minúsculas y espacios
         const usuario = await User.findOne({ 
             username: { $regex: new RegExp(`^${username.trim()}$`, 'i') } 
         });
+
         if (!usuario) {
             return res.status(401).json({ success: false, message: 'Usuario o contraseña inválidos.' });
         }
+
+        // 🛡️ CONTROL DE ACCESO ESTRICTO: BANEO PERMANENTE
         if (usuario.status === 'banned_perm') {
-            return res.status(403).json({ success: false, message: 'Cuenta suspendida permanentemente.' });
+            return res.status(403).json({ 
+                success: false, 
+                message: `Cuenta suspendida permanentemente. Razón: ${usuario.banReason || 'No especificada'}` 
+            });
         }
+
+        // 🛡️ CONTROL DE ACCESO ESTRICTO: BANEO TEMPORAL
+        if (usuario.status === 'banned_temp') {
+            if (usuario.banUntil && new Date() < usuario.banUntil) {
+                const horasRestantes = Math.ceil((usuario.banUntil - new Date()) / (1000 * 60 * 60));
+                return res.status(403).json({ 
+                    success: false, 
+                    message: `Cuenta suspendida temporalmente. Quedan ${horasRestantes} horas. Razón: ${usuario.banReason || 'No especificada'}` 
+                });
+            } else {
+                // Si el tiempo de baneo ya expiró, reactivamos al usuario automáticamente
+                usuario.status = 'active';
+                usuario.banReason = null;
+                usuario.banUntil = null;
+                await usuario.save();
+            }
+        }
+
+        // Verificar contraseña encriptada usando el método del modelo User.js
         const esValido = await usuario.comparePassword(password);
         if (!esValido) {
             return res.status(401).json({ success: false, message: 'Usuario o contraseña inválidos.' });
         }
 
-        // Instanciar o recuperar el GameData del jugador en la caché del servidor al loguearse
+        // 🗄️ PERSISTENCIA AUTOMÁTICA EN MONGODB Y INICIALIZACIÓN DE CANVAS 3D
         if (!cachePartidas[usuario.username]) {
-            cachePartidas[usuario.username] = new GameDataModel(usuario.username);
+            // Intentar recuperar datos de partida existentes desde MongoDB
+            let juegoData = await GameDataModel.findOne({ username: usuario.username });
+            
+            // Si el jugador es nuevo y no tiene registro logístico, se crea su instancia inicial
+            if (!juegoData) {
+                juegoData = new GameDataModel({ username: usuario.username });
+                // Disparador crucial: Inyecta los 5 cimientos de Finca y 12 de Aldea para que el motor 3D no explote
+                juegoData.inicializarEspaciosVacios(); 
+                await juegoData.save();
+                console.log(`🏛️ Espacios geográficos inicializados exitosamente para el nuevo gladiador: ${usuario.username}`);
+            }
+            
+            // Alojar el documento activo en la caché en memoria del servidor ("El Árbitro")
+            cachePartidas[usuario.username] = juegoData;
         }
 
+        // Respuesta exitosa al cliente SPA con datos de balance actualizados
         return res.status(200).json({ 
             success: true, 
             userId: usuario._id,
