@@ -385,13 +385,14 @@
   <!-- 5. CONTROL SCRIPTS (Limpio sin el botón de menú rojo flotante) -->
   <!-- ======================================================== -->
   
-  <!-- IMPORTACIÓN REAL DE THREE.JS (Necesaria para game3d.js) -->
-  <script src="https://cloudflare.com"></script>
+  <!-- IMPORTACIÓN REAL Y CORRECTA DE THREE.JS Y SU INYECTOR GLTF -->
+<script src="https://cloudflare.com"></script>
+<script src="https://jsdelivr.net"></script>
 
-  <!-- Tus scripts ordenados -->
-  <script src="js/mercado.js"></script>
-  <script src="js/game3d.js"></script>
-  <script src="js/carreton.js"></script> <!-- 🚀 ¡AGREGA ESTA LÍNEA AQUÍ! -->
-  <script src="js/main.js"></script>
+<!-- Tus scripts organizados por jerarquía de dependencias -->
+<script src="js/game3d.js"></script>
+<script src="js/mercado.js"></script>
+<script src="js/carreton.js"></script>
+  
 </body>
 </html>
