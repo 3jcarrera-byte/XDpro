@@ -167,21 +167,18 @@ app.post('/api/auth/login', async (req, res) => {
 
         // 🗄️ PERSISTENCIA AUTOMÁTICA EN MONGODB Y INICIALIZACIÓN DE CANVAS 3D
         if (!cachePartidas[usuario.username]) {
-            // Intentar recuperar datos de partida existentes desde MongoDB
-            let juegoData = await GameDataModel.findOne({ username: usuario.username });
-            
-            // Si el jugador es nuevo y no tiene registro logístico, se crea su instancia inicial
-            if (!juegoData) {
-                juegoData = new GameDataModel({ username: usuario.username });
-                // Disparador crucial: Inyecta los 5 cimientos de Finca y 12 de Aldea para que el motor 3D no explote
-                juegoData.inicializarEspaciosVacios(); 
-                await juegoData.save();
-                console.log(`🏛️ Espacios geográficos inicializados exitosamente para el nuevo gladiador: ${usuario.username}`);
-            }
-            
-            // Alojar el documento activo en la caché en memoria del servidor ("El Árbitro")
-            cachePartidas[usuario.username] = juegoData;
-        }
+  let juegoData = await GameDataModel.findOne({ username: usuario.username });
+  
+  if (!juegoData) {
+    juegoData = new GameDataModel({ username: usuario.username });
+    juegoData.inicializarEspaciosVacios();
+    await juegoData.save();
+    // Guardar el objeto plano de JS en la caché del Árbitro
+    cachePartidas[usuario.username] = juegoData.toObject();
+  } else {
+    cachePartidas[usuario.username] = juegoData.toObject();
+  }
+}
 
         // Respuesta exitosa al cliente SPA con datos de balance actualizados
         return res.status(200).json({ 
