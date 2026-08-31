@@ -178,19 +178,30 @@
     <button onclick="cambiarPantalla('pantalla-menu-principal')">🔙 Volver</button>
   </div>
 
-  <!-- CARRETÓN -->
-   <div id="pantalla-carreton" class="seccion-juego" style="display: none;">
-    <h2>Módulo del Carretón (Ranuras de Personajes)</h2>
-    <!-- Indicador dinámico de slots -->
-    <h3 id="carreton-central-capacidad">Slots: 0 / 0</h3> 
+   <!-- CARRETÓN (Estructura Corregida con Contenedores) -->
+  <div id="pantalla-carreton" class="seccion-juego" style="display: none;">
+    <h2>Módulo del Carretón</h2>
+    <!-- Indicador de capacidad requerido por el script -->
+    <h3 id="carreton-central-capacidad" style="color: #ffd700; margin-bottom: 15px;">Slots: 0 / 0</h3>
     
-    <div class="carreton-flex-layout">
-        <div id="carreton-aldea-lista"></div>
-        <div id="carreton-central-lista"></div>
-        <div id="carreton-finca-lista"></div>
+    <!-- Contenedores donde se inyectará la cuadrícula visual -->
+    <div class="carreton-main-wrapper" style="display: flex; gap: 20px; justify-content: space-between;">
+        <div class="carreton-bloque">
+            <h3>Aldea</h3>
+            <div id="carreton-aldea-lista" class="carreton-grid"></div>
+        </div>
+        <div class="carreton-bloque">
+            <h3>Central</h3>
+            <div id="carreton-central-lista" class="carreton-grid"></div>
+        </div>
+        <div class="carreton-bloque">
+            <h3>Finca</h3>
+            <div id="carreton-finca-lista" class="carreton-grid"></div>
+        </div>
     </div>
-    
-    <button onclick="cambiarPantalla('pantalla-menu-principal')">🔙 Volver</button>
+
+    <br>
+    <button onclick="cambiarPantalla('pantalla-menu-principal')">🔙 Volver al Menú Principal</button>
   </div>
 
   <!-- ======================================================== -->
