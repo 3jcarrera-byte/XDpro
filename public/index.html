@@ -179,8 +179,17 @@
   </div>
 
   <!-- CARRETÓN -->
-  <div id="pantalla-carreton" class="seccion-juego" style="display: none;">
-    <h2>Módulo del Carretón (Máx. 24 Slots)</h2>
+   <div id="pantalla-carreton" class="seccion-juego" style="display: none;">
+    <h2>Módulo del Carretón (Ranuras de Personajes)</h2>
+    <!-- Indicador dinámico de slots -->
+    <h3 id="carreton-central-capacidad">Slots: 0 / 0</h3> 
+    
+    <div class="carreton-flex-layout">
+        <div id="carreton-aldea-lista"></div>
+        <div id="carreton-central-lista"></div>
+        <div id="carreton-finca-lista"></div>
+    </div>
+    
     <button onclick="cambiarPantalla('pantalla-menu-principal')">🔙 Volver</button>
   </div>
 
