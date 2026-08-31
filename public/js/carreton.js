@@ -2,7 +2,7 @@
 
 // Estado lógico del Carretón y propiedad de instancias
 let datosCarreton = {
-    poseeAldea: false, // Cambiar a true para pruebas o mediante eventos del servidor (NFT)
+    poseeAldea: true, // Cambiar a true para pruebas o mediante eventos del servidor (NFT)
     slotsAldeaMax: 16,
     slotsFincaMax: 8,
     slotsCentralMax: 24,
