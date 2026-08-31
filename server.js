@@ -230,6 +230,37 @@ io.on('connection', (socket) => {
                 carta: cartaRegistrada
             });
 
-            // Sincronización masiva de vitrina a todos los jugadores en línea
+             // Sincronización masiva de vitrina a todos los jugadores en línea
             io.emit('tienda:recibir-stock', stockTiendaSistema);
-} catch (error) {console.error('Error en transacción de mercado:', error);socket.emit('tienda:error', 'Error interno al procesar la compra.');}});socket.on('join_arena', (data) => {console.log(Jugador ${data.username} buscando partida en la Arena...);});socket.on('disconnect', () => {console.log(❌ Jugador desconectado: ${socket.id});});});// ========================================================// RUTA COMODÍN PARA SPA// ========================================================app.get('*', (req, res) => {res.sendFile(path.join(__dirname, 'public', 'index.html'));});// ========================================================// INICIAR EL SERVIDOR// ========================================================const PORT = process.env.PORT || 5173;server.listen(PORT, '0.0.0.0', () => {console.log(🚀 Árbitro de XDpro corriendo en el puerto ${PORT});});
+
+        } catch (error) {
+            console.error('Error en transacción de mercado:', error);
+            socket.emit('tienda:error', 'Error interno al procesar la compra.');
+        }
+    });
+
+    // Evento de búsqueda de emparejamiento en la Arena (CON BACKTICKS CORREGIDOS)
+    socket.on('join_arena', (data) => {
+        console.log(`Jugador ${data.username} buscando partida en la Arena...`);
+    });
+
+    // Control de salida de jugadores en red
+    socket.on('disconnect', () => {
+        console.log(`❌ Jugador desconectado: ${socket.id}`);
+    });
+});
+
+// ========================================================
+// RUTA COMODÍN PARA TU SPA (Evita errores de recarga)
+// ========================================================
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// ========================================================
+// INICIAR EL SERVIDOR (OBLIGATORIO Usar server.listen para Sockets)
+// ========================================================
+const PORT = process.env.PORT || 5173; 
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Árbitro de XDpro corriendo en el puerto ${PORT}`);
+});
