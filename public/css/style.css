@@ -922,54 +922,44 @@ css/* ==========================================================================
 .borde-rareza-mitico { border-color: #e91e63 !important; }
 .borde-rareza-legendario { border-color: #ffd700 !important; }
 
-/* ESTILOS EXCLUSIVOS PARA MARCOS Y SLOTS DEL CARRETÓN */
+
+
+
+
+/* ESTRUCTURA PROFESIONAL PARA EL CARRETÓN */
+.carreton-tres-bloques-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr) !important; /* Forza 3 columnas idénticas para evitar desbordes */
+    gap: 15px;
+    width: 100%;
+    box-sizing: border-box; /* Evita que el padding sume ancho extra */
+}
+
+/* GRILLES INTERNAS PARA LOS SLOTS DE CARTAS */
+#carreton-aldea-lista, #carreton-finca-lista {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important; /* 2 columnas de slots */
+    gap: 10px;
+    padding: 5px;
+}
+
+#carreton-central-lista {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important; /* 3 columnas de slots para el centro */
+    gap: 10px;
+    padding: 5px;
+}
+
+/* RENDER DE CADA SLOT INDIVIDUAL */
 .carreton-slot {
-    background: rgba(0, 0, 0, 0.6);
-    border: 1px dashed #554433;
+    background: rgba(18, 12, 9, 0.7);
+    border: 1px solid #3d2a1d;
     border-radius: 6px;
     padding: 10px;
+    min-height: 110px;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    text-align: center;
-    min-height: 110px;
-    transition: all 0.2s ease;
 }
-
-.carreton-slot.ocupado {
-    background: linear-gradient(135deg, #2c1e14 0%, #17100b 100%);
-    border: 1px solid #d4af37;
-    box-shadow: inset 0 0 8px rgba(212, 175, 55, 0.2);
-}
-
-.slot-vacio-txt {
-    color: #554433;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.carreton-bloqueado-msg {
-    grid-column: 1 / -1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    color: #ff4444;
-    background: rgba(255, 0, 0, 0.05);
-    border: 1px solid rgba(255, 0, 0, 0.2);
-    border-radius: 6px;
-    padding: 20px;
-    font-size: 13px;
-    font-weight: bold;
-    height: 100%;
-}
-
-/* Efecto visual opaco para el contenedor de la Aldea bloqueado */
-.bloqueado {
-    opacity: 0.4;
-    filter: grayscale(80%);
-    pointer-events: none; /* Evita interacciones maliciosas */
-}
-
