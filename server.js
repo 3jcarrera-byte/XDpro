@@ -144,11 +144,13 @@ app.post('/api/auth/login', async (req, res) => {
         }
 
         return res.status(200).json({ 
-            success: true, 
-            userId: usuario._id,
-            username: usuario.username,
-            balance: usuario.balance || 0
-        });
+    success: true, 
+    userId: usuario._id,
+    username: usuario.username,
+    balance: usuario.balance || 0,
+    poseeAldea: usuario.poseeAldea || false // 🚀 Ahora el cliente sabe si tiene la Aldea desde el login
+});
+        
     } catch (error) {
         console.error('Error al autenticar:', error);
         return res.status(500).json({ success: false, message: 'Fallo interno del servidor.' });
