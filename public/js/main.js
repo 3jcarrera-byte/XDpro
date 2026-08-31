@@ -171,11 +171,11 @@ if (loginForm) {
             if (response.ok && data.success) {
     if (authScreen) authScreen.style.display = 'none';
     
-    const txtNick = document.getElementById('menu-player-nick');
-    const txtBalance = document.getElementById('menu-player-balance');
-    
-    if (txtNick) txtNick.textContent = data.username;
-    if (txtBalance) txtBalance.textContent = parseFloat(data.balance || 0).toFixed(2);
+    const txtCarretonNick = document.getElementById('carreton-player-nick');
+    const txtCarretonBalance = document.getElementById('carreton-player-balance');
+
+        if (txtCarretonNick) txtCarretonNick.textContent = data.username;
+        if (txtCarretonBalance) txtCarretonBalance.textContent = parseFloat(data.balance || 0).toFixed(2);
     
     // 1. Saltamos a la pantalla del menú
     cambiarPantalla('pantalla-menu-principal');
