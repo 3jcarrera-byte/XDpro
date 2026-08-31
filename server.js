@@ -45,15 +45,15 @@ let stockTiendaSistema = { edificios: [], personajes: [], equipamiento: [] };
 
 const CATALOGO_DISEÑOS = {
     edificios: [
-        { subtipo: 'granja', nombre: '🌾 Granja Imperial', rareza: 'Común', precioBase: 50 },
-        { subtipo: 'aserradero', nombre: '🪓 Aserradero Alfa', rareza: 'Común', precioBase: 60 }
+        { subtipo: 'granja', nombre: '🌾 Granja Imperial', rareza: 'común', precioBase: 50 },
+        { subtipo: 'aserradero', nombre: '🪓 Aserradero Alfa', rareza: 'común', precioBase: 60 }
     ],
     personajes: [
-        { subtipo: 'gladiador_minero', nombre: '👨‍🌾 Minero de Élite', rareza: 'Poco Común', precioBase: 120 },
-        { subtipo: 'guerrero_arena', nombre: '⚔️ Recluta de Arena', rareza: 'Común', precioBase: 80 }
+        { subtipo: 'gladiador_minero', nombre: '👨‍🌾 Minero de élite', rareza: 'poco común', precioBase: 120 },
+        { subtipo: 'guerrero_arena', nombre: '⚔️ Recluta de Arena', rareza: 'común', precioBase: 80 }
     ],
     equipamiento: [
-        { subtipo: 'espada_bronce', nombre: '🗡️ Espada de Bronce', rareza: 'Común', precioBase: 30 }
+        { subtipo: 'espada_bronce', nombre: '🗡️ Espada de Bronce', rareza: 'común', precioBase: 30 }
     ]
 };
 
