@@ -43,24 +43,25 @@ mongoose.connect(MONGO_URI)
 const cachePartidas = {}; // Guarda instancias activas de GameDataModel indexadas por username
 let stockTiendaSistema = { edificios: [], personajes: [], equipamiento: [] };
 
+// CORRECCIÓN: Rarezas estandarizadas en minúsculas y sin acentos para que calcen con mercado.js
 const CATALOGO_DISEÑOS = {
     edificios: [
-        { subtipo: 'granja', nombre: '🌾 Granja Imperial', rareza: 'común', precioBase: 50 },
-        { subtipo: 'aserradero', nombre: '🪓 Aserradero Alfa', rareza: 'común', precioBase: 60 }
+        { subtipo: 'granja', nombre: '🌾 Granja Imperial', rareza: 'comun', precioBase: 50 },
+        { subtipo: 'aserradero', nombre: '🪓 Aserradero Alfa', rareza: 'comun', precioBase: 60 }
     ],
     personajes: [
-        { subtipo: 'gladiador_minero', nombre: '👨‍🌾 Minero de élite', rareza: 'poco común', precioBase: 120 },
-        { subtipo: 'guerrero_arena', nombre: '⚔️ Recluta de Arena', rareza: 'común', precioBase: 80 }
+        { subtipo: 'gladiador_minero', nombre: '👨‍🌾 Minero de élite', rareza: 'poco-comun', precioBase: 120 },
+        { subtipo: 'guerrero_arena', nombre: '⚔️ Recluta de Arena', rareza: 'comun', precioBase: 80 }
     ],
     equipamiento: [
-        { subtipo: 'espada_bronce', nombre: '🗡️ Espada de Bronce', rareza: 'común', precioBase: 30 }
+        { subtipo: 'espada_bronce', nombre: '🗡️ Espada de Bronce', rareza: 'comun', precioBase: 30 }
     ]
 };
 
 // Genera cartas individuales destinadas al mostrador público de la tienda
 function crearCartaParaTienda(diseño) {
     return {
-        tiendaItemId: crypto.randomUUID(), // ID efímero de mostrador
+        tiendaItemId: crypto.randomUUID(), 
         subtipo: diseño.subtipo,
         nombre: diseño.nombre,
         tipo: diseño.subtipo.includes('espada') ? 'equipamiento' : (diseño.subtipo.includes('gladiador') ? 'personaje' : 'edificio'),
@@ -69,7 +70,6 @@ function crearCartaParaTienda(diseño) {
     };
 }
 
-// Rellena la tienda al encender el servidor con exactamente 3 cartas por tipo
 function inicializarTiendaSistema() {
     stockTiendaSistema = { edificios: [], personajes: [], equipamiento: [] };
     for (const rubro in CATALOGO_DISEÑOS) {
@@ -144,12 +144,12 @@ app.post('/api/auth/login', async (req, res) => {
         }
 
         return res.status(200).json({ 
-    success: true, 
-    userId: usuario._id,
-    username: usuario.username,
-    balance: usuario.balance || 0,
-    poseeAldea: usuario.poseeAldea || false // 🚀 Ahora el cliente sabe si tiene la Aldea desde el login
-});
+            success: true, 
+            userId: usuario._id,
+            username: usuario.username,
+            balance: usuario.balance || 0,
+            poseeAldea: usuario.poseeAldea || false 
+        });
         
     } catch (error) {
         console.error('Error al autenticar:', error);
@@ -163,23 +163,19 @@ app.post('/api/auth/login', async (req, res) => {
 io.on('connection', (socket) => {
     console.log(`🎮 Un jugador se ha conectado: ${socket.id}`);
 
-    // Evento de enlace de sesión
     socket.on('jugador:autenticado', (data) => {
         socket.username = data.username;
         console.log(`Gladiador verificado en red de sockets: ${data.username}`);
         
-        // Si por alguna razón no se instanció en el HTTP login, lo creamos aquí
         if (data.username && !cachePartidas[data.username]) {
             cachePartidas[data.username] = new GameDataModel(data.username);
         }
     });
 
-    // 1. Enviar stock del mercado del sistema al cliente
     socket.on('tienda:solicitar-stock', () => {
         socket.emit('tienda:recibir-stock', stockTiendaSistema);
     });
 
-    // 2. Transacción de compra con validación atómica y regeneración
     socket.on('tienda:comprar-carta', async (datos) => {
         const { itemId, rubro } = datos;
         const username = socket.username;
@@ -191,7 +187,6 @@ io.on('connection', (socket) => {
             return socket.emit('tienda:error', 'Categoría comercial no válida.');
         }
 
-        // Bloqueo de carrera: buscar si el artículo aún está disponible en la tienda
         const indexItem = stockTiendaSistema[rubro].findIndex(item => item.tiendaItemId === itemId);
         if (indexItem === -1) {
             return socket.emit('tienda:error', 'La carta ya fue adquirida por otro jugador.');
@@ -200,17 +195,14 @@ io.on('connection', (socket) => {
         const cartaTienda = stockTiendaSistema[rubro][indexItem];
 
         try {
-            // Validación financiera directa en MongoDB
             const usuario = await User.findOne({ username: username });
             if (!usuario || usuario.balance < cartaTienda.precio) {
                 return socket.emit('tienda:error', 'Monedas imperiales insuficientes.');
             }
 
-            // Descuento de saldo atómico
             usuario.balance -= cartaTienda.precio;
             await usuario.save();
 
-            // Generación de ADN único e inyección segura en la estructura del inventario del jugador
             const juegoData = cachePartidas[username];
             const nuevaCartaUUID = crypto.randomUUID();
             const cartaRegistrada = juegoData.registrarNuevaCarta({
@@ -221,18 +213,15 @@ io.on('connection', (socket) => {
                 nivel: 0
             });
 
-            // DISPARADOR: Remover artículo comprado del mostrador y regenerar stock al instante
             stockTiendaSistema[rubro].splice(indexItem, 1);
             const diseñoOriginal = CATALOGO_DISEÑOS[rubro].find(d => d.subtipo === cartaTienda.subtipo);
             stockTiendaSistema[rubro].push(crearCartaParaTienda(diseñoOriginal));
 
-            // Confirmación de éxito al comprador
             socket.emit('tienda:compra-exitosa', {
                 nuevoBalance: usuario.balance,
                 carta: cartaRegistrada
             });
 
-             // Sincronización masiva de vitrina a todos los jugadores en línea
             io.emit('tienda:recibir-stock', stockTiendaSistema);
 
         } catch (error) {
@@ -241,26 +230,88 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Evento de búsqueda de emparejamiento en la Arena (CON BACKTICKS CORREGIDOS)
+    // INTEGRACIÓN RECEPTOR DRAG & DROP DEL CARRETÓN SANEADO
+    socket.on('carreton:guardar-posicion', async (data) => {
+        const { cartaId, bloqueDestino, slotDestinoIndex } = data;
+        const username = socket.username;
+
+        if (!username || !cachePartidas[username]) return;
+        const juegoData = cachePartidas[username];
+
+        let listaOrigen = null;
+        let cartaEncontrada = null;
+        
+        ['cartasAldea', 'cartasFinca', 'cartasCentral'].forEach(bloque => {
+            const idx = juegoData.carretonCartas[bloque].findIndex(c => c.id === cartaId);
+            if (idx !== -1) {
+                cartaEncontrada = juegoData.carretonCartas[bloque][idx];
+                listaOrigen = juegoData.carretonCartas[bloque];
+                listaOrigen.splice(idx, 1);
+            }
+        });
+
+        if (!cartaEncontrada) return socket.emit('carreton:error', 'La carta especificada no existe.');
+        
+        cartaEncontrada.slotIndex = slotDestinoIndex;
+
+        if (bloqueDestino === 'aldea') juegoData.carretonCartas.cartasAldea.push(cartaEncontrada);
+        if (bloqueDestino === 'finca') juegoData.carretonCartas.cartasFinca.push(cartaEncontrada);
+        if (bloqueDestino === 'central') juegoData.carretonCartas.cartasCentral.push(cartaEncontrada);
+
+        console.log(`💾 Posición de carta ${cartaId} guardada con éxito para ${username}.`);
+
+        socket.emit('carreton:actualizar-estado', {
+            poseeAldea: juegoData.poseeAldea,
+            slotsCentralMax: juegoData.poseeAldea ? 24 : 8,
+            cartasAldea: juegoData.carretonCartas.cartasAldea,
+            cartasFinca: juegoData.carretonCartas.cartasFinca,
+            cartasCentral: juegoData.carretonCartas.cartasCentral
+        });
+    });
+
+    // INTEGRACIÓN RECEPTOR SOLICITUD DE DATOS CARRETÓN
+    socket.on('carreton:solicitar-datos', async () => {
+        const username = socket.username;
+        if (!username || !cachePartidas[username]) return;
+
+        try {
+            const usuarioBD = await User.findOne({ username: username });
+            const juegoData = cachePartidas[username];
+            if (!usuarioBD) return socket.emit('carreton:error', 'Usuario no encontrado.');
+
+            juegoData.poseeAldea = usuarioBD.poseeAldea || false;
+            const slotsHabilitadosCentral = juegoData.poseeAldea ? 24 : 8;
+
+            socket.emit('carreton:actualizar-estado', {
+                poseeAldea: juegoData.poseeAldea,
+                slotsCentralMax: slotsHabilitadosCentral,
+                cartasAldea: juegoData.carretonCartas.cartasAldea,
+                cartasFinca: juegoData.carretonCartas.cartasFinca,
+                cartasCentral: juegoData.carretonCartas.cartasCentral
+            });
+        } catch (error) {
+            console.error("Error al consultar la base de datos para el Carretón:", error);
+        }
+    });
+
     socket.on('join_arena', (data) => {
         console.log(`Jugador ${data.username} buscando partida en la Arena...`);
     });
 
-    // Control de salida de jugadores en red
     socket.on('disconnect', () => {
         console.log(`❌ Jugador desconectado: ${socket.id}`);
     });
 });
 
 // ========================================================
-// RUTA COMODÍN PARA TU SPA (Evita errores de recarga)
+// RUTA COMODÍN PARA SPA
 // ========================================================
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // ========================================================
-// INICIAR EL SERVIDOR (OBLIGATORIO Usar server.listen para Sockets)
+// INICIAR EL SERVIDOR
 // ========================================================
 const PORT = process.env.PORT || 5173; 
 server.listen(PORT, '0.0.0.0', () => {
