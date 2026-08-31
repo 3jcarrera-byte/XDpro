@@ -84,8 +84,6 @@ function cambiarSubRubro(subrubroSeleccionado) {
         const onclickAttr = btn.getAttribute('onclick') || '';
         btn.classList.toggle('active', onclickAttr.includes(`'${subrubroSeleccionado}'`));
     });
-
-    refrescarCatalogoMercado();
 }
 
 // 4. Controlador de Rarezas
