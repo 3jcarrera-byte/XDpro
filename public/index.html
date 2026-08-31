@@ -178,30 +178,90 @@
     <button onclick="cambiarPantalla('pantalla-menu-principal')">🔙 Volver</button>
   </div>
 
-   <!-- CARRETÓN (Estructura Corregida con Contenedores) -->
+  <!-- PANTALLA: CARRETÓN (Layout Imperial en L Integrado)      -->
+  <!-- ======================================================== -->
   <div id="pantalla-carreton" class="seccion-juego" style="display: none;">
-    <h2>Módulo del Carretón</h2>
-    <!-- Indicador de capacidad requerido por el script -->
-    <h3 id="carreton-central-capacidad" style="color: #ffd700; margin-bottom: 15px;">Slots: 0 / 0</h3>
     
-    <!-- Contenedores donde se inyectará la cuadrícula visual -->
-    <div class="carreton-main-wrapper" style="display: flex; gap: 20px; justify-content: space-between;">
-        <div class="carreton-bloque">
-            <h3>Aldea</h3>
-            <div id="carreton-aldea-lista" class="carreton-grid"></div>
+    <!-- BARRA SUPERIOR IMPERIAL (Igual al Menú Principal) -->
+    <header class="player-top-bar">
+      <div class="top-bar-left">
+        <h1 class="menu-brand-title">🏛️ ARENA Y GLORIA — CARRETÓN</h1>
+      </div>
+      <div class="top-bar-right">
+        <div class="player-profile">
+          <span class="pj-icono">👤</span>
+          <span id="carreton-player-nick" class="pj-nombre">Gladiador</span>
         </div>
-        <div class="carreton-bloque">
-            <h3>Central</h3>
-            <div id="carreton-central-lista" class="carreton-grid"></div>
+        <div class="resource-item">
+          <span class="resource-icon">🪙</span>
+          <span id="carreton-player-balance" class="resource-value">0.00</span>
         </div>
-        <div class="carreton-bloque">
-            <h3>Finca</h3>
-            <div id="carreton-finca-lista" class="carreton-grid"></div>
-        </div>
-    </div>
+      </div>
+    </header>
 
-    <br>
-    <button onclick="cambiarPantalla('pantalla-menu-principal')">🔙 Volver al Menú Principal</button>
+    <!-- CONTENEDOR EN L (Navegación Izquierda + Inventario Central) -->
+    <div class="main-layout-container">
+      
+      <!-- NAV LATERAL IZQUIERDA COMPLETA (Misma navegación del menú inicial) -->
+      <aside class="sidebar-navigation">
+        <div class="nav-section-title">🗺️ EXPANSIÓN</div>
+        <button onclick="cambiarPantalla('pantalla-aldea')" class="btn-sidebar">🗺️ Aldea (3D)</button>
+        <button onclick="cambiarPantalla('pantalla-finca')" class="btn-sidebar">🏡 Finca (3D)</button>
+        
+        <div class="nav-section-title">⚖️ ECONOMÍA</div>
+        <button onclick="cambiarPantalla('pantalla-almacen')" class="btn-sidebar">📦 Almacén</button>
+        <button onclick="cambiarPantalla('pantalla-carreton'); cargarCarreton();" class="btn-sidebar active">🛒 Carretón</button>
+        <button onclick="cambiarPantalla('pantalla-mercado')" class="btn-sidebar">⚖️ Mercado Mundial</button>
+        <button onclick="cambiarPantalla('pantalla-finanzas')" class="btn-sidebar">💰 Billetera / Retiros</button>
+        
+        <div class="nav-section-title">⚔️ GLORIA</div>
+        <button onclick="cambiarPantalla('pantalla-arena')" class="btn-sidebar btn-highlight-arena">⚔️ Arena de Combate</button>
+        
+        <div class="nav-section-title">⚙️ CONFIGURACIÓN</div>
+        <button onclick="cambiarPantalla('pantalla-menu-principal')" class="btn-sidebar btn-back">🏛️ Menú Principal</button>
+      </aside>
+
+      <!-- ÁREA CENTRAL: CONTENEDORES ENMARCADOS DEL CARRETÓN -->
+      <main class="center-game-canvas-wrapper" style="overflow-y: auto; padding: 20px;">
+        
+        <div class="canvas-header-info" style="margin-bottom: 20px;">
+          <h3>Gestión Logística de Pobladores</h3>
+          <span id="carreton-central-capacidad" class="status-indicator-online" style="background: rgba(212, 175, 55, 0.2); color: #ffd700; border: 1px solid #d4af37; padding: 5px 12px; border-radius: 4px;">
+            Slots Centrales: 0 / 0
+          </span>
+        </div>
+
+        <!-- 3 CONTENEDORES PRINCIPALES ENMARCADOS -->
+        <div class="carreton-tres-bloques-grid" style="display: grid; grid-template-columns: 1fr 1.5fr 1fr; gap: 20px; min-height: 500px;">
+          
+          <!-- BLOQUE 1: CONTENEDOR ALDEA (CON CLASES DE CONTROL DE RESTRICCIÓN) -->
+          <div class="market-sub-view" style="border: 1px solid #33221a; padding: 15px; border-radius: 8px; background: rgba(15, 10, 8, 0.95); display: flex; flex-direction: column;">
+            <h3 style="color: #ffd700; border-bottom: 2px solid #33221a; padding-bottom: 8px; margin-bottom: 15px; text-align: center;">🗺️ Contenedor Aldea</h3>
+            <div id="carreton-aldea-lista" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; flex-grow: 1;">
+              <!-- Los 16 slots se inyectan aquí -->
+            </div>
+          </div>
+
+          <!-- BLOQUE 2: CONTENEDOR CENTRAL (ALMACENAMIENTO DINÁMICO DE POBLADORES) -->
+          <div class="market-sub-view" style="border: 2px solid #d4af37; padding: 15px; border-radius: 8px; background: rgba(20, 15, 10, 0.95); display: flex; flex-direction: column;">
+            <h3 style="color: #ffd700; border-bottom: 2px solid #d4af37; padding-bottom: 8px; margin-bottom: 15px; text-align: center;">🛒 Carretón Central</h3>
+            <div id="carreton-central-lista" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; flex-grow: 1;">
+              <!-- Los 8 o 24 slots variables se inyectan aquí -->
+            </div>
+          </div>
+
+          <!-- BLOQUE 3: CONTENEDOR FINCA -->
+          <div class="market-sub-view" style="border: 1px solid #33221a; padding: 15px; border-radius: 8px; background: rgba(15, 10, 8, 0.95); display: flex; flex-direction: column;">
+            <h3 style="color: #ffd700; border-bottom: 2px solid #33221a; padding-bottom: 8px; margin-bottom: 15px; text-align: center;">🏡 Contenedor Finca</h3>
+            <div id="carreton-finca-lista" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; flex-grow: 1;">
+              <!-- Los 8 slots se inyectan aquí -->
+            </div>
+          </div>
+
+        </div>
+
+      </main>
+    </div>
   </div>
 
   <!-- ======================================================== -->
