@@ -42,11 +42,15 @@ const UserSchema = new mongoose.Schema({
   },
   
   // ==========================================
-  // ECONOMÍA Y CONTROL DE FRAUDE (ADMINISTRACIÓN)
+  // ECONOMÍA, CONTROL DE FRAUDE Y PROPIEDADES NFT
   // ==========================================
   balance: {
     type: Number,
     default: 0 
+  },
+  poseeAldea: { 
+    type: Boolean, 
+    default: false // 🚀 ¡NUEVO CAMPO CONECTADO AL CARRETÓN Y LA ALDEA NFT!
   },
   status: { 
     type: String, 
