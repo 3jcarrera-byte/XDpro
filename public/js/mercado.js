@@ -48,28 +48,38 @@ function cambiarModoMercado(modoSeleccionado) {
 function cambiarRubro(rubroSeleccionado) {
     filtroMercado.rubro = rubroSeleccionado;
     
-    // Obtener todos los botones de este grupo específico
+    // Seleccionar todos los botones de rubros de la interfaz
     const botones = document.querySelectorAll('.btn-filter-rubro');
     
     botones.forEach(btn => {
-        // Obtenemos el texto del atributo onclick para comparar de forma estricta y limpia
-        const onclickAttr = btn.getAttribute('onclick') || '';
+        // En lugar de leer el texto con emojis, leemos directamente el parámetro enviado en su atributo onclick
+        const onclickTexto = btn.getAttribute('onclick') || '';
         
-        // Si el onclick contiene el rubro exacto entre comillas (ej: 'edificios'), se activa. Si no, se apaga.
-        const esElSeleccionado = onclickAttr.includes(`'${rubroSeleccionado}'`);
-        btn.classList.toggle('active', esElSeleccionado);
+        // Si el texto del onclick contiene el rubro exacto (ej: 'edificios'), se activa. Si no, se apaga.
+        if (onclickTexto.includes(`'${rubroSeleccionado}'`)) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
     });
 
     // Control reactivo del sub-filtro de equipamientos (Armas, escudos, etc.)
     const cajaSubRubros = document.getElementById('grupo-subfiltro-equipamiento');
-    if (rubroSeleccionado === 'equipamiento') {
-        cajaSubRubros.style.display = 'flex';
-    } else {
-        if (cajaSubRubros) cajaSubRubros.style.display = 'none';
-        filtroMercado.subrubro = 'todos'; // Resetear
+    if (cajaSubRubros) {
+        if (rubroSeleccionado === 'equipamiento') {
+            cajaSubRubros.style.display = 'flex';
+        } else {
+            cajaSubRubros.style.display = 'none';
+            filtroMercado.subrubro = 'todos';
+        }
     }
 
-    refrescarCatalogoMercado();
+    // Solicitar el stock limpio al Árbitro en tiempo real
+    if (typeof socket !== 'undefined' && socket && socket.connected) {
+        socket.emit('tienda:solicitar-stock');
+    } else {
+        refrescarCatalogoMercado();
+    }
 }
 
 // 3. Controlador de Sub-Rubros para el Equipamiento (CORREGIDO)
