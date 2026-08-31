@@ -44,15 +44,20 @@ function cambiarModoMercado(modoSeleccionado) {
     }
 }
 
-// 2. Controlador de Rubros (Muestra/Oculta sub-filtros de equipamiento)
+// 2. Controlador de Rubros (CORREGIDO: Elimina el bug de botones presionados a la vez)
 function cambiarRubro(rubroSeleccionado) {
     filtroMercado.rubro = rubroSeleccionado;
     
-    // Actualizar estados visuales de los botones del rubro
+    // Obtener todos los botones de este grupo específico
     const botones = document.querySelectorAll('.btn-filter-rubro');
+    
     botones.forEach(btn => {
-        const texto = btn.textContent.toLowerCase();
-        btn.classList.toggle('active', texto.includes(rubroSeleccionado));
+        // Obtenemos el texto del atributo onclick para comparar de forma estricta y limpia
+        const onclickAttr = btn.getAttribute('onclick') || '';
+        
+        // Si el onclick contiene el rubro exacto entre comillas (ej: 'edificios'), se activa. Si no, se apaga.
+        const esElSeleccionado = onclickAttr.includes(`'${rubroSeleccionado}'`);
+        btn.classList.toggle('active', esElSeleccionado);
     });
 
     // Control reactivo del sub-filtro de equipamientos (Armas, escudos, etc.)
@@ -60,26 +65,26 @@ function cambiarRubro(rubroSeleccionado) {
     if (rubroSeleccionado === 'equipamiento') {
         cajaSubRubros.style.display = 'flex';
     } else {
-        cajaSubRubros.style.display = 'none';
+        if (cajaSubRubros) cajaSubRubros.style.display = 'none';
         filtroMercado.subrubro = 'todos'; // Resetear
     }
 
     refrescarCatalogoMercado();
 }
 
-// 3. Controlador de Sub-Rubros para el Equipamiento
+// 3. Controlador de Sub-Rubros para el Equipamiento (CORREGIDO)
 function cambiarSubRubro(subrubroSeleccionado) {
     filtroMercado.subrubro = subrubroSeleccionado;
     
     const botones = document.querySelectorAll('.btn-filter-subrubro');
     botones.forEach(btn => {
-        const texto = btn.textContent.toLowerCase();
-        if (subrubroSeleccionado === 'todos') {
-            btn.classList.toggle('active', texto === 'todos');
-        } else {
-            btn.classList.toggle('active', texto.includes(subrubroSeleccionado));
-        }
+        const onclickAttr = btn.getAttribute('onclick') || '';
+        const esElSeleccionado = onclickAttr.includes(`'${subrubroSeleccionado}'`);
+        btn.classList.toggle('active', esElSeleccionado);
     });
+
+    refrescarCatalogoMercado();
+}
 
     refrescarCatalogoMercado();
 }
@@ -218,5 +223,65 @@ function construirMiniEscena3D(containerId, nombreArchivoGLB, rareza) {
                 const box = new THREE.Box3().setFromObject(modeloMalla);
                 const center = box.getCenter(new THREE.Vector3());
                 modeloMalla.position.x += (modeloMalla.position.x - center.x);
-                modeloMalla.position.y += (modeloMalla.position.y - center.y);modeloMalla.position.z += (modeloMalla.position.z - center.z);escena.add(modeloMalla);},undefined,() => {// Si aún no subes el .glb a la carpeta models3d, inyecta una figura interactiva elegantecargarMallaRespaldo(escena, rareza, (malla) => { modeloMalla = malla; });});} else {cargarMallaRespaldo(escena, rareza, (malla) => { modeloMalla = malla; });}function animarMiniCarta() {const idAnimacion = requestAnimationFrame(animarMiniCarta);animacionesCartasActivas.push(idAnimacion);if (modeloMalla) {modeloMalla.rotation.y += 0.015; // Rotación lenta de vitrina}render.render(escena, camara);}animarMiniCarta();}function cargarMallaRespaldo(escena, rareza, callback) {let colorMaterial = 0x555555;if (rareza === 'legendario') colorMaterial = 0xffd700;if (rareza === 'epico') colorMaterial = 0xff9800;if (rareza === 'raro') colorMaterial = 0x2196f3;// Geometría en anillo dorado de exhibiciónconst geometria = new THREE.TorusKnotGeometry(0.38, 0.12, 64, 8);const material = new THREE.MeshStandardMaterial({color: colorMaterial,metalness: 0.8,roughness: 0.2});const malla = new THREE.Mesh(geometria, material);escena.add(malla);callback(malla);}// 8. Procesador de Compras conectado a tu consolafunction procesarCompraItem(idItem) {console.log(Enviando evento de compra al árbitro para el ítem: ${idItem});alert(Solicitud de transacción enviada al servidor para el objeto ID: ${idItem});}
+                modeloMalla.position.y += (modeloMalla.position.y - center.y);modeloMalla.position.z += (modeloMalla.position.z - center.z);escena.add(modeloMalla);},undefined,() => {// Si aún no subes el .glb a la carpeta models3d, inyecta una figura interactiva elegantecargarMallaRespaldo(escena, rareza, (malla) => { modeloMalla = malla; });});} else {cargarMallaRespaldo(escena, rareza, (malla) => { modeloMalla = malla; });}function animarMiniCarta() {const idAnimacion = requestAnimationFrame(animarMiniCarta);animacionesCartasActivas.push(idAnimacion);if (modeloMalla) {modeloMalla.rotation.y += 0.015; // Rotación lenta de vitrina}render.render(escena, camara);}animarMiniCarta();}function cargarMallaRespaldo(escena, rareza, callback) {let colorMaterial = 0x555555;if (rareza === 'legendario') colorMaterial = 0xffd700;if (rareza === 'epico') colorMaterial = 0xff9800;if (rareza === 'raro') colorMaterial = 0x2196f3;// Geometría en anillo dorado de exhibiciónconst geometria = new THREE.TorusKnotGeometry(0.38, 0.12, 64, 8);const material = new THREE.MeshStandardMaterial({color: colorMaterial,metalness: 0.8,roughness: 0.2});const malla = new THREE.Mesh(geometria, material);escena.add(malla);callback(malla);}
+                // 8. Procesador de Compras (CORREGIDO: Inyección de backticks para evitar cuelgues)
+function procesarCompraItem(idItem) {
+    // Corrección de sintaxis agregando comillas invertidas legítimas
+    console.log(`Enviando evento de compra al árbitro para el ítem: ${idItem}`);
+    alert(`Solicitud de transacción enviada al servidor para el objeto ID: ${idItem}`);
+    
+    // CONEXIÓN CON TU ÁRBITRO EN TIEMPO REAL:
+    // Aquí puedes disparar la orden al server.js que ya tienes montado en Render
+    if (typeof socket !== 'undefined' && socket && socket.connected) {
+        // Mapeamos el rubro correspondiente para buscarlo en tu stockTiendaSistema del servidor
+        socket.emit('tienda:comprar-carta', {
+            itemId: idItem, // En el paso final se cruzará con el tiendaItemId del mostrador
+            rubro: filtroMercado.rubro
+        });
+    }
+}
+                // ESCUCHADORES DE SOCKETS PARA TRANSACCIONES REALES ANTI-FRAUDE
+if (typeof socket !== 'undefined' && socket) {
+    
+    // Al abrir el mercado, solicitar la vitrina real autorizada por el Árbitro
+    socket.on('connect', () => {
+        socket.emit('tienda:solicitar-stock');
+    });
+
+    // Actualiza las cartas 3D cuando el servidor reabastece el mostrador automáticamente
+    socket.on('tienda:recibir-stock', (stockServidor) => {
+        console.log("Vitrina autorizada por el Árbitro recibida:", stockServidor);
+        
+        // Mapeamos el stock del servidor a tu base de datos local temporal para renderizar
+        const rubroActual = filtroMercado.rubro;
+        if (stockServidor[rubroActual]) {
+            // Reemplazamos los ítems estáticos por los dinámicos que tienen el precio real y el ID de mostrador
+            baseDatosItems3D.length = 0; // Limpiar array de prueba
+            
+            stockServidor[rubroActual].forEach((item, index) => {
+                baseDatosItems3D.push({
+                    id: item.tiendaItemId, // Usamos el ID seguro del servidor
+                    nombre: item.nombre,
+                    rubro: rubroActual,
+                    subrubro: 'todos',
+                    rareza: item.rareza,
+                    precio: item.precio,
+                    archivo: rubroActual === 'edificios' ? (index % 2 === 0 ? "barracas.glb" : "aserradero.glb") : "gladius.glb" 
+                });
+            });
+            refrescarCatalogoMercado();
+        }
+    });
+
+    socket.on('tienda:compra-exitosa', (data) => {
+        alert(`¡Transacción confirmada por el Árbitro! Nueva carta añadida a tu inventario. Balance: 🪙 ${data.nuevoBalance}`);
+        // Actualizar el balance visual de la barra superior
+        const txtBalance = document.getElementById('menu-player-balance');
+        if (txtBalance) txtBalance.textContent = parseFloat(data.nuevoBalance).toFixed(2);
+    });
+
+    socket.on('tienda:error', (mensaje) => {
+        alert(`❌ Transacción Rechazada: ${mensaje}`);
+    });
+}
             
