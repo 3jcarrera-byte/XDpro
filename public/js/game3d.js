@@ -1,4 +1,4 @@
-// public/js/game3d.js
+// public/js/game3d.js (Parte 1 de 2 - Configuración de Escena, Cámara y Raycasting)
 
 // Configuración global de optimización de GPU conectada con el ruteo SPA de main.js
 window.estadoMotor3D = {
@@ -14,7 +14,7 @@ let raycaster, mouse;
 /**
  * Inicializa el entorno gráfico 3D dentro de un contenedor HTML específico
  * @param {string} containerId - ID del elemento div contenedor del canvas
- * @param {number} maxCimientos - Cantidad de cimientos a generar (16 para Aldea, 8 para Finca)
+ * @param {number} maxCimientos - Cantidad de cimientos a generar (12 para Aldea, 5 para Finca)
  */
 function init3D(containerId, maxCimientos) {
     const container = document.getElementById(containerId);
@@ -30,7 +30,8 @@ function init3D(containerId, maxCimientos) {
     scene.background = new THREE.Color(0x120c09); // Fondo terráqueo imperial oscuro
 
     // 3. Configuración de la Cámara Perspectiva
-    camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 1, 1000);
+    const aspect = container.clientWidth / (container.clientHeight || 1);
+    camera = new THREE.PerspectiveCamera(45, aspect, 1, 1000);
     camera.position.set(0, 14, 18);
     camera.lookAt(0, 0, 0);
 
@@ -89,7 +90,7 @@ function configurarDragAndDropCanvas(container) {
         const edificioUuid = e.dataTransfer.getData('text/plain');
         if (!edificioUuid) return;
 
-        // Calcular la posición del cursor respecto al rectángulo del lienzo de Three.js
+        // Calcular la posición exacta del cursor respecto al rectángulo del lienzo de Three.js
         const rect = renderer.domElement.getBoundingClientRect();
         mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -119,6 +120,7 @@ function configurarDragAndDropCanvas(container) {
         }
     });
 }
+// public/js/game3d.js (Continuación - Parte 2)
 
 /**
  * Distribuye espacialmente los cimientos geométricos translúcidos en el plano
@@ -206,6 +208,12 @@ if (typeof socket !== 'undefined' && socket) {
                 }
             }
         }
+
+        // 🚀 DISPARADOR DE ACTUALIZACIÓN EN VIVO DE HABITABILIDAD:
+        // Una vez levantada la obra civil en Three.js, forzamos de forma autoritaria al backend
+        // a actualizar las mallas del almacén (para restar la carta) y del carretón (para liberar los slots de población).
+        if (typeof cargarAlmacen === 'function') cargarAlmacen();
+        if (typeof cargarCarreton === 'function') cargarCarreton();
     });
 
     socket.on('finca:error', (msgError) => {
