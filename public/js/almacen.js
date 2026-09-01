@@ -24,18 +24,17 @@ function renderizarAlmacen() {
     // DETECCIÓN MULTI-PANTALLA EXCLUSIVA BASADA EN ELEMENTOS EXISTENTES EN EL DOM ACTIVO
     const contenedorFinca = document.getElementById('finca-edificios-lista');
     const contenedorAldea = document.getElementById('aldea-edificios-lista');
+    const gridAlmacenGeneral = document.getElementById('grid-almacen-recursos');
 
-    // 1. Si el contenedor de la finca existe y está visible o el layout padre está activo, inyectar ahí
-    if (contenedorFinca && (contenedorFinca.offsetParent !== null || document.getElementById('pantalla-finca').style.display === 'block')) {
+    // CORRECCIÓN ATÓMICA DE ASINCRONÍA: Se prioriza la existencia física en el DOM sobre la visibilidad del CSS (offsetParent)
+    if (contenedorFinca) {
         contenedorGrid = contenedorFinca;
     } 
-    // 2. Si el contenedor de la aldea está activo, inyectar en su respectiva cinta
-    else if (contenedorAldea && (contenedorAldea.offsetParent !== null || document.getElementById('pantalla-aldea').style.display === 'block')) {
+    else if (contenedorAldea) {
         contenedorGrid = contenedorAldea;
     } 
-    // 3. Fallback defensivo: Inyectar en el panel general del Almacén tradicional
     else {
-        contenedorGrid = document.getElementById('grid-almacen-recursos');
+        contenedorGrid = gridAlmacenGeneral;
     }
     
     if (!contenedorGrid) return;
@@ -50,12 +49,15 @@ function renderizarAlmacen() {
     // Recorrer e inyectar cada tarjeta de recurso/edificio de forma dinámica
     datosAlmacen.recursos.forEach(recurso => {
         const tarjeta = document.createElement('div');
-        tarjeta.className = `almacen-card borde-rareza-${recurso.rareza.toLowerCase().trim()}`;
+        
+        // Blindaje preventivo si el string de rareza llega indefinido o ausente
+        const rarezaLimpia = recurso.rareza ? recurso.rareza.toLowerCase().trim() : 'comun';
+        tarjeta.className = `almacen-card borde-rareza-${rarezaLimpia}`;
         
         // Habilitar la propiedad nativa de arrastre para el Canvas 3D de Blender
         tarjeta.setAttribute('draggable', 'true');
         
-        const tokenUnico = recurso.uuid || recurso.id;
+        const tokenUnico = recurso.uuid || recurso.id || (recurso._id ? recurso._id.toString() : null);
         tarjeta.dataset.uuid = tokenUnico;
         
         tarjeta.innerHTML = `
