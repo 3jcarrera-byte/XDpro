@@ -2,7 +2,7 @@
 
 // Estado reactivo global del Almacén (Sincronizado dinámicamente con MongoDB)
 let datosAlmacen = {
-    recursos: [] // Estructura física real: [{ id: UUID, nombre: string, cantidad: number, rareza: string }]
+    recursos: [] // Estructura física real: [{ id: UUID, uuid: UUID, nombre: string, cantidad: number, rareza: string }]
 };
 
 /**
@@ -35,15 +35,40 @@ function renderizarAlmacen() {
         // Estandarización de estilos basada en las clases de rareza imperial de style.css
         tarjeta.className = `almacen-card borde-rareza-${recurso.rareza.toLowerCase().trim()}`;
         
+        // Habilitar la propiedad nativa de arrastre para el Canvas 3D
+        tarjeta.setAttribute('draggable', 'true');
+        
+        // Mapear el identificador único tolerante en los metadatos del elemento DOM
+        const tokenUnico = recurso.uuid || recurso.id;
+        tarjeta.dataset.uuid = tokenUnico;
+        
         tarjeta.innerHTML = `
             <div class="almacen-item-info">
                 <span class="almacen-item-nombre">${recurso.nombre}</span>
-                <span class="almacen-item-cantidad">Cantidad: <strong>${recurso.cantidad}</strong> / 99</span>
+                <span class="almacen-item-cantidad">Nivel: <strong>${recurso.nivel || 1}</strong></span>
             </div>
-            <button class="btn-almacen-gestionar" onclick="solicitarConsumoRecurso('${recurso.id}')">
-                ⚔️ Consumir (1)
+            <button class="btn-almacen-gestionar" style="cursor: grab;">
+                🏗️ Arrastrar al Mapa
             </button>
         `;
+
+        // 🚀 MANEJO DE EVENTOS DRAG & DROP CRUZADOS (DOM HACIA CANVAS THREE.JS)
+        tarjeta.addEventListener('dragstart', (e) => {
+            // Empacar el UUID criptográfico en el canal de transferencia del mouse
+            e.dataTransfer.setData('text/plain', tokenUnico);
+            e.dataTransfer.effectAllowed = 'copy';
+            
+            // Efecto visual traslúcido para dar retroalimentación de arrastre
+            tarjeta.style.opacity = '0.4';
+            tarjeta.style.borderStyle = 'dashed';
+        });
+
+        tarjeta.addEventListener('dragend', () => {
+            // Restaurar los marcos imperiales al soltar la tarjeta
+            tarjeta.style.opacity = '1';
+            tarjeta.style.borderStyle = 'solid';
+        });
+
         contenedorGrid.appendChild(tarjeta);
     });
 }
@@ -72,7 +97,8 @@ if (typeof socket !== 'undefined' && socket) {
     socket.on('almacen:actualizar-estado', (payload) => {
         console.log("🗃️ Datos del Almacén validados por el servidor recibidos:", payload);
         
-        datosAlmacen.recursos = payload.recursos || [];
+        // Soporte adaptable para leer colecciones generales o la grilla directa de edificios
+        datosAlmacen.recursos = payload.recursos || payload.almacenEdificiosDisponibles || [];
         renderizarAlmacen();
     });
 
