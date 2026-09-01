@@ -62,17 +62,22 @@ window.cambiarPantalla = function(pantallaId) {
         // 🚀 DISPARADOR AUTOMÁTICO MOTOR 3D: FINCA PERSONAL (5 CIMIENTOS)
         if (pantallaId === 'pantalla-finca') {
             if (typeof init3D === 'function') {
-                console.log("🏗️ Inicializando terreno 3D de la Finca (5 Cimientos Dorados)...");
-                init3D('canvas-contenedor-3d-finca', 5);
+                console.log("🏗️ Inicializando terreno 3D de la Finca...");
+                // Sincronizado exactamente con el contenedor de tu HTML
+                init3D('canvas-finca-container', 5);
             }
+            // Forzar carga de datos en tiempo real al entrar a la pestaña
+            if (typeof cargarCarreton === 'function') cargarCarreton();
+            if (typeof cargarAlmacen === 'function') cargarAlmacen();
         }
 
         // 🚀 DISPARADOR AUTOMÁTICO MOTOR 3D: ALDEA IMPERIAL (12 CIMIENTOS)
         if (pantallaId === 'pantalla-aldea') {
             if (typeof init3D === 'function') {
-                console.log("🏛️ Inicializando terreno 3D de la Aldea (12 Cimientos Dorados)...");
-                init3D('canvas-contenedor-3d-aldea', 12);
+                console.log("🏛️ Inicializando terreno 3D de la Aldea (12 Cimientos)...");
+                init3D('canvas-aldea-container', 12);
             }
+            if (typeof cargarCarreton === 'function') cargarCarreton();
         }
 
         // 🚀 HERENCIA CONTINUA DE FONDOS REALES AL ENTRAR AL MERCADO
@@ -95,13 +100,14 @@ window.cambiarPantalla = function(pantallaId) {
 
         // 🚀 SOLICITUD DE DATOS DE INVENTARIO LOGÍSTICO (CARRETÓN)
         if (pantallaId === 'pantalla-carreton') {
-            if (socket && socket.connected) {
+            if (typeof cargarCarreton === 'function') {
                 console.log("📦 Solicitando datos actualizados del Carretón al Árbitro...");
-                socket.emit('carreton:solicitar-datos');
+                cargarCarreton();
             }
         }
+
         
-        // Control inteligente del botón flotante de emergencia
+              // Control inteligente del botón flotante de emergencia
         if (btnFloatingMenu) {
             if (pantallaId === 'pantalla-menu-principal') {
                 btnFloatingMenu.style.display = 'none';
@@ -241,9 +247,9 @@ if (loginForm) {
                 sessionStorage.setItem('gladiador_nick', data.username);
                 sessionStorage.setItem('gladiador_poseeAldea', data.poseeAldea);
                 
-                // SINCRO GENERAL DE LOGUEO: Nick y Balance actualizados en todas las interfaces (Incluido Mercado)
-                const idsNicks = ['menu-player-nick', 'carreton-player-nick', 'mercado-player-nick'];
-                const idsBalances = ['menu-player-balance', 'carreton-player-balance', 'mercado-player-balance', 'finanzas-saldo-txt'];
+                // SINCRO GENERAL DE LOGUEO: Nick y Balance actualizados en todas las interfaces (Incluido Finca y Mercado)
+                const idsNicks = ['menu-player-nick', 'carreton-player-nick', 'mercado-player-nick', 'finca-player-nick'];
+                const idsBalances = ['menu-player-balance', 'carreton-player-balance', 'mercado-player-balance', 'finca-player-balance', 'finanzas-saldo-txt'];
                 
                 idsNicks.forEach(id => {
                     const el = document.getElementById(id);
