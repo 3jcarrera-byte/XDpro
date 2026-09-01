@@ -572,7 +572,7 @@ body {
 }
 
 /* ==========================================================================
-   DISEÑO AVANZADO: VISTA DEL MERCADO MUNDIAL P2P
+   DISEÑO AVANZADO: VISTA DEL MERCADO MUNDIAL P2P (CAPAS LIBERADAS)
    ========================================================================== */
 .market-layout-container {
   max-width: 1200px;
@@ -581,6 +581,9 @@ body {
   flex-direction: column;
   gap: 20px;
   padding-bottom: 40px;
+  position: relative !important;
+  z-index: 100 !important;
+  pointer-events: auto !important; /* Habilita la interacción total */
 }
 
 .market-header h2 {
@@ -605,11 +608,14 @@ body {
   border: 1px solid #5c4033;
   border-bottom: none;
   border-radius: 8px 8px 0 0;
-  cursor: pointer;
+  cursor: pointer !important;
   font-family: inherit;
   font-weight: bold;
   font-size: 0.95rem;
   transition: all 0.3s;
+  position: relative !important;
+  z-index: 110 !important;
+  pointer-events: auto !important; /* Blindaje de clic */
 }
 
 .tab-market.active, .tab-market:hover {
@@ -656,10 +662,13 @@ body {
   color: #ebdcb9;
   border: 1px solid #423126;
   border-radius: 5px;
-  cursor: pointer;
+  cursor: pointer !important;
   font-family: inherit;
   font-size: 0.88rem;
   transition: all 0.2s;
+  position: relative !important;
+  z-index: 110 !important;
+  pointer-events: auto !important; /* Blindaje contra capas fantasma */
 }
 
 .btn-filter-rubro.active, .btn-filter-rubro:hover,
@@ -730,9 +739,12 @@ body {
   color: white;
   border: 1px solid #ffd700;
   border-radius: 6px;
-  cursor: pointer;
+  cursor: pointer !important;
   font-family: inherit;
   font-weight: bold;
+  position: relative !important;
+  z-index: 110 !important;
+  pointer-events: auto !important;
 }
 
 /* BUSCADOR DE ALDEAS */
@@ -752,7 +764,11 @@ body {
   border: 1px solid #5c4033;
   color: #ffd700;
   border-radius: 6px;
+  position: relative !important;
+  z-index: 110 !important;
+  pointer-events: auto !important;
 }
+
 /* ==========================================================================
    ESTILOS ADICIONALES PARA LAS RANURAS DE CARTAS 3D (BLENDER)
    ========================================================================== */
