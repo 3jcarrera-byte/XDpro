@@ -1,85 +1,85 @@
-// Estado local del inventario del Almacén
-let inventarioAlmacen = {
-    producibles: [
-        { id: "prod_01", nombre: "Madera Alfa", cantidad: 15, rareza: "Común", icono: "🪵" },
-        { id: "prod_02", nombre: "Piedra Cantera", cantidad: 8, rareza: "Común", icono: "🪨" },
-        { id: "prod_03", nombre: "Lingote de Hierro", cantidad: 3, rareza: "Raro", icono: "🪙" }
-    ],
-    consumibles: [
-        { id: "cons_01", nombre: "Ración de Trigo", cantidad: 50, rareza: "Común", icono: "🌾" },
-        { id: "cons_02", nombre: "Poción de Energía", cantidad: 5, rareza: "Épico", icono: "🧪" }
-    ]
+// public/js/almacen.js
+
+// Estado reactivo global del Almacén (Sincronizado dinámicamente con MongoDB)
+let datosAlmacen = {
+    recursos: [] // Estructura: [{ id: UUID, nombre: string, cantidad: number, rareza: string }]
 };
 
 /**
- * Inicializa y renderiza la interfaz visual del Almacén de cartas
+ * Solicita los inventarios autorizados y actualizados directamente a las colecciones del servidor
  */
 function cargarAlmacen() {
-    const contenedor = document.getElementById('almacen-cartas-container');
-    if (!contenedor) return;
-
-    // Limpiar contenido previo de la interfaz
-    contenedor.innerHTML = '';
-
-    // 1. Renderizar sección de Recursos Producibles
-    const seccionProd = crearSeccionCartas("Cartas de Recursos Producibles", inventarioAlmacen.producibles);
-    contenedor.appendChild(seccionProd);
-
-    // 2. Renderizar sección de Recursos Consumibles
-    const seccionCons = crearSeccionCartas("Cartas de Recursos Consumibles", inventarioAlmacen.consumibles);
-    contenedor.appendChild(seccionCons);
+    if (typeof socket !== 'undefined' && socket && socket.connected) {
+        console.log("🗄️ Solicitando estado del Almacén Imperial al Árbitro...");
+        socket.emit('almacen:solicitar-recursos');
+    }
 }
 
 /**
- * Helper para estructurar los bloques contenedores de cartas
+ * Renderiza la interfaz gráfica del inventario inyectando los nodos en la cuadrícula SPA
  */
-function crearSeccionCartas(titulo, listaCartas) {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'almacen-seccion';
+function renderizarAlmacen() {
+    const contenedorGrid = document.getElementById('grid-almacen-recursos');
+    if (!contenedorGrid) return;
 
-    const h4 = document.createElement('h4');
-    h4.innerText = titulo;
-    h4.className = 'almacen-titulo-seccion';
-    wrapper.appendChild(h4);
+    contenedorGrid.innerHTML = '';
 
-    const grid = document.createElement('div');
-    grid.className = 'almacen-grid-cartas';
+    if (!datosAlmacen.recursos || datosAlmacen.recursos.length === 0) {
+        contenedorGrid.innerHTML = `<div class="almacen-vacio-txt">Tu almacén imperial se encuentra vacío. Produce recursos en tus cimientos.</div>`;
+        return;
+    }
 
-    listaCartas.forEach(carta => {
-        const cartaDiv = document.createElement('div');
-        cartaDiv.className = `carta-item rareza-${carta.rareza.toLowerCase()}`;
-        cartaDiv.innerHTML = `
-            <div class="carta-icono">${carta.icono}</div>
-            <div class="carta-info">
-                <span class="carta-nombre">${carta.nombre}</span>
-                <span class="carta-rareza">${carta.rareza}</span>
-                <span class="carta-cantidad">Cant: ${carta.cantidad}</span>
+    // Recorrer e inyectar cada tarjeta de recurso
+    datosAlmacen.recursos.forEach(recurso => {
+        const tarjeta = document.createElement('div');
+        // Estandarización de estilos basada en las clases de rareza imperial de style.css
+        tarjeta.className = `almacen-card borde-rareza-${recurso.rareza.toLowerCase().trim()}`;
+        
+        tarjeta.innerHTML = `
+            <div class="almacen-item-info">
+                <span class="almacen-item-nombre">${recurso.nombre}</span>
+                <span class="almacen-item-cantidad">Cantidad: <strong>${recurso.cantidad}</strong> / 99</span>
             </div>
-            <button class="btn-carta-accion" onclick="usarCartaRecurso('${carta.id}')">Gestionar</button>
+            <button class="btn-almacen-gestionar" onclick="solicitarConsumoRecurso('${recurso.id}')">
+                ⚔️ Consumir (1)
+            </button>
         `;
-        grid.appendChild(cartaDiv);
+        contenedorGrid.appendChild(tarjeta);
+    });
+}
+
+/**
+ * BLINDAJE AUTORITARIO: Envía una orden de consumo al servidor en lugar de restar localmente
+ * @param {string} recursoId - Identificador único UUID del recurso a descontar
+ */
+function solicitarConsumoRecurso(recursoId) {
+    if (!recursoId) return;
+
+    if (typeof socket !== 'undefined' && socket && socket.connected) {
+        // Enviar la petición al "Árbitro" de Node.js
+        socket.emit('almacen:consumir-recurso', { recursoId: recursoId });
+    } else {
+        alert("❌ Error de comunicación: Sin conexión con el servidor del Imperio.");
+    }
+}
+
+// ========================================================
+// RECEPTORES DE RED DE SOCKET.IO (SINCRONIZACIÓN DE RECURSOS)
+// ========================================================
+if (typeof socket !== 'undefined' && socket) {
+
+    // Escuchar la carga autorizada del almacén desde MongoDB
+    socket.on('almacen:actualizar-estado', (payload) => {
+        console.log("🗃️ Datos del Almacén validados por el servidor recibidos:", payload);
+        
+        datosAlmacen.recursos = payload.recursos || [];
+        renderizarAlmacen();
     });
 
-    wrapper.appendChild(grid);
-    return wrapper;
-}
-
-/**
- * Handler interactivo para el uso o consumo de cartas
- */
-function usarCartaRecurso(idCarta) {
-    // Buscar la carta dentro de ambas categorías del estado local
-    let carta = inventarioAlmacen.producibles.find(c => c.id === idCarta) || 
-                inventarioAlmacen.consumibles.find(c => c.id === idCarta);
-
-    if (carta) {
-        console.log(`Acción ejecutada sobre la carta: ${carta.nombre}`);
-        // Interacción temporal: simular consumo reduciendo la cantidad
-        if (carta.cantidad > 0) {
-            carta.cantidad--;
-            cargarAlmacen(); // Refrescar vista
-        } else {
-            alert(`No te quedan unidades de ${carta.nombre}`);
-        }
-    }
+    // Capturar bloqueos del servidor (ej. si intenta consumir más de lo que tiene o inputs nulos)
+    socket.on('almacen:error', (mensajeError) => {
+        console.error("❌ Operación denegada en Almacén:", mensajeError);
+        alert(`Acción inválida: ${mensajeError}`);
+        cargarAlmacen(); // Revertir interfaz al estado real de la base de datos
+    });
 }
