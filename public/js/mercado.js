@@ -1,4 +1,4 @@
-// public/js/mercado.js
+// public/js/mercado.js (Parte 1 - Estado, Red y Sincronización en Caliente)
 
 // Estado global de los filtros del mercado activo en memoria (Estructura lógica estricta)
 let filtroMercado = {
@@ -20,7 +20,7 @@ if (typeof socket !== 'undefined' && socket) {
     });
 
     socket.on('tienda:compra-exitosa', (data) => {
-        alert("🏛️ Transacción autorizada: ¡Carta añadida a tu inventario logístico!");
+        alert(`🏛️ Transacción autorizada: ¡Has adquirido "${data.carta.nombre}" de forma exitosa!`);
         
         // Actualizar el saldo en caliente en todas las barras imperiales del juego
         const idsBalances = ['menu-player-balance', 'carreton-player-balance', 'mercado-player-balance', 'finca-player-balance'];
@@ -29,10 +29,15 @@ if (typeof socket !== 'undefined' && socket) {
             if (el) el.textContent = parseFloat(data.nuevoBalance || 0).toFixed(2);
         });
 
-        // Sincronizar memoria volátil financiera
+        // Sincronizar memoria volátil financiera si existiera
         if (typeof datosFinanzas !== 'undefined') {
             datosFinanzas.saldoDisponible = parseFloat(data.nuevoBalance || 0);
         }
+
+        // ⚡ CORRECCIÓN CLAVE: Forzar la recarga inmediata de los almacenes y carretón
+        // Esto asegura que la carta comprada aparezca pintada en el inventario SPA al instante
+        if (typeof cargarAlmacen === 'function') cargarAlmacen();
+        if (typeof cargarCarreton === 'function') cargarCarreton();
     });
 
     socket.on('tienda:error', (mensaje) => {
@@ -70,11 +75,11 @@ function renderizarCatalogoMercado(stock) {
 
     // 3. Iterar y renderizar aplicando discriminadores de tipo
     catalogoFiltrado.forEach(item => {
-        const tipoLimpio = item.tipo.toLowerCase().trim();
+        const tipoLimpio = item.tipo ? item.tipo.toLowerCase().trim() : '';
         const rubroLimpio = rubroActivo.toLowerCase().trim();
         
         // CORRECCIÓN INTERNA: Soporta mapeo cruzado 'personaje' / 'aldeanos' para la base de datos
-        const mapeaCorrecto = (tipoLimpio === rubroLimpio) || (tipoLimpio === 'personaje' && rubroLimpio === 'aldeanos');
+        const mapeaCorrecto = (tipoLimpio === rubroLimpio) || (tipoLimpio === 'personaje' && rubroLimpio === 'aldeanos') || (item.tipo === rubroActivo);
         if (!mapeaCorrecto) return;
 
         // Filtro estricto por rarezas
@@ -91,7 +96,6 @@ function renderizarCatalogoMercado(stock) {
             <div class="info-carta-mercado">
                 <h3 class="nombre-item-mercado">${item.nombre}</h3>
                 <p class="precio-item-mercado">💰 ${parseFloat(item.precio).toFixed(2)} Monedas</p>
-                <!-- CORRECCIÓN ENLACE: Llama directamente a window.ejecutarCompraCarta expuesta de forma global -->
                 <button class="btn-comprar-market" onclick="window.ejecutarCompraCarta('${item.tiendaItemId}', '${rubroActivo}')">
                     🛡️ Adquirir Carta
                 </button>
@@ -107,6 +111,9 @@ function renderizarCatalogoMercado(stock) {
         }, 20);
     });
 }
+
+
+// public/js/mercado.js (Bloque 2 de 3 - Exposición Global y Motor 3D Mini)
 
 // ==========================================================================
 // EXPOSICIÓN ESTRICTA AL ENTORNO GLOBAL WINDOW (EVITA ERRORES ONCLICK)
@@ -212,8 +219,8 @@ function construirMiniEscena3D(canvasId, subtipo) {
 
     const geometry = new THREE.BoxGeometry(0.06, 0.08, 0.005);
     let colorTarjeta = 0x5c4033; // Madera base
-    if (subtipo.includes('minero')) colorTarjeta = 0x1e3e66; // Azul minero
-    if (subtipo.includes('espada')) colorTarjeta = 0x8b0000;  // Rojo guerrero
+    if (subtipo && subtipo.includes('minero')) colorTarjeta = 0x1e3e66; // Azul minero
+    if (subtipo && subtipo.includes('espada')) colorTarjeta = 0x8b0000;  // Rojo guerrero
 
     const material = new THREE.MeshStandardMaterial({ color: colorTarjeta, roughness: 0.3 });
     const mallaCarta = new THREE.Mesh(geometry, material);
@@ -230,6 +237,8 @@ function construirMiniEscena3D(canvasId, subtipo) {
     animarCarta();
 }
 
+// public/js/mercado.js (Bloque 3 de 3 - Disparador de Sincronización Inicial)
+
 // ==========================================================================
 // DISPARADOR DE SINCRONIZACIÓN INICIAL AL CARGAR EL SCRIPT
 // ==========================================================================
@@ -243,5 +252,11 @@ if (typeof socket !== 'undefined' && socket) {
             socket.emit('tienda:solicitar-stock');
         });
     }
-}
 
+    // Escudo de respaldo comercial: Si el socket se reconecta en segundo plano, 
+    // vuelve a forzar la descarga de la vitrina para que los precios y items P2P estén al día.
+    socket.on('reconnect', () => {
+        console.log("🏪 Sincronización post-reconexión: Actualizando escaparate del mercado...");
+        socket.emit('tienda:solicitar-stock');
+    });
+}
