@@ -1,23 +1,19 @@
 // public/js/game3d.js
 
-// ==========================================================================
-// 1. ESTRUCTURA GLOBAL Y OPTIMIZACIÓN DE GPU PARA EL MOTOR TRIDIMENSIONAL
-// ==========================================================================
-
-// Bandera global conectada de forma directa con el ruteo SPA de main.js
+// Configuración global de optimización de GPU conectada con el ruteo SPA de main.js
 window.estadoMotor3D = {
     activo: false,
-    maxCimientosActivos: 8 // Fallback seguro de slots iniciales
+    maxCimientosActivos: 8
 };
 
-// Variables de control de las instancias 3D
+// Variables de control de las instancias de Three.js
 let scene, camera, renderer;
 let cimientos = [];
 let raycaster, mouse;
 
 /**
  * Inicializa el entorno gráfico 3D dentro de un contenedor HTML específico
- * @param {string} containerId - ID del elemento div contenedor
+ * @param {string} containerId - ID del elemento div contenedor del canvas
  * @param {number} maxCimientos - Cantidad de cimientos a generar (16 para Aldea, 8 para Finca)
  */
 function init3D(containerId, maxCimientos) {
@@ -59,13 +55,12 @@ function init3D(containerId, maxCimientos) {
     gridHelper.position.y = 0;
     scene.add(gridHelper);
 
-    // 7. Configuración de Raycaster para detectar clics en los cimientos
+    // 7. Inicialización de herramientas de Raycasting
     raycaster = new THREE.Raycaster();
     mouse = new THREE.Vector2();
-    
-    // Remover escuchadores anteriores para evitar fugas de memoria RAM
-    container.removeEventListener('click', onCanvasClick);
-    container.addEventListener('click', onCanvasClick);
+
+    // 🚀 ENLACE DRAG & DROP NATIVO PARA EL LIENZO CANVAS 3D
+    configurarDragAndDropCanvas(container);
 
     // 8. Distribución y renderizado de los Cimientos lógicos
     generarCimientos(maxCimientos);
@@ -76,18 +71,64 @@ function init3D(containerId, maxCimientos) {
 }
 
 /**
+ * Agrega los listeners del mouse sobre el contenedor para procesar las tarjetas soltadas
+ */
+function configurarDragAndDropCanvas(container) {
+    // Permitir que elementos flotantes se arrastren sobre el Canvas 3D
+    container.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+    });
+
+    // Evento interceptor al soltar la tarjeta de edificio sobre la grilla tridimensional
+    container.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (!renderer) return;
+
+        // Capturar los metadatos de transferencia inyectados por la tarjeta del almacén
+        const edificioUuid = e.dataTransfer.getData('text/plain');
+        if (!edificioUuid) return;
+
+        // Calcular la posición del cursor respecto al rectángulo del lienzo de Three.js
+        const rect = renderer.domElement.getBoundingClientRect();
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+        // Proyectar el rayo matemático desde la cámara hacia las mallas de los cimientos
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(cimientos);
+
+        if (intersects.length > 0) {
+            const cimientoMalla = intersects[0].object;
+            const datosCimiento = cimientoMalla.userData;
+
+            if (datosCimiento.estaOcupado) {
+                alert("❌ Este cimiento ya se encuentra ocupado por otra estructura imperial.");
+                return;
+            }
+
+            console.log(`🏗️ Intentando instalar plano ${edificioUuid} en cimiento 3D [Slot ${datosCimiento.slotId}]`);
+
+            // Emitir la orden autoritaria a través del túnel de sockets hacia el Árbitro
+            if (typeof socket !== 'undefined' && socket && socket.connected) {
+                socket.emit('finca:instalar-edificio', {
+                    cimientoSlotId: datosCimiento.slotId,
+                    edificioUuid: edificioUuid
+                });
+            }
+        }
+    });
+}
+
+/**
  * Distribuye espacialmente los cimientos geométricos translúcidos en el plano
- * @param {number} cantidad - Total de cimientos a inyectar (16 o 8)
  */
 function generarCimientos(cantidad) {
-    cimientos = []; // Resetear arreglo local
-
-    // Algoritmo adaptativo de columnas según distribución reglamentaria
+    cimientos = []; 
     const columnas = cantidad === 16 ? 4 : 3; 
     const distancia = 4.5; 
 
     for (let i = 0; i < cantidad; i++) {
-        // Geometría cúbica aplanada representativa del bloque cimiento
         const geometry = new THREE.BoxGeometry(2.5, 0.4, 2.5);
         const material = new THREE.MeshStandardMaterial({ 
             color: 0xd4af37, // Oro imperial translúcido
@@ -97,16 +138,13 @@ function generarCimientos(cantidad) {
         });
         const cimientoMesh = new THREE.Mesh(geometry, material);
 
-        // Algoritmo matemático para posicionamiento en grilla simétrica
         const fila = Math.floor(i / columnas);
         const col = i % columnas;
 
-        // CORREGIDO: Expresión matemática limpia sin asignaciones duplicadas
         cimientoMesh.position.x = (col - (columnas - 1) / 2) * distancia;
         cimientoMesh.position.y = 0.2; 
         cimientoMesh.position.z = (fila - 1) * distancia;
 
-        // Metadatos cruciales adjuntados al objeto 3D para sincronizar con MongoDB
         cimientoMesh.userData = { 
             slotId: i, 
             estaOcupado: false,
@@ -119,45 +157,9 @@ function generarCimientos(cantidad) {
 }
 
 /**
- * Evento interceptor de selección por ratón (Raycasting autoritario)
- */
-function onCanvasClick(event) {
-    if (!renderer) return;
-    const rect = renderer.domElement.getBoundingClientRect();
-    
-    // Convertir coordenadas del puntero a espacio normalizado (-1 a +1)
-    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObjects(cimientos);
-
-    if (intersects.length > 0) {
-        // CORREGIDO: Mapeo exacto del objeto interceptado en el array de colisión
-        const objetoSeleccionado = intersects[0].object;
-        console.log("🏛️ Cimiento presionado. Sincronizando ranura:", objetoSeleccionado.userData);
-        
-        // Feedback visual táctico imperial
-        objetoSeleccionado.material.color.setHex(0xff0055); // Alerta rojo carmesí al tocar
-        
-        setTimeout(() => {
-            if (objetoSeleccionado && objetoSeleccionado.material) {
-                objetoSeleccionado.material.color.setHex(0xd4af37); // Retorna a Oro imperial
-            }
-        }, 300);
-        
-        // Lanzador global por si el script carreton o mercado requiere engancharse al clic
-        if (typeof window.alPresionarCimientoReal === 'function') {
-            window.alPresionarCimientoReal(objetoSeleccionado.userData);
-        }
-    }
-}
-
-/**
- * Ciclo principal de renderizado gráfico inteligente (Control absoluto de GPU)
+ * Bucle infinito inteligente controlado por bandera de optimización de GPU
  */
 function animate() {
-    // BLINDAJE CRÍTICO DE HILO: Si la bandera pasa a false desde main.js, congela el render
     if (!window.estadoMotor3D.activo) {
         console.log("⏸️ Motor 3D en pausa: Renderizador e hilos de GPU liberados.");
         return;
@@ -179,3 +181,34 @@ window.reanudarAnimacion3D = function() {
         animate();
     }
 };
+
+// ==========================================================================
+// RECEPTORES DE RED DE SOCKET.IO PARA LA INGENIERÍA DE CONSTRUCCIÓN
+// ==========================================================================
+if (typeof socket !== 'undefined' && socket) {
+    socket.on('finca:construccion-exitosa', (data) => {
+        alert(data.mensaje);
+        
+        // Localizar de forma atómica la malla 3D correspondiente en la escena para redibujarla
+        if (cimientos && cimientos.length > 0) {
+            const malla3D = cimientos.find(c => c.userData.slotId === parseInt(data.slotId));
+            if (malla3D) {
+                malla3D.userData.estaOcupado = true;
+                malla3D.userData.tipoEdificio = data.subtipo;
+                
+                // Si es la Casona residencial, cambia su color a terracota romano para dar feedback visual
+                if (data.subtipo === 'casona') {
+                    malla3D.material.color.setHex(0x8b4513); 
+                    malla3D.material.opacity = 0.95;
+                } else {
+                    malla3D.material.color.setHex(0x4a5d4e); // Color piedra base
+                    malla3D.material.opacity = 0.90;
+                }
+            }
+        }
+    });
+
+    socket.on('finca:error', (msgError) => {
+        alert(`❌ Obra civil rechazada: ${msgError}`);
+    });
+}
