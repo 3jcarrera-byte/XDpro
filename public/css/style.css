@@ -923,21 +923,25 @@ body {
 .borde-rareza-legendario { border-color: #ffd700 !important; }
 
 /* ==========================================================================
-   ESTRUCTURA UNIFICADA PARA EL CARRETÓN Y SLOTS NFT
+   ESTRUCTURA PROPORCIONAL Y ADAPTATIVA PARA EL CARRETÓN IMPERIAL
    ========================================================================== */
 .carreton-tres-bloques-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr) !important;
-    gap: 15px;
+    /* Los laterales ocupan una parte proporcional (1.2) y el centro tiene más espacio (1.6) para evitar el atropello */
+    grid-template-columns: 1.2fr 1.6fr 1.2fr !important;
+    gap: 20px;
     width: 100%;
     box-sizing: border-box;
+    align-items: start;
 }
 
+/* GRILLES INTERNAS PARA LOS SLOTS DE CARTAS */
 #carreton-aldea-lista, #carreton-finca-lista {
     display: grid !important;
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 10px;
     padding: 5px;
+    width: 100%;
 }
 
 #carreton-central-lista {
@@ -945,38 +949,54 @@ body {
     grid-template-columns: repeat(3, 1fr) !important;
     gap: 10px;
     padding: 5px;
+    width: 100%;
 }
 
+/* RENDER DE CADA SLOT INDIVIDUAL */
 .carreton-slot {
     background: rgba(18, 12, 9, 0.7);
     border: 1px solid #3d2a1d;
     border-radius: 6px;
     padding: 10px;
-    min-height: 110px;
+    min-height: 115px;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    transition: background-color 0.25s, border-color 0.25s;
 }
 
 /* 🔒 CAPA REACTIVA PARA SLOTS BLOQUEADOS POR NFT */
 .carreton-columna.bloqueado {
-    opacity: 0.35 !important;
-    filter: grayscale(90%) !important;
+    opacity: 0.25 !important;
+    filter: grayscale(100%) !important;
     pointer-events: none !important;
     cursor: not-allowed !important;
-    background: rgba(10, 5, 5, 0.6) !important;
-    border: 2px dashed #4a1515 !important;
+    background: rgba(10, 5, 5, 0.4) !important;
+    border: 2px dashed #4a1212 !important;
 }
 
 .carreton-bloqueado-msg {
     color: #ff4d4d;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: bold;
     text-align: center;
     padding: 15px;
     font-family: 'Cinzel', serif;
     letter-spacing: 0.5px;
     text-shadow: 1px 1px 2px #000;
+    text-transform: uppercase;
+}
+
+/* 📱 ADAPTACIÓN RESPONSIVA PARA DISPOSITIVOS MEDIANOS Y MÓVILES */
+@media (max-width: 992px) {
+    .carreton-tres-bloques-grid {
+        grid-template-columns: 1fr !important; /* Se apilan verticalmente en pantallas pequeñas */
+        gap: 15px;
+    }
+    
+    #carreton-central-lista {
+        grid-template-columns: repeat(3, 1fr) !important; /* Mantiene sus 3 columnas internas sin romperse */
+    }
 }
