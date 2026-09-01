@@ -247,8 +247,8 @@ io.on('connection', (socket) => {
     });
 
     // Transacción Económica Atómica P2P
-       // ==========================================================================
-    // TRANSACCIÓN COMERCIAL ATÓMICA CON REPARTO INTELIGENTE DE ACTIVOS (REPARADO)
+          // ==========================================================================
+    // TRANSACCIÓN COMERCIAL ATÓMICA SINCRONIZADA CON SCHEMAS REALES (REPARADO)
     // ==========================================================================
     socket.on('tienda:comprar-carta', async (datos) => {
         if (!datos) return;
@@ -276,7 +276,7 @@ io.on('connection', (socket) => {
                 return socket.emit('tienda:error', 'Monedas imperiales insuficientes en tus arcas.');
             }
 
-            // Extraer la instancia activa de Mongoose desde la caché del Árbitro
+            // Extraer la instancia viva de Mongoose desde la caché del Árbitro
             const juegoData = cachePartidas[username];
 
             // 2. Si es un ALDEANO, validar espacio en el Contenedor Central del Carretón
@@ -289,43 +289,50 @@ io.on('connection', (socket) => {
             usuario.balance -= cartaTienda.precio;
             await usuario.save();
 
-            // Generar identificador único criptográfico para el nuevo activo
+            // Generar identificador único criptográfico
             const nuevoIdActivo = crypto.randomUUID();
             
-            // Estructura reglamentaria del activo coleccionable
-            const nuevaCartaActiva = {
-                id: nuevoIdActivo,
-                tipo: cartaTienda.tipo,
-                subtipo: cartaTienda.subtipo,
-                nombre: cartaTienda.nombre,
-                rareza: cartaTienda.rareza,
-                nivel: 1,
-                slotIndex: 0
-            };
-
-            // 4. ALGORITMO DE DISTRIBUCIÓN SEGÚN TU DISEÑO DE JUEGO
+            // 4. ALGORITMO DE DISTRIBUCIÓN ACOPLADO EXACTAMENTE A TU GAMEDATASCHEMA
             if (cartaTienda.tipo === 'aldeanos') {
                 // Rastrear el primer slot numérico libre en el contenedor central (0, 1, 2...)
                 let slotLibre = 0;
                 while (juegoData.carretonCartas.cartasCentral.some(c => c.slotIndex === slotLibre)) {
                     slotLibre++;
                 }
-                nuevaCartaActiva.slotIndex = slotLibre;
-                nuevaCartaActiva.icono = '👤';
 
-                // Insertar en la colección del Carretón Central de MongoDB
-                juegoData.carretonCartas.cartasCentral.push(nuevaCartaActiva);
-                console.log(`👨‍🌾 Población asignada al Carretón Central [Slot ${slotLibre}] de ${username}`);
+                // Sincronizado estrictamente con PobladorSchema (Añade id y uuid en paralelo)
+                const nuevoPoblador = {
+                    id: nuevoIdActivo,
+                    uuid: nuevoIdActivo, // Satisface la regla required: true de tu sub-esquema
+                    subtipo: cartaTienda.subtipo,
+                    nombre: cartaTienda.nombre,
+                    rareza: cartaTienda.rareza,
+                    nivel: 1,
+                    slotIndex: slotLibre,
+                    equipamientoAnidado: []
+                };
+
+                juegoData.carretonCartas.cartasCentral.push(nuevoPoblador);
+                console.log(`👨‍🌾 Poblador/Aldeano asignado al Carretón Central [Slot ${slotLibre}] de ${username}`);
             } else {
-                // Si es Edificio o Equipamiento, va directo al Inventario del Almacén de activos
-                if (!juegoData.almacenActivos) juegoData.almacenActivos = [];
-                juegoData.almacenActivos.push(nuevaCartaActiva);
-                console.log(`🏢 Edificio/Equipamiento inyectado en el inventario del Almacén de ${username}`);
+                // Sincronizado estrictamente con tu array real de la Base de Datos: almacenEdificiosDisponibles
+                const nuevoEdificio = {
+                    id: nuevoIdActivo,
+                    uuid: nuevoIdActivo, // Satisface la regla required: true de tu sub-esquema
+                    subtipo: cartaTienda.subtipo,
+                    nombre: cartaTienda.nombre,
+                    rareza: cartaTienda.rareza,
+                    nivel: 1
+                };
+
+                if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
+                juegoData.almacenEdificiosDisponibles.push(nuevoEdificio);
+                console.log(`🏢 Estructura/Edificio inyectado en almacenEdificiosDisponibles de ${username}`);
             }
 
-            // 5. Persistir físicamente los subdocumentos mixtos modificados en MongoDB
+            // 5. Persistir físicamente los subdocumentos modificados en MongoDB
             juegoData.markModified('carretonCartas');
-            juegoData.markModified('almacenActivos');
+            juegoData.markModified('almacenEdificiosDisponibles');
             await juegoData.save();
 
             // 6. Repoblación automática e inmediata de la vitrina (AMM)
@@ -340,15 +347,15 @@ io.on('connection', (socket) => {
             // Notificar éxito en la transacción al comprador
             socket.emit('tienda:compra-exitosa', {
                 nuevoBalance: usuario.balance,
-                carta: nuevaCartaActiva
+                carta: { id: nuevoIdActivo, nombre: cartaTienda.nombre, tipo: cartaTienda.tipo }
             });
 
             // Sincronizar la vitrina comercial de forma global para todos los gladiadores online
             io.emit('tienda:recibir-stock', stockTiendaSistema);
 
-            // 7. DISPARADORES REACTIVOS: Forzar refresco en caliente en las pantallas del jugador
-            // Envía los datos actualizados del Almacén
-            socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenActivos || [] });
+            // 7. DISPARADORES REACTIVOS: Forzar actualización instantánea de las pantallas del cliente
+            // Envía los datos actualizados del Almacén mapeando tu array real de edificios
+            socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles || [] });
             
             // Envía los datos actualizados del Carretón
             socket.emit('carreton:actualizar-estado', {
@@ -364,6 +371,7 @@ io.on('connection', (socket) => {
             socket.emit('tienda:error', 'Error interno al adjudicar activos en base de datos.');
         }
     });
+
 
 
        // ==========================================================================
