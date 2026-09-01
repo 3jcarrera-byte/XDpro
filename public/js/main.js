@@ -1,4 +1,4 @@
-// public/js/main.js
+// public/js/main.js (Bloque 1 de 3 - SPA y Control de Vistas)
 
 // ========================================================
 // 1. INICIALIZACIÓN SEGURO DE SOCKETS (Evita caídas en Render)
@@ -66,9 +66,13 @@ window.cambiarPantalla = function(pantallaId) {
                 // Sincronizado exactamente con el contenedor de tu HTML
                 init3D('canvas-finca-container', 5);
             }
-            // Forzar carga de datos en tiempo real al entrar a la pestaña
-            if (typeof cargarCarreton === 'function') cargarCarreton();
-            if (typeof cargarAlmacen === 'function') cargarAlmacen();
+            
+            // CORRECCIÓN ATÓMICA: Pequeño delay de 50ms para asegurar que el DOM de la Finca 
+            // esté activo antes de inyectar las mallas de la Casona y Pobladores.
+            setTimeout(() => {
+                if (typeof cargarCarreton === 'function') cargarCarreton();
+                if (typeof cargarAlmacen === 'function') cargarAlmacen();
+            }, 50);
         }
 
         // 🚀 DISPARADOR AUTOMÁTICO MOTOR 3D: ALDEA IMPERIAL (12 CIMIENTOS)
@@ -77,7 +81,9 @@ window.cambiarPantalla = function(pantallaId) {
                 console.log("🏛️ Inicializando terreno 3D de la Aldea (12 Cimientos)...");
                 init3D('canvas-aldea-container', 12);
             }
-            if (typeof cargarCarreton === 'function') cargarCarreton();
+            setTimeout(() => {
+                if (typeof cargarCarreton === 'function') cargarCarreton();
+            }, 50);
         }
 
         // 🚀 HERENCIA CONTINUA DE FONDOS REALES AL ENTRAR AL MERCADO
@@ -106,8 +112,7 @@ window.cambiarPantalla = function(pantallaId) {
             }
         }
 
-        
-              // Control inteligente del botón flotante de emergencia
+        // Control inteligente del botón flotante de emergencia
         if (btnFloatingMenu) {
             if (pantallaId === 'pantalla-menu-principal') {
                 btnFloatingMenu.style.display = 'none';
@@ -119,6 +124,9 @@ window.cambiarPantalla = function(pantallaId) {
         console.warn(`La vista con ID '${pantallaId}' no existe en el DOM.`);
     }
 };
+
+
+// public/js/main.js (Bloque 2 de 3 - Lógica de Registro Extendido)
 
 // ========================================================
 // 3. LÓGICA DE REGISTRO EXTENDIDO (ESTILO VUE REACTIVO)
@@ -217,6 +225,7 @@ if (registerForm) {
         }
     });
 }
+// public/js/main.js (Bloque 3 de 3 - Lógica de Inicio de Sesión y Autenticación)
 
 // ========================================================
 // 4. LÓGICA DE INICIO DE SESIÓN (AUTENTICACIÓN PERSISTENTE)
