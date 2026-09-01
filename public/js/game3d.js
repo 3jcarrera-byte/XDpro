@@ -90,7 +90,7 @@ function generarCimientos(cantidad) {
         // Geometría cúbica aplanada representativa del bloque cimiento
         const geometry = new THREE.BoxGeometry(2.5, 0.4, 2.5);
         const material = new THREE.MeshStandardMaterial({ 
-            color: 0xd4af37, // Oro imperial translúcido para hacer juego con el carretón
+            color: 0xd4af37, // Oro imperial translúcido
             transparent: true, 
             opacity: 0.25,
             roughness: 0.5
@@ -101,7 +101,8 @@ function generarCimientos(cantidad) {
         const fila = Math.floor(i / columnas);
         const col = i % columnas;
 
-        cimientoMesh.position.x = (col - (columnas - 1) / 2) * distance = (col - (columnas - 1) / 2) * distancia;
+        // CORREGIDO: Expresión matemática limpia sin asignaciones duplicadas
+        cimientoMesh.position.x = (col - (columnas - 1) / 2) * distancia;
         cimientoMesh.position.y = 0.2; 
         cimientoMesh.position.z = (fila - 1) * distancia;
 
@@ -132,6 +133,7 @@ function onCanvasClick(event) {
     const intersects = raycaster.intersectObjects(cimientos);
 
     if (intersects.length > 0) {
+        // CORREGIDO: Mapeo exacto del objeto interceptado en el array de colisión
         const objetoSeleccionado = intersects[0].object;
         console.log("🏛️ Cimiento presionado. Sincronizando ranura:", objetoSeleccionado.userData);
         
