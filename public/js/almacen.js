@@ -106,8 +106,18 @@ if (typeof socket !== 'undefined' && socket) {
     socket.on('almacen:actualizar-estado', (payload) => {
         console.log("🗃️ Datos del Almacén validados por el servidor recibidos:", payload);
         
-        // Mapeo adaptativo tolerante a las llaves enviadas por server.js
-        datosAlmacen.recursos = payload.recursos || payload.almacenEdificiosDisponibles || [];
+        // CORRECCIÓN ATÓMICA DE EXTRACCIÓN: Extrae de forma limpia sin importar el empaquetado del Árbitro
+        if (payload && payload.recursos) {
+            datosAlmacen.recursos = payload.recursos;
+        } else if (payload && payload.almacenEdificiosDisponibles) {
+            datosAlmacen.recursos = payload.almacenEdificiosDisponibles;
+        } else if (payload && Array.isArray(payload)) {
+            datosAlmacen.recursos = payload;
+        } else {
+            datosAlmacen.recursos = [];
+        }
+        
+        // Forzar redibujado de la interfaz de inmediato
         renderizarAlmacen();
     });
 
