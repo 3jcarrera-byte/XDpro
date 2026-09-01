@@ -49,13 +49,29 @@ window.cambiarPantalla = function(pantallaId) {
     if (destino) {
         destino.style.display = 'block';
         
-        // 🚀 CONTROL DE OPTIMIZACIÓN GPU PARA THREE.JS
+        // 🚀 CONTROL DE OPTIMIZACIÓN GPU PARA THREE.JS (MENÚ PRINCIPAL)
         if (typeof window.estadoMotor3D !== 'undefined') {
             if (pantallaId === 'pantalla-menu-principal') {
                 window.estadoMotor3D.activo = true;
                 if (typeof window.reanudarAnimacion3D === 'function') window.reanudarAnimacion3D();
             } else {
                 window.estadoMotor3D.activo = false;
+            }
+        }
+
+        // 🚀 DISPARADOR AUTOMÁTICO MOTOR 3D: FINCA PERSONAL (5 CIMIENTOS)
+        if (pantallaId === 'pantalla-finca') {
+            if (typeof init3D === 'function') {
+                console.log("🏗️ Inicializando terreno 3D de la Finca (5 Cimientos Dorados)...");
+                init3D('canvas-contenedor-3d-finca', 5);
+            }
+        }
+
+        // 🚀 DISPARADOR AUTOMÁTICO MOTOR 3D: ALDEA IMPERIAL (12 CIMIENTOS)
+        if (pantallaId === 'pantalla-aldea') {
+            if (typeof init3D === 'function') {
+                console.log("🏛️ Inicializando terreno 3D de la Aldea (12 Cimientos Dorados)...");
+                init3D('canvas-contenedor-3d-aldea', 12);
             }
         }
 
@@ -254,7 +270,7 @@ if (loginForm) {
                 // 1. Saltamos a la pantalla del menú principal
                 cambiarPantalla('pantalla-menu-principal');
                 
-                // 2. DISPARADOR 3D: Inicialización segura del motor gráfico
+                // 2. DISPARADOR 3D: Inicialización segura del motor gráfico del Menú Principal
                 if (typeof inicializarMundo3D === 'function') {
                     setTimeout(inicializarMundo3D, 50);
                 }
