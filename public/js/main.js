@@ -50,7 +50,6 @@ window.cambiarPantalla = function(pantallaId) {
         destino.style.display = 'block';
         
         // 🚀 CONTROL DE OPTIMIZACIÓN GPU PARA THREE.JS
-        // Si el usuario sale del mapa, activamos la bandera de congelación en game3d
         if (typeof window.estadoMotor3D !== 'undefined') {
             if (pantallaId === 'pantalla-menu-principal') {
                 window.estadoMotor3D.activo = true;
@@ -60,13 +59,21 @@ window.cambiarPantalla = function(pantallaId) {
             }
         }
 
-        // 🚀 DISPARADOR EXCLUSIVO DEL MERCADO MUNDIAL SANEADO
+        // 🚀 HERENCIA CONTINUA DE FONDOS REALES AL ENTRAR AL MERCADO
         if (pantallaId === 'pantalla-mercado') {
+            const nickReal = document.getElementById('menu-player-nick')?.textContent;
+            const balanceReal = document.getElementById('menu-player-balance')?.textContent;
+            
+            const nickMercado = document.getElementById('mercado-player-nick');
+            const balanceMercado = document.getElementById('mercado-player-balance');
+            
+            // Forzar copia exacta de los datos del gladiador activo en la UI del mercado
+            if (nickMercado && nickReal) nickMercado.textContent = nickReal;
+            if (balanceMercado && balanceReal) balanceMercado.textContent = balanceReal;
+
             if (socket && socket.connected) {
-                console.log("🏪 Solicitando stock de vitrina imperial al servidor...");
+                console.log("🏪 Conexión activa: Solicitando stock de vitrina imperial...");
                 socket.emit('tienda:solicitar-stock');
-            } else if (typeof refrescarCatalogoMercado === 'function') {
-                refrescarCatalogoMercado(); // Respaldo local
             }
         }
 
@@ -173,7 +180,7 @@ if (registerForm) {
             if (response.ok && data.success) {
                 alert(`¡Gladiador registrado con éxito! Bienvenido al Imperio.`);
                 registerForm.reset();
-                if (typeof verificarFormularioValido === 'function') verificarFormularioValido();
+                verificarFormularioValido();
                 if (btnToggleAuth) btnToggleAuth.click();
             } else {
                 alert('Error al registrar: ' + (data.message || 'Error interno del Coliseo.'));
@@ -218,9 +225,9 @@ if (loginForm) {
                 sessionStorage.setItem('gladiador_nick', data.username);
                 sessionStorage.setItem('gladiador_poseeAldea', data.poseeAldea);
                 
-                // SINCRO GENERAL DE LOGUEO: Nick y Balance actualizados en todas las interfaces
-                const idsNicks = ['menu-player-nick', 'carreton-player-nick'];
-                const idsBalances = ['menu-player-balance', 'carreton-player-balance', 'finanzas-saldo-txt'];
+                // SINCRO GENERAL DE LOGUEO: Nick y Balance actualizados en todas las interfaces (Incluido Mercado)
+                const idsNicks = ['menu-player-nick', 'carreton-player-nick', 'mercado-player-nick'];
+                const idsBalances = ['menu-player-balance', 'carreton-player-balance', 'mercado-player-balance', 'finanzas-saldo-txt'];
                 
                 idsNicks.forEach(id => {
                     const el = document.getElementById(id);
