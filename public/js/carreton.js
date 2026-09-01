@@ -39,7 +39,12 @@ function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabili
     }
 
     elementoDOM.parentElement.classList.remove('bloqueado');
-    const bloqueTipo = elementoDOM.id.replace('carreton-', '').replace('-lista', '');
+    
+    // CORRECCIÓN BIYECTIVA: Extrae el tipo de bloque tolerando la nueva barra lateral derecha de la Finca
+    let bloqueTipo = elementoDOM.id.replace('carreton-', '').replace('-lista', '');
+    if (elementoDOM.id === 'finca-pobladores-lista') {
+        bloqueTipo = 'finca';
+    }
 
     // Generar la cuadrícula reglamentaria de ranuras enmarcadas
     for (let i = 0; i < maxSlots; i++) {
@@ -97,9 +102,9 @@ function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabili
         if (carta) {
             slotDiv.classList.add('ocupado');
             const cartaIdentificador = carta.id || carta.uuid;
-            
-            // Inyectamos la tarjeta del poblador y la hacemos explícitamente arrastrable
-            slotDiv.innerHTML = `
+
+                   // Inyectamos la tarjeta del poblador y la hacemos explícitamente arrastrable
+        slotDiv.innerHTML = `
                 <div class="pj-carta-arrastrable" draggable="true" data-id="${cartaIdentificador}" style="width:100%; height:100%; cursor:grab; display:flex; flex-direction:column; align-items:center; justify-content:center;">
                     <div class="pj-icono" style="font-size:24px; margin-bottom:4px;">${carta.icono || '👤'}</div>
                     <div class="pj-nombre" style="font-size:12px; color:#fff; font-weight:bold;">${carta.nombre}</div>
@@ -107,30 +112,28 @@ function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabili
                 </div>
             `;
 
-            const elementoArrastrable = slotDiv.querySelector('.pj-carta-arrastrable');
+        const elementoArrastrable = slotDiv.querySelector('.pj-carta-arrastrable');
 
-            // EVENTOS DE SEGUIMIENTO DEL MOUSE AL LLEVARSE LA CARTA
-            elementoArrastrable.addEventListener('dragstart', (e) => {
-                e.dataTransfer.setData('text/plain', cartaIdentificador);
-                slotDiv.style.opacity = '0.3'; // Opacidad mientras flota el mouse
-            });
+        // EVENTOS DE SEGUIMIENTO DEL MOUSE AL LLEVARSE LA CARTA
+        elementoArrastrable.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', cartaIdentificador);
+            slotDiv.style.opacity = '0.3'; // Opacidad mientras flota el mouse
+        });
 
-            elementoArrastrable.addEventListener('dragend', () => {
-                slotDiv.style.opacity = '1';
-                cargarCarreton(); // Forzar refresco para limpiar descolocaciones visuales en SPA
-            });
+        elementoArrastrable.addEventListener('dragend', () => {
+            slotDiv.style.opacity = '1';
+            cargarCarreton(); // Forzar refresco para limpiar descolocaciones visuales en SPA
+        });
+    } else {
+        // REGLA REACTIVA: Si el slot está bloqueado por falta de población, dice "No disponible"
+        if (esSlotDisponible) {
+            slotDiv.innerHTML = `<span class="slot-vacio-txt">Vacío</span>`;
         } else {
-            // REGLA REACTIVA: Si el slot está bloqueado por falta de población, dice "No disponible"
-            if (esSlotDisponible) {
-                slotDiv.innerHTML = `<span class="slot-vacio-txt">Vacío</span>`;
-            } else {
-                slotDiv.innerHTML = `<span class="slot-vacio-txt" style="color: #663333; font-weight: bold; font-family: 'Cinzel', serif;">No disponible</span>`;
-            }
+            slotDiv.innerHTML = `<span class="slot-vacio-txt" style="color: #663333; font-weight: bold; font-family: 'Cinzel', serif;">No disponible</span>`;
         }
-        elementoDOM.appendChild(slotDiv);
     }
+    elementoDOM.appendChild(slotDiv);
 }
-// public/js/carreton.js - Continuación directa del Bloque 1
 
 /**
  * Notifica al Árbitro de Render las nuevas coordenadas para salvar de forma persistente en MongoDB
@@ -168,41 +171,51 @@ if (typeof socket !== 'undefined' && socket) {
         datosCarreton.cartasFinca = estadoBD.cartasFinca || [];
         datosCarreton.cartasCentral = estadoBD.cartasCentral || [];
 
-        // Rastrear nodos de inyección en el DOM de la SPA
+        // 1. COMPROBACIÓN PANTALLA CARRETÓN GENERAL
         const contAldea = document.getElementById('carreton-aldea-lista');
         const contCentral = document.getElementById('carreton-central-lista');
         const contFinca = document.getElementById('carreton-finca-lista');
 
-        if (!contAldea || !contCentral || !contFinca) {
-            console.warn("⚠️ Los contenedores del carretón no se encuentran cargados en el DOM activo.");
-            return;
-        }
+        // 2. COMPROBACIÓN PANTALLA INTERFAZ FINCA (ESPEJO REACTIVO)
+        const contFincaEspejo = document.getElementById('finca-pobladores-lista');
 
-        // Forzar visibilidad general de las grillas pero delegando la restricción al slot individual interno
         const habilitadoFinca = true; 
         const habilitadoAldea = estadoBD.poseeAldea; 
         const msgAldea = "🔒 RESTRICCIÓN: Requiere poseer la Aldea NFT";
 
-        // Render masivo pasando la capacidad de población autorizada en caliente por tus edificios
-        renderizarBloqueCarreton(contAldea, datosCarreton.cartasAldea, estadoBD.slotsAldeaMax, habilitadoAldea, msgAldea, estadoBD.slotsAldeaHabilitados || 0);
-        renderizarBloqueCarreton(contCentral, datosCarreton.cartasCentral, datosCarreton.slotsCentralMax, true, "", estadoBD.slotsCentralMax);
-        renderizarBloqueCarreton(contFinca, datosCarreton.cartasFinca, estadoBD.slotsFincaMax, habilitadoFinca, "", estadoBD.slotsFincaHabilitados || 0);
+        // Renderizado si el usuario está parado en la sección del Carretón
+        if (contAldea && contCentral && contFinca) {
+            renderizarBloqueCarreton(contAldea, datosCarreton.cartasAldea, estadoBD.slotsAldeaMax, habilitadoAldea, msgAldea, estadoBD.slotsAldeaHabilitados || 0);
+            renderizarBloqueCarreton(contCentral, datosCarreton.cartasCentral, datosCarreton.slotsCentralMax, true, "", estadoBD.slotsCentralMax);
+            renderizarBloqueCarreton(contFinca, datosCarreton.cartasFinca, estadoBD.slotsFincaMax, habilitadoFinca, "", estadoBD.slotsFincaHabilitados || 0);
+
+            // Actualizar títulos del Carretón
+            const tituloFinca = contFinca.parentElement.querySelector('h3');
+            if (tituloFinca) {
+                tituloFinca.innerText = `🏡 Contenedor Finca (${datosCarreton.cartasFinca.length} / ${estadoBD.slotsFincaHabilitados || 0})`;
+            }
+
+            const tituloAldea = contAldea.parentElement.querySelector('h3');
+            if (tituloAldea) {
+                tituloAldea.innerText = `🛡️ Contenedor Aldea (${datosCarreton.cartasAldea.length} / ${estadoBD.slotsAldeaHabilitados || 0})`;
+            }
+        }
+
+        // 🚀 INYECCIÓN AUTOMÁTICA EN LA BARRA DERECHA DE LA FINCA 3D
+        if (contFincaEspejo) {
+            renderizarBloqueCarreton(contFincaEspejo, datosCarreton.cartasFinca, estadoBD.slotsFincaMax, habilitadoFinca, "", estadoBD.slotsFincaHabilitados || 0);
+            
+            // Actualizar el medidor de población superior de la Finca (Ej: POBLADORES FINCA 0/0)
+            const tituloFincaEspejo = document.getElementById('finca-poblacion-titulo');
+            if (tituloFincaEspejo) {
+                tituloFincaEspejo.innerText = `👨‍🌾 Pobladores Finca (${datosCarreton.cartasFinca.length} / ${estadoBD.slotsFincaHabilitados || 0})`;
+            }
+        }
 
         // Actualizar indicador de capacidad central dinámico en la UI
         const txtCapacidad = document.getElementById('carreton-central-capacidad');
         if (txtCapacidad) {
             txtCapacidad.innerText = `Slots Centrales: ${datosCarreton.cartasCentral.length} / ${datosCarreton.slotsCentralMax}`;
-        }
-
-        // SINCRO DE CONTADORES: Actualizar los títulos de los contenedores con sus medidores de población reales
-        const tituloFinca = contFinca.parentElement.querySelector('h3');
-        if (tituloFinca) {
-            tituloFinca.innerText = `🏡 Contenedor Finca (${datosCarreton.cartasFinca.length} / ${estadoBD.slotsFincaHabilitados || 0})`;
-        }
-
-        const tituloAldea = contAldea.parentElement.querySelector('h3');
-        if (tituloAldea) {
-            tituloAldea.innerText = `🛡️ Contenedor Aldea (${datosCarreton.cartasAldea.length} / ${estadoBD.slotsAldeaHabilitados || 0})`;
         }
     });
     
