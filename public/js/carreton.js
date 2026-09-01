@@ -27,8 +27,9 @@ function cargarCarreton() {
  * @param {number} maxSlots - Cantidad reglamentaria de ranuras
  * @param {boolean} estaHabilitado - Flag de control NFT
  * @param {string} mensajeBloqueo - Cadena informativa de restricción imperial
+ * @param {number} slotsHabilitados - Capacidad habitacional actual calculada por el servidor
  */
-function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabilitado, mensajeBloqueo) {
+function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabilitado, mensajeBloqueo, slotsHabilitados = 0) {
     elementoDOM.innerHTML = '';
 
     if (!estaHabilitado) {
@@ -47,39 +48,50 @@ function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabili
         slotDiv.dataset.bloque = bloqueTipo;
         slotDiv.dataset.slotIndex = i;
 
-        // EVENTOS DEL SLOT CAPTADOR (Zona donde se suelta la carta)
-        slotDiv.addEventListener('dragover', (e) => {
-            e.preventDefault(); 
-            if (!slotDiv.classList.contains('ocupado')) {
-                slotDiv.style.border = '1px solid #d4af37';
-                slotDiv.style.background = 'rgba(212, 175, 55, 0.05)';
-            }
-        });
+        // Determinar si esta ranura individual está liberada por las construcciones activas
+        // El carretón central siempre está disponible; aldea y finca dependen de los edificios
+        const esSlotDisponible = (bloqueTipo === 'central') || (i < slotsHabilitados);
 
-        slotDiv.addEventListener('dragleave', () => {
-            slotDiv.style.border = '';
-            slotDiv.style.background = '';
-        });
+        // EVENTOS DEL SLOT CAPTADOR (Solo se configuran si el slot tiene cobertura de espacio)
+        if (esSlotDisponible) {
+            slotDiv.addEventListener('dragover', (e) => {
+                e.preventDefault(); 
+                if (!slotDiv.classList.contains('ocupado')) {
+                    slotDiv.style.border = '1px solid #d4af37';
+                    slotDiv.style.background = 'rgba(212, 175, 55, 0.05)';
+                }
+            });
 
-        slotDiv.addEventListener('drop', (e) => {
-            e.preventDefault();
-            slotDiv.style.border = '';
-            slotDiv.style.background = '';
-            
-            const cartaId = e.dataTransfer.getData('text/plain');
-            const bloqueDestino = slotDiv.dataset.bloque;
-            const slotDestinoIndex = parseInt(slotDiv.dataset.slotIndex);
+            slotDiv.addEventListener('dragleave', () => {
+                slotDiv.style.border = '';
+                slotDiv.style.background = '';
+            });
 
-            // Cancelar movimiento local si la ranura de destino ya está ocupada
-            if (slotDiv.classList.contains('ocupado')) return;
+            slotDiv.addEventListener('drop', (e) => {
+                e.preventDefault();
+                slotDiv.style.border = '';
+                slotDiv.style.background = '';
+                
+                const cartaId = e.dataTransfer.getData('text/plain');
+                const bloqueDestino = slotDiv.dataset.bloque;
+                const slotDestinoIndex = parseInt(slotDiv.dataset.slotIndex);
 
-            if (typeof ejecutarMovimientoDrag === 'function') {
-                ejecutarMovimientoDrag(cartaId, bloqueDestino, slotDestinoIndex);
-            }
-        });
+                // Cancelar si la ranura de destino ya está ocupada
+                if (slotDiv.classList.contains('ocupado')) return;
 
-        // Buscar si existe un personaje asignado por la base de datos a este índice de ranura (slotIndex)
-        // BLINDAJE: Evalúa tanto la propiedad .id como .uuid por retrocompatibilidad del modelo mixto
+                if (typeof ejecutarMovimientoDrag === 'function') {
+                    ejecutarMovimientoDrag(cartaId, bloqueDestino, slotDestinoIndex);
+                }
+            });
+        } else {
+            // Aplicar estilo de bloqueo pasivo para ranuras sin soporte habitacional
+            slotDiv.style.opacity = '0.4';
+            slotDiv.style.border = '1px dashed #4a1212';
+            slotDiv.style.background = 'rgba(15, 10, 10, 0.4)';
+            slotDiv.style.cursor = 'not-allowed';
+        }
+
+        // Buscar si existe un personaje asignado por la base de datos a este índice de ranura
         const carta = listaCartas.find(c => c.slotIndex === i);
 
         if (carta) {
@@ -100,7 +112,7 @@ function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabili
             // EVENTOS DE SEGUIMIENTO DEL MOUSE AL LLEVARSE LA CARTA
             elementoArrastrable.addEventListener('dragstart', (e) => {
                 e.dataTransfer.setData('text/plain', cartaIdentificador);
-                slotDiv.style.opacity = '0.3'; // Opacidad mientras flota el mouse en el canvas
+                slotDiv.style.opacity = '0.3'; // Opacidad mientras flota el mouse
             });
 
             elementoArrastrable.addEventListener('dragend', () => {
@@ -108,11 +120,18 @@ function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabili
                 cargarCarreton(); // Forzar refresco para limpiar descolocaciones visuales en SPA
             });
         } else {
-            slotDiv.innerHTML = `<span class="slot-vacio-txt">Vacío</span>`;
+            // REGLA REACTIVA: Si el slot está bloqueado por falta de población, dice "No disponible"
+            if (esSlotDisponible) {
+                slotDiv.innerHTML = `<span class="slot-vacio-txt">Vacío</span>`;
+            } else {
+                slotDiv.innerHTML = `<span class="slot-vacio-txt" style="color: #663333; font-weight: bold; font-family: 'Cinzel', serif;">No disponible</span>`;
+            }
         }
         elementoDOM.appendChild(slotDiv);
     }
 }
+// public/js/carreton.js - Continuación directa del Bloque 1
+
 /**
  * Notifica al Árbitro de Render las nuevas coordenadas para salvar de forma persistente en MongoDB
  * @param {string} cartaId - Identificador único UUID de la carta arrastrada
@@ -136,7 +155,7 @@ function ejecutarMovimientoDrag(cartaId, bloqueDestino, slotDestinoIndex) {
     }
 }
 
-// Escuchador reactivo conectado al flujo de datos autorizado de la Base de Datos
+// Escuchador reactivo conectado al flujo de datos authorized de la Base de Datos
 if (typeof socket !== 'undefined' && socket) {
     socket.on('carreton:actualizar-estado', (estadoBD) => {
         if (!estadoBD) return;
@@ -159,15 +178,31 @@ if (typeof socket !== 'undefined' && socket) {
             return;
         }
 
-        // Render masivo aplicando restricciones estrictas de propiedad NFT
-        renderizarBloqueCarreton(contAldea, datosCarreton.cartasAldea, datosCarreton.slotsAldeaMax, datosCarreton.poseeAldea, "🔒 RESTRICCIÓN: Requiere poseer la Aldea NFT");
-        renderizarBloqueCarreton(contCentral, datosCarreton.cartasCentral, datosCarreton.slotsCentralMax, true, "");
-        renderizarBloqueCarreton(contFinca, datosCarreton.cartasFinca, datosCarreton.slotsFincaMax, true, "");
+        // Forzar visibilidad general de las grillas pero delegando la restricción al slot individual interno
+        const habilitadoFinca = true; 
+        const habilitadoAldea = estadoBD.poseeAldea; 
+        const msgAldea = "🔒 RESTRICCIÓN: Requiere poseer la Aldea NFT";
+
+        // Render masivo pasando la capacidad de población autorizada en caliente por tus edificios
+        renderizarBloqueCarreton(contAldea, datosCarreton.cartasAldea, estadoBD.slotsAldeaMax, habilitadoAldea, msgAldea, estadoBD.slotsAldeaHabilitados || 0);
+        renderizarBloqueCarreton(contCentral, datosCarreton.cartasCentral, datosCarreton.slotsCentralMax, true, "", estadoBD.slotsCentralMax);
+        renderizarBloqueCarreton(contFinca, datosCarreton.cartasFinca, estadoBD.slotsFincaMax, habilitadoFinca, "", estadoBD.slotsFincaHabilitados || 0);
 
         // Actualizar indicador de capacidad central dinámico en la UI
         const txtCapacidad = document.getElementById('carreton-central-capacidad');
         if (txtCapacidad) {
             txtCapacidad.innerText = `Slots Centrales: ${datosCarreton.cartasCentral.length} / ${datosCarreton.slotsCentralMax}`;
+        }
+
+        // SINCRO DE CONTADORES: Actualizar los títulos de los contenedores con sus medidores de población reales
+        const tituloFinca = contFinca.parentElement.querySelector('h3');
+        if (tituloFinca) {
+            tituloFinca.innerText = `🏡 Contenedor Finca (${datosCarreton.cartasFinca.length} / ${estadoBD.slotsFincaHabilitados || 0})`;
+        }
+
+        const tituloAldea = contAldea.parentElement.querySelector('h3');
+        if (tituloAldea) {
+            tituloAldea.innerText = `🛡️ Contenedor Aldea (${datosCarreton.cartasAldea.length} / ${estadoBD.slotsAldeaHabilitados || 0})`;
         }
     });
     
