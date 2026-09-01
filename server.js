@@ -374,7 +374,7 @@ io.on('connection', (socket) => {
 
 
 
-       // ==========================================================================
+         // ==========================================================================
     // GUARDADO PERSISTENTE DEL MOVIMIENTO DRAG & DROP DEL CARRETÓN (REPARADO)
     // ==========================================================================
     socket.on('carreton:guardar-posicion', async (data) => {
@@ -390,27 +390,58 @@ io.on('connection', (socket) => {
         let listaOrigen = null;
         let cartaEncontrada = null;
         
-        // Rastrear la ubicación actual de la carta en las 3 zonas del inventario
+        // 1. Rastrear la ubicación actual de la carta en las 3 zonas del inventario
         const bloques = ['cartasAldea', 'cartasFinca', 'cartasCentral'];
         for (const bloque of bloques) {
             const idx = juegoData.carretonCartas[bloque].findIndex(c => {
-                // BLINDAJE CRÍTICO: Evalúa de forma flexible todas las variantes de ID generadas por el sistema
                 return c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId);
             });
             
             if (idx !== -1) {
                 cartaEncontrada = juegoData.carretonCartas[bloque][idx];
                 listaOrigen = juegoData.carretonCartas[bloque];
-                listaOrigen.splice(idx, 1); // Remover de su posición antigua en RAM
+                // Hacemos un clon preventivo antes de removerla de RAM por si falla la validación habitacional
                 break;
             }
         }
 
-        // Si el Árbitro no localiza el token de la carta, rechaza la transacción de forma segura
         if (!cartaEncontrada) {
             return socket.emit('carreton:error', 'La carta especificada no existe en tu carretón.');
         }
-        
+
+        // 2. AUDITORÍA HABITACIONAL EXTREMA ANTES DE TRANSFERIR EL ACTIVO
+        if (bloqueDestino === 'finca' || bloqueDestino === 'aldea') {
+            let slotsHabilitadosPorEdificios = 0;
+            
+            if (bloqueDestino === 'finca') {
+                if (juegoData.cimientosFinca && juegoData.cimientosFinca.length > 0) {
+                    juegoData.cimientosFinca.forEach(c => {
+                        if (c.estaOcupado && c.subtipo === 'casona') slotsHabilitadosPorEdificios += 2;
+                        if (c.estaOcupado && c.subtipo === 'granja') slotsHabilitadosPorEdificios += 1;
+                    });
+                }
+                // Si la cantidad de cartas ya posicionadas supera o iguala el espacio de la casona, frena el arrastre
+                if (juegoData.carretonCartas.cartasFinca.length >= slotsHabilitadosPorEdificios && !juegoData.carretonCartas.cartasFinca.some(c => c.id === cartaId)) {
+                    return socket.emit('carreton:error', `🔒 Espacio insuficiente en Finca. Población máxima: ${slotsHabilitadosPorEdificios}. ¡Instala una Casona!`);
+                }
+            }
+
+            if (bloqueDestino === 'aldea') {
+                if (juegoData.cimientosAldea && juegoData.cimientosAldea.length > 0) {
+                    juegoData.cimientosAldea.forEach(c => {
+                        if (c.estaOcupado && c.subtipo === 'barracon') slotsHabilitadosPorEdificios += 4;
+                    });
+                }
+                if (juegoData.carretonCartas.cartasAldea.length >= slotsHabilitadosPorEdificios && !juegoData.carretonCartas.cartasAldea.some(c => c.id === cartaId)) {
+                    return socket.emit('carreton:error', `🔒 Espacio insuficiente en la Aldea. Población máxima: ${slotsHabilitadosPorEdificios}. ¡Instala un Barracón!`);
+                }
+            }
+        }
+
+        // 3. Completar movimiento al confirmarse la habitabilidad
+        const indexRemover = listaOrigen.findIndex(c => c.id === cartaId || c.uuid === cartaId);
+        if (indexRemover !== -1) listaOrigen.splice(indexRemover, 1);
+
         // Re-asignar coordenadas de slot destino (Forzamos tipo numérico limpio)
         cartaEncontrada.slotIndex = parseInt(slotDestinoIndex);
 
@@ -420,59 +451,80 @@ io.on('connection', (socket) => {
         if (bloqueDestino === 'central') juegoData.carretonCartas.cartasCentral.push(cartaEncontrada);
 
         try {
-            // CORRECCIÓN ESENCIAL: Forzar a Mongoose a impactar la base de datos de MongoDB de forma persistente.
-            // Marcamos el subdocumento mixto como modificado para asegurar la escritura.
+            // Marcamos el subdocumento mixto como modificado para asegurar la escritura persistente
             juegoData.markModified('carretonCartas');
             await juegoData.save();
-            console.log(`💾 Posición de carta ${cartaId} guardada de forma persistente en MongoDB para ${username}.`);
+            console.log(`💾 Movimiento salvado de forma persistente en MongoDB para ${username}.`);
         } catch (err) {
             console.error("❌ Error al salvar coordenadas del carretón:", err);
             return socket.emit('carreton:error', 'Fallo al sincronizar coordenadas en base de datos.');
         }
 
-        // Devolver respuesta reactiva y limpia al frontend
-        const poseeNFT = cachePartidas[username]._poseeAldeaNFT || false;
-        const maxSlotsCentral = poseeNFT ? 24 : 8;
-        
-        socket.emit('carreton:actualizar-estado', {
-            poseeAldea: poseeNFT,
-            slotsCentralMax: maxSlotsCentral,
-            cartasAldea: juegoData.carretonCartas.cartasAldea,
-            cartasFinca: juegoData.carretonCartas.cartasFinca,
-            cartasCentral: juegoData.carretonCartas.cartasCentral
-        });
+        // Re-calcular topes para refrescar la UI de forma reactiva
+        forzarEnvioEstadoCarreton(socket, username, juegoData);
     });
 
-    // Despacho Sincronizado de datos del Carretón
+    // Despacho Sincronizado de datos del Carretón con auditoría residencial
     socket.on('carreton:solicitar-datos', async () => {
         const username = socket.username;
         if (!username || !cachePartidas[username]) return;
+        const juegoData = cachePartidas[username];
 
-        try {
-            const usuarioBD = await User.findOne({ username: username });
-            const juegoData = cachePartidas[username];
-            if (!usuarioBD) return socket.emit('carreton:error', 'Usuario no encontrado.');
-
-            // Sincronizar estado del NFT desde el documento de usuario
-            cachePartidas[username]._poseeAldeaNFT = usuarioBD.poseeAldea || false;
-            const slotsHabilitadosCentral = usuarioBD.poseeAldea ? 24 : 8;
-
-            socket.emit('carreton:actualizar-estado', {
-                poseeAldea: usuarioBD.poseeAldea,
-                slotsCentralMax: slotsHabilitadosCentral,
-                cartasAldea: juegoData.carretonCartas.cartasAldea,
-                cartasFinca: juegoData.carretonCartas.cartasFinca,
-                cartasCentral: juegoData.carretonCartas.cartasCentral
-            });
-        } catch (error) {
-            console.error("❌ Error al consultar la base de datos para el Carretón:", error);
-        }
+        forzarEnvioEstadoCarreton(socket, username, juegoData);
     });
 
     socket.on('disconnect', () => {
         console.log(`❌ Jugador desconectado: ${socket.id}`);
     });
 });
+
+/**
+ * Helper interno para centralizar el cálculo matemático de población y emitir el estado
+ */
+async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
+    try {
+        const usuarioBD = await User.findOne({ username: username });
+        const poseeNFT = usuarioBD ? usuarioBD.poseeAldea : false;
+        cachePartidas[username]._poseeAldeaNFT = poseeNFT;
+
+        // Calcular espacio habitacional en caliente de la Finca
+        let capacidadFincaMax = 0;
+        if (juegoData.cimientosFinca && juegoData.cimientosFinca.length > 0) {
+            juegoData.cimientosFinca.forEach(c => {
+                if (c.estaOcupado && c.subtipo === 'casona') capacidadFincaMax += 2;
+                if (c.estaOcupado && c.subtipo === 'granja') capacidadFincaMax += 1;
+            });
+        }
+
+        // Calcular espacio habitacional en caliente de la Aldea
+        let capacidadAldeaMax = 0;
+        if (juegoData.cimientosAldea && juegoData.cimientosAldea.length > 0) {
+            juegoData.cimientosAldea.forEach(c => {
+                if (c.estaOcupado && c.subtipo === 'barracon') capacidadAldeaMax += 4;
+            });
+        }
+
+        const maxSlotsCentral = poseeNFT ? 24 : 8;
+
+        socket.emit('carreton:actualizar-estado', {
+            poseeAldea: poseeNFT,
+            slotsCentralMax: maxSlotsCentral,
+            
+            // Valores dinámicos calculados a partir de los subdocumentos construidos
+            slotsFincaMax: 8,
+            slotsFincaHabilitados: capacidadFincaMax, 
+            slotsAldeaMax: 16,
+            slotsAldeaHabilitados: capacidadAldeaMax,
+
+            cartasAldea: juegoData.carretonCartas.cartasAldea,
+            cartasFinca: juegoData.carretonCartas.cartasFinca,
+            cartasCentral: juegoData.carretonCartas.cartasCentral
+        });
+    } catch (err) {
+        console.error("❌ Error en forzarEnvioEstadoCarreton:", err);
+    }
+}
+
 
 // ========================================================
 // RUTA COMODÍN PARA SPA
