@@ -366,36 +366,45 @@ io.on('connection', (socket) => {
     });
 
 
-    // Guardado Persistente del Movimiento Drag & Drop del Carretón
+       // ==========================================================================
+    // GUARDADO PERSISTENTE DEL MOVIMIENTO DRAG & DROP DEL CARRETÓN (REPARADO)
+    // ==========================================================================
     socket.on('carreton:guardar-posicion', async (data) => {
         if (!data) return;
         const { cartaId, bloqueDestino, slotDestinoIndex } = data;
         const username = socket.username;
 
-        if (!username || !cachePartidas[username]) return;
+        if (!username || !cachePartidas[username]) {
+            return socket.emit('carreton:error', 'Sesión de juego no válida o expirada.');
+        }
+        
         const juegoData = cachePartidas[username];
-
         let listaOrigen = null;
         let cartaEncontrada = null;
         
-        // Rastrear la ubicación actual de la carta en las 3 zonas
+        // Rastrear la ubicación actual de la carta en las 3 zonas del inventario
         const bloques = ['cartasAldea', 'cartasFinca', 'cartasCentral'];
         for (const bloque of bloques) {
-            const idx = juegoData.carretonCartas[bloque].findIndex(c => c.id === cartaId);
+            const idx = juegoData.carretonCartas[bloque].findIndex(c => {
+                // BLINDAJE CRÍTICO: Evalúa de forma flexible todas las variantes de ID generadas por el sistema
+                return c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId);
+            });
+            
             if (idx !== -1) {
                 cartaEncontrada = juegoData.carretonCartas[bloque][idx];
                 listaOrigen = juegoData.carretonCartas[bloque];
-                listaOrigen.splice(idx, 1); // Remover de su posición antigua
+                listaOrigen.splice(idx, 1); // Remover de su posición antigua en RAM
                 break;
             }
         }
 
+        // Si el Árbitro no localiza el token de la carta, rechaza la transacción de forma segura
         if (!cartaEncontrada) {
             return socket.emit('carreton:error', 'La carta especificada no existe en tu carretón.');
         }
         
-        // Re-asignar coordenadas de slot destino
-        cartaEncontrada.slotIndex = slotDestinoIndex;
+        // Re-asignar coordenadas de slot destino (Forzamos tipo numérico limpio)
+        cartaEncontrada.slotIndex = parseInt(slotDestinoIndex);
 
         // Inyectar en el array correspondiente del backend
         if (bloqueDestino === 'aldea') juegoData.carretonCartas.cartasAldea.push(cartaEncontrada);
@@ -407,17 +416,19 @@ io.on('connection', (socket) => {
             // Marcamos el subdocumento mixto como modificado para asegurar la escritura.
             juegoData.markModified('carretonCartas');
             await juegoData.save();
-            console.log(`💾 Posición guardada de forma persistente en MongoDB para ${username}.`);
+            console.log(`💾 Posición de carta ${cartaId} guardada de forma persistente en MongoDB para ${username}.`);
         } catch (err) {
             console.error("❌ Error al salvar coordenadas del carretón:", err);
             return socket.emit('carreton:error', 'Fallo al sincronizar coordenadas en base de datos.');
         }
 
-        // Devolver respuesta reactiva al frontend
+        // Devolver respuesta reactiva y limpia al frontend
         const poseeNFT = cachePartidas[username]._poseeAldeaNFT || false;
+        const maxSlotsCentral = poseeNFT ? 24 : 8;
+        
         socket.emit('carreton:actualizar-estado', {
             poseeAldea: poseeNFT,
-            slotsCentralMax: poseeNFT ? 24 : 8,
+            slotsCentralMax: maxSlotsCentral,
             cartasAldea: juegoData.carretonCartas.cartasAldea,
             cartasFinca: juegoData.carretonCartas.cartasFinca,
             cartasCentral: juegoData.carretonCartas.cartasCentral
