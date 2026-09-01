@@ -1,34 +1,22 @@
 // public/js/carreton.js
 
-// Estado lógico de la Interfaz (Sincronizado dinámicamente desde MongoDB)
+// Estado lógico de la Interfaz y funciones principales para el renderizado del carretón con soporte Drag & Drop nativo.
 let datosCarreton = {
     poseeAldea: false, 
     slotsAldeaMax: 16,
     slotsFincaMax: 8,
-    slotsCentralMax: 8, // Dinámico: protegido en 8 slots finca, escala a 24 con la Aldea NFT
+    slotsCentralMax: 8,
     cartasAldea: [],
     cartasFinca: [],
     cartasCentral: []
 };
 
-/**
- * Solicita los datos de inventario autorizados por la Base de Datos a través del Árbitro
- */
 function cargarCarreton() {
     if (typeof socket !== 'undefined' && socket && socket.connected) {
         socket.emit('carreton:solicitar-datos');
     }
 }
 
-/**
- * Helper para renderizar los slots con soporte Drag & Drop nativo y funcional
- * @param {HTMLElement} elementoDOM - Contenedor del grid destino
- * @param {Array} listaCartas - Arreglo de cartas asignadas a este bloque
- * @param {number} maxSlots - Cantidad reglamentaria de ranuras
- * @param {boolean} estaHabilitado - Flag de control NFT
- * @param {string} mensajeBloqueo - Cadena informativa de restricción imperial
- * @param {number} slotsHabilitados - Capacidad habitacional actual calculada por el servidor
- */
 function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabilitado, mensajeBloqueo, slotsHabilitados = 0) {
     elementoDOM.innerHTML = '';
 
@@ -39,25 +27,19 @@ function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabili
     }
 
     elementoDOM.parentElement.classList.remove('bloqueado');
-    
-    // CORRECCIÓN BIYECTIVA: Extrae el tipo de bloque tolerando la nueva barra lateral derecha de la Finca
     let bloqueTipo = elementoDOM.id.replace('carreton-', '').replace('-lista', '');
     if (elementoDOM.id === 'finca-pobladores-lista') {
         bloqueTipo = 'finca';
     }
 
-    // Generar la cuadrícula reglamentaria de ranuras enmarcadas
     for (let i = 0; i < maxSlots; i++) {
         const slotDiv = document.createElement('div');
         slotDiv.className = 'carreton-slot';
         slotDiv.dataset.bloque = bloqueTipo;
         slotDiv.dataset.slotIndex = i;
 
-        // Determinar si esta ranura individual está liberada por las construcciones activas
-        // El carretón central siempre está disponible; aldea y finca dependen de los edificios
         const esSlotDisponible = (bloqueTipo === 'central') || (i < slotsHabilitados);
 
-        // EVENTOS DEL SLOT CAPTADOR (Solo se configuran si el slot tiene cobertura de espacio)
         if (esSlotDisponible) {
             slotDiv.addEventListener('dragover', (e) => {
                 e.preventDefault(); 
@@ -81,7 +63,6 @@ function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabili
                 const bloqueDestino = slotDiv.dataset.bloque;
                 const slotDestinoIndex = parseInt(slotDiv.dataset.slotIndex);
 
-                // Cancelar si la ranura de destino ya está ocupada
                 if (slotDiv.classList.contains('ocupado')) return;
 
                 if (typeof ejecutarMovimientoDrag === 'function') {
@@ -89,22 +70,19 @@ function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabili
                 }
             });
         } else {
-            // Aplicar estilo de bloqueo pasivo para ranuras sin soporte habitacional
             slotDiv.style.opacity = '0.4';
             slotDiv.style.border = '1px dashed #4a1212';
             slotDiv.style.background = 'rgba(15, 10, 10, 0.4)';
             slotDiv.style.cursor = 'not-allowed';
         }
 
-        // Buscar si existe un personaje asignado por la base de datos a este índice de ranura
         const carta = listaCartas.find(c => c.slotIndex === i);
 
         if (carta) {
             slotDiv.classList.add('ocupado');
             const cartaIdentificador = carta.id || carta.uuid;
-
-                   // Inyectamos la tarjeta del poblador y la hacemos explícitamente arrastrable
-        slotDiv.innerHTML = `
+            
+            slotDiv.innerHTML = `
                 <div class="pj-carta-arrastrable" draggable="true" data-id="${cartaIdentificador}" style="width:100%; height:100%; cursor:grab; display:flex; flex-direction:column; align-items:center; justify-content:center;">
                     <div class="pj-icono" style="font-size:24px; margin-bottom:4px;">${carta.icono || '👤'}</div>
                     <div class="pj-nombre" style="font-size:12px; color:#fff; font-weight:bold;">${carta.nombre}</div>
@@ -112,28 +90,31 @@ function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabili
                 </div>
             `;
 
-        const elementoArrastrable = slotDiv.querySelector('.pj-carta-arrastrable');
+            const elementoArrastrable = slotDiv.querySelector('.pj-carta-arrastrable');
 
-        // EVENTOS DE SEGUIMIENTO DEL MOUSE AL LLEVARSE LA CARTA
-        elementoArrastrable.addEventListener('dragstart', (e) => {
-            e.dataTransfer.setData('text/plain', cartaIdentificador);
-            slotDiv.style.opacity = '0.3'; // Opacidad mientras flota el mouse
-        });
+            elementoArrastrable.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', cartaIdentificador);
+                slotDiv.style.opacity = '0.3';
+            });
 
-        elementoArrastrable.addEventListener('dragend', () => {
-            slotDiv.style.opacity = '1';
-            cargarCarreton(); // Forzar refresco para limpiar descolocaciones visuales en SPA
-        });
-    } else {
-        // REGLA REACTIVA: Si el slot está bloqueado por falta de población, dice "No disponible"
-        if (esSlotDisponible) {
-            slotDiv.innerHTML = `<span class="slot-vacio-txt">Vacío</span>`;
+            elementoArrastrable.addEventListener('dragend', () => {
+                slotDiv.style.opacity = '1';
+                cargarCarreton();
+            });
         } else {
-            slotDiv.innerHTML = `<span class="slot-vacio-txt" style="color: #663333; font-weight: bold; font-family: 'Cinzel', serif;">No disponible</span>`;
+            if (esSlotDisponible) {
+                slotDiv.innerHTML = `<span class="slot-vacio-txt">Vacío</span>`;
+            } else {
+                slotDiv.innerHTML = `<span class="slot-vacio-txt" style="color: #663333; font-weight: bold; font-family: 'Cinzel', serif;">No disponible</span>`;
+            }
         }
+
+        elementoDOM.appendChild(slotDiv);
     }
-    elementoDOM.appendChild(slotDiv);
 }
+
+
+         // public/js/carreton.js (Continuación - Parte 2)
 
 /**
  * Notifica al Árbitro de Render las nuevas coordenadas para salvar de forma persistente en MongoDB
@@ -158,7 +139,9 @@ function ejecutarMovimientoDrag(cartaId, bloqueDestino, slotDestinoIndex) {
     }
 }
 
-// Escuchador reactivo conectado al flujo de datos authorized de la Base de Datos
+// ========================================================
+// RECEPTORES DE RED DE SOCKET.IO (SINCRONIZACIÓN DEL CARRETÓN)
+// ========================================================
 if (typeof socket !== 'undefined' && socket) {
     socket.on('carreton:actualizar-estado', (estadoBD) => {
         if (!estadoBD) return;
@@ -183,13 +166,13 @@ if (typeof socket !== 'undefined' && socket) {
         const habilitadoAldea = estadoBD.poseeAldea; 
         const msgAldea = "🔒 RESTRICCIÓN: Requiere poseer la Aldea NFT";
 
-        // Renderizado si el usuario está parado en la sección del Carretón
+        // Renderizado si el usuario está parado en la sección del Carretón general
         if (contAldea && contCentral && contFinca) {
             renderizarBloqueCarreton(contAldea, datosCarreton.cartasAldea, estadoBD.slotsAldeaMax, habilitadoAldea, msgAldea, estadoBD.slotsAldeaHabilitados || 0);
             renderizarBloqueCarreton(contCentral, datosCarreton.cartasCentral, datosCarreton.slotsCentralMax, true, "", estadoBD.slotsCentralMax);
             renderizarBloqueCarreton(contFinca, datosCarreton.cartasFinca, estadoBD.slotsFincaMax, habilitadoFinca, "", estadoBD.slotsFincaHabilitados || 0);
 
-            // Actualizar títulos del Carretón
+            // Actualizar títulos dinámicos en la UI del Carretón
             const tituloFinca = contFinca.parentElement.querySelector('h3');
             if (tituloFinca) {
                 tituloFinca.innerText = `🏡 Contenedor Finca (${datosCarreton.cartasFinca.length} / ${estadoBD.slotsFincaHabilitados || 0})`;
@@ -201,7 +184,7 @@ if (typeof socket !== 'undefined' && socket) {
             }
         }
 
-        // 🚀 INYECCIÓN AUTOMÁTICA EN LA BARRA DERECHA DE LA FINCA 3D
+        // 🚀 INYECCIÓN AUTOMÁTICA EN LA BARRA LATERAL DERECHA DE LA FINCA 3D
         if (contFincaEspejo) {
             renderizarBloqueCarreton(contFincaEspejo, datosCarreton.cartasFinca, estadoBD.slotsFincaMax, habilitadoFinca, "", estadoBD.slotsFincaHabilitados || 0);
             
@@ -219,10 +202,10 @@ if (typeof socket !== 'undefined' && socket) {
         }
     });
     
-    // Escudo ante fallos de servidor: Capturar errores enviados por el Árbitro
+    // Escudo ante fallos de servidor: Capturar errores enviados por el Árbitro y revertir cambios locales
     socket.on('carreton:error', (mensajeError) => {
         console.error("❌ Denegación autoritaria del servidor:", mensajeError);
         alert(`Movimiento inválido: ${mensajeError}`);
-        cargarCarreton(); // Revertir el render local trayendo el estado real de MongoDB
+        cargarCarreton(); // Trae el estado persistente real de MongoDB para limpiar descolocaciones en el cliente
     });
 }
