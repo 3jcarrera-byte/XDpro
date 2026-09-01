@@ -41,7 +41,7 @@ mongoose.connect(MONGO_URI)
 // CACHÉ EN MEMORIA DEL ÁRBITRO Y CATÁLOGO DE LA TIENDA
 // ========================================================
 const cachePartidas = {}; // Guarda instancias activas indexadas por username
-let stockTiendaSistema = { edificios: [], personajes: [], equipamiento: [] };
+let stockTiendaSistema = { edificios: [], aldeanos: [], equipamiento: [] }; // CORREGIDO: 'personajes' cambiado a 'aldeanos' para consistencia total
 
 // CORRECCIÓN: Alineación de claves y rarezas en minúsculas para coincidir exactamente con mercado.js
 const CATALOGO_DISEÑOS = {
@@ -49,7 +49,6 @@ const CATALOGO_DISEÑOS = {
         { subtipo: 'granja', nombre: '🌾 Granja Imperial', rareza: 'comun', precioBase: 50 },
         { subtipo: 'aserradero', nombre: '🪓 Aserradero Alfa', rareza: 'comun', precioBase: 60 }
     ],
-    // Cambiado de 'personajes' a 'aldeanos' para sincronizarse con los filtros de mercado.js
     aldeanos: [
         { subtipo: 'gladiador_minero', nombre: '👨‍🌾 Minero de élite', rareza: 'poco-comun', precioBase: 120 },
         { subtipo: 'guerrero_arena', nombre: '⚔️ Recluta de Arena', rareza: 'comun', precioBase: 80 }
@@ -115,12 +114,39 @@ app.post('/api/auth/register', async (req, res) => {
         });
         
         await nuevoUsuario.save();
-        return res.status(201).json({ success: true, message: 'Usuario creado exitosamente.' });
+
+        // 🎁 ASIGNACIÓN DE FONDOS DE CARTAS INICIALES AL REGISTRARSE
+        const juegoData = new GameDataModel({ username: usernameLimpio });
+        juegoData.inicializarEspaciosVacios();
+
+        // Inyección automática de 1 Granja y 1 Minero iniciales para que el almacén no inicie en blanco
+        juegoData.almacenEdificiosDisponibles.push({
+            uuid: crypto.randomUUID(),
+            subtipo: 'granja',
+            nombre: '🌾 Granja Inicial',
+            rareza: 'comun',
+            nivel: 1
+        });
+
+        juegoData.carretonCartas.cartasCentral.push({
+            uuid: crypto.randomUUID(),
+            subtipo: 'gladiador_minero',
+            nombre: '👨‍🌾 Minero Novato',
+            rareza: 'comun',
+            nivel: 1,
+            slotIndex: 0,
+            equipamientoAnidado: []
+        });
+
+        await juegoData.save();
+        
+        return res.status(201).json({ success: true, message: 'Usuario y cartas iniciales creados exitosamente.' });
     } catch (error) {
         console.error('❌ Error al registrar:', error);
         return res.status(500).json({ success: false, message: 'Fallo interno del servidor.' });
     }
 });
+
 
 // ========================================================
 // ENDPOINT: INICIO DE SESIÓN (REPARADO Y BLINDADO)
@@ -179,6 +205,24 @@ app.post('/api/auth/login', async (req, res) => {
             if (!juegoData) {
                 juegoData = new GameDataModel({ username: usuario.username });
                 juegoData.inicializarEspaciosVacios();
+                
+                // 🎁 COMPROBACIÓN RETROACTIVA: Dar cartas básicas si la cuenta se creó vacía por error
+                juegoData.almacenEdificiosDisponibles.push({
+                    uuid: crypto.randomUUID(),
+                    subtipo: 'granja',
+                    nombre: '🌾 Granja Inicial',
+                    rareza: 'comun',
+                    nivel: 1
+                });
+                juegoData.carretonCartas.cartasCentral.push({
+                    uuid: crypto.randomUUID(),
+                    subtipo: 'gladiador_minero',
+                    nombre: '👨‍🌾 Minero Novato',
+                    rareza: 'comun',
+                    nivel: 1,
+                    slotIndex: 0,
+                    equipamientoAnidado: []
+                });
                 await juegoData.save();
             }
             
@@ -246,8 +290,25 @@ io.on('connection', (socket) => {
         socket.emit('tienda:recibir-stock', stockTiendaSistema);
     });
 
-    // Transacción Económica Atómica P2P
-          // ==========================================================================
+    // ==========================================================================
+    // ⚡ NUEVO ESCUCHADOR: DESPACHO AUTORITARIO DE RECURSOS DEL ALMACÉN (REPARADO)
+    // ==========================================================================
+    socket.on('almacen:solicitar-recursos', () => {
+        const username = socket.username;
+        if (!username || !cachePartidas[username]) {
+            return socket.emit('almacen:error', 'Sesión de juego inválida o expirada.');
+        }
+
+        const juegoData = cachePartidas[username];
+        // Enviar datos formateados en un objeto limpio de forma instantánea al Frontend
+        socket.emit('almacen:actualizar-estado', { 
+            recursos: juegoData.almacenEdificiosDisponibles || [] 
+        });
+    });
+
+
+        // Transacción Económica Atómica P2P
+    // ==========================================================================
     // TRANSACCIÓN COMERCIAL ATÓMICA SINCRONIZADA CON SCHEMAS REALES (REPARADO)
     // ==========================================================================
     socket.on('tienda:comprar-carta', async (datos) => {
@@ -354,23 +415,34 @@ io.on('connection', (socket) => {
             io.emit('tienda:recibir-stock', stockTiendaSistema);
 
             // 7. DISPARADORES REACTIVOS: Forzar actualización instantánea de las pantallas del cliente
-            // Envía los datos actualizados del Almacén mapeando tu array real de edificios
-            socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles || [] });
-            
-            // Envía los datos actualizados del Carretón
-            socket.emit('carreton:actualizar-estado', {
-                poseeAldea: cachePartidas[username]._poseeAldeaNFT,
-                slotsCentralMax: maxSlotsCentral,
-                cartasAldea: juegoData.carretonCartas.cartasAldea,
-                cartasFinca: juegoData.carretonCartas.cartasFinca,
-                cartasCentral: juegoData.carretonCartas.cartasCentral
+            // CORRECCIÓN: Estructuración limpia de recursos para asegurar la lectura biyectiva en almacen.js
+            socket.emit('almacen:actualizar-estado', { 
+                recursos: juegoData.almacenEdificiosDisponibles || [] 
             });
+            
+            // Re-calcular topes habitacionales activos y sincronizar la interfaz del carretón de forma inmediata
+            if (typeof forzarEnvioEstadoCarreton === 'function') {
+                await forzarEnvioEstadoCarreton(socket, username, juegoData);
+            } else {
+                socket.emit('carreton:actualizar-estado', {
+                    poseeAldea: cachePartidas[username]._poseeAldeaNFT,
+                    slotsCentralMax: maxSlotsCentral,
+                    slotsFincaMax: 8,
+                    slotsFincaHabilitados: 0, 
+                    slotsAldeaMax: 16,
+                    slotsAldeaHabilitados: 0,
+                    cartasAldea: juegoData.carretonCartas.cartasAldea,
+                    cartasFinca: juegoData.carretonCartas.cartasFinca,
+                    cartasCentral: juegoData.carretonCartas.cartasCentral
+                });
+            }
 
         } catch (error) {
             console.error('❌ Error crítico en el procesamiento de compra:', error);
             socket.emit('tienda:error', 'Error interno al adjudicar activos en base de datos.');
         }
     });
+
 
 
 
@@ -400,7 +472,6 @@ io.on('connection', (socket) => {
             if (idx !== -1) {
                 cartaEncontrada = juegoData.carretonCartas[bloque][idx];
                 listaOrigen = juegoData.carretonCartas[bloque];
-                // Hacemos un clon preventivo antes de removerla de RAM por si falla la validación habitacional
                 break;
             }
         }
@@ -421,7 +492,7 @@ io.on('connection', (socket) => {
                     });
                 }
                 // Si la cantidad de cartas ya posicionadas supera o iguala el espacio de la casona, frena el arrastre
-                if (juegoData.carretonCartas.cartasFinca.length >= slotsHabilitadosPorEdificios && !juegoData.carretonCartas.cartasFinca.some(c => c.id === cartaId)) {
+                if (juegoData.carretonCartas.cartasFinca.length >= slotsHabilitadosPorEdificios && !juegoData.carretonCartas.cartasFinca.some(c => (c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId)))) {
                     return socket.emit('carreton:error', `🔒 Espacio insuficiente en Finca. Población máxima: ${slotsHabilitadosPorEdificios}. ¡Instala una Casona!`);
                 }
             }
@@ -432,18 +503,19 @@ io.on('connection', (socket) => {
                         if (c.estaOcupado && c.subtipo === 'barracon') slotsHabilitadosPorEdificios += 4;
                     });
                 }
-                if (juegoData.carretonCartas.cartasAldea.length >= slotsHabilitadosPorEdificios && !juegoData.carretonCartas.cartasAldea.some(c => c.id === cartaId)) {
+                if (juegoData.carretonCartas.cartasAldea.length >= slotsHabilitadosPorEdificios && !juegoData.carretonCartas.cartasAldea.some(c => (c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId)))) {
                     return socket.emit('carreton:error', `🔒 Espacio insuficiente en la Aldea. Población máxima: ${slotsHabilitadosPorEdificios}. ¡Instala un Barracón!`);
                 }
             }
         }
 
         // 3. Completar movimiento al confirmarse la habitabilidad
-        const indexRemover = listaOrigen.findIndex(c => c.id === cartaId || c.uuid === cartaId);
+        const indexRemover = listaOrigen.findIndex(c => c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId));
         if (indexRemover !== -1) listaOrigen.splice(indexRemover, 1);
 
-        // Re-asignar coordenadas de slot destino (Forzamos tipo numérico limpio)
-        cartaEncontrada.slotIndex = parseInt(slotDestinoIndex);
+        // Re-asignar coordenadas de slot destino (Forzamos tipo numérico limpio y validado)
+        const targetSlotIndex = parseInt(slotDestinoIndex);
+        cartaEncontrada.slotIndex = isNaN(targetSlotIndex) ? 0 : targetSlotIndex;
 
         // Inyectar en el array correspondiente del backend
         if (bloqueDestino === 'aldea') juegoData.carretonCartas.cartasAldea.push(cartaEncontrada);
@@ -461,7 +533,9 @@ io.on('connection', (socket) => {
         }
 
         // Re-calcular topes para refrescar la UI de forma reactiva
-        forzarEnvioEstadoCarreton(socket, username, juegoData);
+        if (typeof forzarEnvioEstadoCarreton === 'function') {
+            await forzarEnvioEstadoCarreton(socket, username, juegoData);
+        }
     });
 
     // Despacho Sincronizado de datos del Carretón con auditoría residencial
@@ -470,13 +544,16 @@ io.on('connection', (socket) => {
         if (!username || !cachePartidas[username]) return;
         const juegoData = cachePartidas[username];
 
-        forzarEnvioEstadoCarreton(socket, username, juegoData);
+        if (typeof forzarEnvioEstadoCarreton === 'function') {
+            await forzarEnvioEstadoCarreton(socket, username, juegoData);
+        }
     });
 
     socket.on('disconnect', () => {
         console.log(`❌ Jugador desconectado: ${socket.id}`);
     });
 });
+
 
 /**
  * Helper interno para centralizar el cálculo matemático de población y emitir el estado
@@ -485,7 +562,10 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
     try {
         const usuarioBD = await User.findOne({ username: username });
         const poseeNFT = usuarioBD ? usuarioBD.poseeAldea : false;
-        cachePartidas[username]._poseeAldeaNFT = poseeNFT;
+        
+        if (cachePartidas[username]) {
+            cachePartidas[username]._poseeAldeaNFT = poseeNFT;
+        }
 
         // Calcular espacio habitacional en caliente de la Finca
         let capacidadFincaMax = 0;
@@ -506,6 +586,12 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
 
         const maxSlotsCentral = poseeNFT ? 24 : 8;
 
+        // CORRECCIÓN DE SEGURIDAD EN SOCKETS: Sanitización mediante conversión a POJO limpio (.toObject())
+        // Esto previene que las funciones cíclicas de Mongoose desestabilicen los datos que renderizan las ranuras del carreton.js
+        const arrayAldeaSaneado = juegoData.carretonCartas.cartasAldea.map(c => typeof c.toObject === 'function' ? c.toObject() : c);
+        const arrayFincaSaneado = juegoData.carretonCartas.cartasFinca.map(c => typeof c.toObject === 'function' ? c.toObject() : c);
+        const arrayCentralSaneado = juegoData.carretonCartas.cartasCentral.map(c => typeof c.toObject === 'function' ? c.toObject() : c);
+
         socket.emit('carreton:actualizar-estado', {
             poseeAldea: poseeNFT,
             slotsCentralMax: maxSlotsCentral,
@@ -516,15 +602,14 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
             slotsAldeaMax: 16,
             slotsAldeaHabilitados: capacidadAldeaMax,
 
-            cartasAldea: juegoData.carretonCartas.cartasAldea,
-            cartasFinca: juegoData.carretonCartas.cartasFinca,
-            cartasCentral: juegoData.carretonCartas.cartasCentral
+            cartasAldea: arrayAldeaSaneado,
+            cartasFinca: arrayFincaSaneado,
+            cartasCentral: arrayCentralSaneado
         });
     } catch (err) {
         console.error("❌ Error en forzarEnvioEstadoCarreton:", err);
     }
 }
-
 
 // ========================================================
 // RUTA COMODÍN PARA SPA
