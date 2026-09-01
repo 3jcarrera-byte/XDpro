@@ -797,6 +797,9 @@ body {
   align-items: center;
   box-shadow: 0 5px 15px rgba(0,0,0,0.7);
   transition: transform 0.2s;
+  position: relative !important;
+  z-index: 120 !important;
+  pointer-events: auto !important;
 }
 
 .carta-mercado-3d-box:hover {
@@ -811,11 +814,15 @@ body {
   border: 1px solid rgba(255,255,255,0.05);
   margin-bottom: 10px;
   overflow: hidden;
+  position: relative !important;
+  z-index: 125 !important;
 }
 
 .info-carta-mercado {
   width: 100%;
   text-align: center;
+  position: relative !important;
+  z-index: 130 !important;
 }
 
 .nombre-item-mercado {
@@ -839,10 +846,13 @@ body {
   border: 1px solid #d4af37;
   border-radius: 6px;
   font-weight: bold;
-  cursor: pointer;
+  cursor: pointer !important;
   font-family: inherit;
   font-size: 0.85rem;
   transition: background-color 0.2s;
+  position: relative !important;
+  z-index: 140 !important;
+  pointer-events: auto !important; /* Desbloqueo forzado de clics */
 }
 
 .btn-comprar-market:hover {
@@ -857,6 +867,7 @@ body {
 .borde-rareza-epico { border-color: #ff9800 !important; }
 .borde-rareza-mitico { border-color: #e91e63 !important; }
 .borde-rareza-legendario { border-color: #ffd700 !important; }
+
 
 /* ==========================================================================
    ESTRUCTURA PROPORCIONAL Y ADAPTATIVA PARA EL CARRETÓN IMPERIAL (DEFINITIVO)
