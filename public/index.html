@@ -292,8 +292,8 @@
       <header class="market-header">
         <h2>⚖️ Mercado Comercial del Imperio</h2>
         <div class="market-modes-tabs">
-          <button id="btn-mercado-general" class="tab-market active" onclick="if(typeof cambiarModoMercado === 'function') cambiarModoMercado('general')">🏛️ Mercado General (Sistema)</button>
-          <button id="btn-mercado-interno" class="tab-market" onclick="if(typeof cambiarModoMercado === 'function') cambiarModoMercado('interno')">🏘️ Ubicar Aldeas (Mercado Interno)</button>
+          <button id="btn-mercado-general" class="tab-market active" onclick="window.cambiarModoMercado('general')">🏛️ Mercado General (Sistema)</button>
+          <button id="btn-mercado-interno" class="tab-market" onclick="window.cambiarModoMercado('interno')">🏘️ Ubicar Aldeas (Mercado Interno)</button>
         </div>
       </header>
 
@@ -301,7 +301,7 @@
       <section id="subpantalla-buscador-aldeas" class="market-sub-view" style="display: none;">
         <div class="village-search-bar">
           <input type="text" id="input-buscar-aldea" placeholder="Escribe el nombre o ID de la aldea objetivo...">
-          <button class="btn-primary-market" onclick="if(typeof ejecutarBusquedaAldea === 'function') ejecutarBusquedaAldea()">🔍 Buscar Aldea</button>
+          <button class="btn-primary-market" onclick="if(window.ejecutarBusquedaAldea) window.ejecutarBusquedaAldea()">🔍 Buscar Aldea</button>
         </div>
         <div id="lista-aldeas-resultado" class="villages-grid-results">
           <!-- Se inyectarán dinámicamente las aldeas encontradas -->
@@ -316,11 +316,11 @@
           <div class="filter-group">
             <label class="filter-label">🏷️ Seleccionar Rubro:</label>
             <div class="filter-buttons-row">
-              <button class="btn-filter-rubro active" onclick="cambiarRubroMercado(this, 'edificios')">🏢 Edificios</button>
-              <button class="btn-filter-rubro" onclick="cambiarRubroMercado(this, 'aldeanos')">👨‍🌾 Aldeanos</button>
-              <button class="btn-filter-rubro" onclick="cambiarRubroMercado(this, 'equipamiento')">⚔️ Equipamiento</button>
-              <button class="btn-filter-rubro" onclick="cambiarRubroMercado(this, 'recursos')">🌾 Recursos</button>
-              <button class="btn-filter-rubro" onclick="cambiarRubroMercado(this, 'especiales')">✨ Especiales</button>
+              <button class="btn-filter-rubro active" onclick="window.cambiarRubroMercado(this, 'edificios')">🏢 Edificios</button>
+              <button class="btn-filter-rubro" onclick="window.cambiarRubroMercado(this, 'aldeanos')">👨‍🌾 Aldeanos</button>
+              <button class="btn-filter-rubro" onclick="window.cambiarRubroMercado(this, 'equipamiento')">⚔️ Equipamiento</button>
+              <button class="btn-filter-rubro" onclick="window.cambiarRubroMercado(this, 'recursos')">🌾 Recursos</button>
+              <button class="btn-filter-rubro" onclick="window.cambiarRubroMercado(this, 'especiales')">✨ Especiales</button>
             </div>
           </div>
 
@@ -328,11 +328,11 @@
           <div id="grupo-subfiltro-equipamiento" class="filter-group sub-filter-box" style="display: none;">
             <label class="filter-label">🛡️ Tipo de Equipamiento:</label>
             <div class="filter-buttons-row">
-              <button class="btn-filter-subrubro active" onclick="if(typeof cambiarSubRubro === 'function') cambiarSubRubro('todos')">Todos</button>
-              <button class="btn-filter-subrubro" onclick="if(typeof cambiarSubRubro === 'function') cambiarSubRubro('armas')">⚔️ Armas</button>
-              <button class="btn-filter-subrubro" onclick="if(typeof cambiarSubRubro === 'function') cambiarSubRubro('escudos')">🛡️ Escudos</button>
-              <button class="btn-filter-subrubro" onclick="if(typeof cambiarSubRubro === 'function') cambiarSubRubro('joyas')">📿 Joyas</button>
-              <button class="btn-filter-subrubro" onclick="if(typeof cambiarSubRubro === 'function') cambiarSubRubro('armadura')">🥋 Armaduras</button>
+              <button class="btn-filter-subrubro active" onclick="if(window.cambiarSubRubro) window.cambiarSubRubro('todos')">Todos</button>
+              <button class="btn-filter-subrubro" onclick="if(window.cambiarSubRubro) window.cambiarSubRubro('armas')">⚔️ Armas</button>
+              <button class="btn-filter-subrubro" onclick="if(window.cambiarSubRubro) window.cambiarSubRubro('escudos')">🛡️ Escudos</button>
+              <button class="btn-filter-subrubro" onclick="if(window.cambiarSubRubro) window.cambiarSubRubro('joyas')">📿 Joyas</button>
+              <button class="btn-filter-subrubro" onclick="if(window.cambiarSubRubro) window.cambiarSubRubro('armadura')">🥋 Armaduras</button>
             </div>
           </div>
 
@@ -340,14 +340,14 @@
           <div class="filter-group">
             <label class="filter-label">💎 Rareza del Item:</label>
             <div class="filter-buttons-row grid-rarezas">
-              <button class="btn-filter-rareza active" onclick="if(typeof cambiarRareza === 'function') cambiarRareza('todas')">Todas</button>
-              <button class="btn-filter-rareza rareza-comun" onclick="if(typeof cambiarRareza === 'function') cambiarRareza('comun')">Común</button>
-              <button class="btn-filter-rareza rareza-poco-comun" onclick="if(typeof cambiarRareza === 'function') cambiarRareza('poco-comun')">Poco Común</button>
-              <button class="btn-filter-rareza rareza-raro" onclick="if(typeof cambiarRareza === 'function') cambiarRareza('raro')">Raro</button>
-              <button class="btn-filter-rareza rareza-muy-raro" onclick="if(typeof cambiarRareza === 'function') cambiarRareza('muy-raro')">Muy Raro</button>
-              <button class="btn-filter-rareza rareza-epico" onclick="if(typeof cambiarRareza === 'function') cambiarRareza('epico')">Épico</button>
-              <button class="btn-filter-rareza rareza-mitico" onclick="if(typeof cambiarRareza === 'function') cambiarRareza('mitico')">Mítico</button>
-              <button class="btn-filter-rareza rareza-legendario" onclick="if(typeof cambiarRareza === 'function') cambiarRareza('legendario')">Legendario</button>
+              <button class="btn-filter-rareza active" onclick="window.cambiarRareza('todas')">Todas</button>
+              <button class="btn-filter-rareza rareza-comun" onclick="window.cambiarRareza('comun')">Común</button>
+              <button class="btn-filter-rareza rareza-poco-comun" onclick="window.cambiarRareza('poco-comun')">Poco Común</button>
+              <button class="btn-filter-rareza rareza-raro" onclick="window.cambiarRareza('raro')">Raro</button>
+              <button class="btn-filter-rareza rareza-muy-raro" onclick="window.cambiarRareza('muy-raro')">Muy Raro</button>
+              <button class="btn-filter-rareza rareza-epico" onclick="window.cambiarRareza('epico')">Épico</button>
+              <button class="btn-filter-rareza rareza-mitico" onclick="window.cambiarRareza('mitico')">Mítico</button>
+              <button class="btn-filter-rareza rareza-legendario" onclick="window.cambiarRareza('legendario')">Legendario</button>
             </div>
           </div>
 
