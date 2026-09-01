@@ -1,6 +1,5 @@
-// public/js/carreton.js
+// public/js/carreton.js (Parte 1 - Estructura y Renderizado)
 
-// Estado lógico de la Interfaz y funciones principales para el renderizado del carretón con soporte Drag & Drop nativo.
 let datosCarreton = {
     poseeAldea: false, 
     slotsAldeaMax: 16,
@@ -18,15 +17,17 @@ function cargarCarreton() {
 }
 
 function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabilitado, mensajeBloqueo, slotsHabilitados = 0) {
+    if (!elementoDOM) return;
     elementoDOM.innerHTML = '';
 
     if (!estaHabilitado) {
         elementoDOM.innerHTML = `<div class="carreton-bloqueado-msg">${mensajeBloqueo}</div>`;
-        elementoDOM.parentElement.classList.add('bloqueado');
+        if (elementoDOM.parentElement) elementoDOM.parentElement.classList.add('bloqueado');
         return;
     }
 
-    elementoDOM.parentElement.classList.remove('bloqueado');
+    if (elementoDOM.parentElement) elementoDOM.parentElement.classList.remove('bloqueado');
+    
     let bloqueTipo = elementoDOM.id.replace('carreton-', '').replace('-lista', '');
     if (elementoDOM.id === 'finca-pobladores-lista') {
         bloqueTipo = 'finca';
@@ -76,11 +77,11 @@ function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabili
             slotDiv.style.cursor = 'not-allowed';
         }
 
-        const carta = listaCartas.find(c => c.slotIndex === i);
+        const carta = listaCartas.find(c => parseInt(c.slotIndex) === i);
 
         if (carta) {
             slotDiv.classList.add('ocupado');
-            const cartaIdentificador = carta.id || carta.uuid;
+            const cartaIdentificador = carta.uuid || carta.id || (carta._id ? carta._id.toString() : null);
             
             slotDiv.innerHTML = `
                 <div class="pj-carta-arrastrable" draggable="true" data-id="${cartaIdentificador}" style="width:100%; height:100%; cursor:grab; display:flex; flex-direction:column; align-items:center; justify-content:center;">
@@ -114,7 +115,7 @@ function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabili
 }
 
 
-         // public/js/carreton.js (Continuación - Parte 2)
+// public/js/carreton.js (Continuación - Parte 2)
 
 /**
  * Notifica al Árbitro de Render las nuevas coordenadas para salvar de forma persistente en MongoDB
@@ -173,14 +174,16 @@ if (typeof socket !== 'undefined' && socket) {
             renderizarBloqueCarreton(contFinca, datosCarreton.cartasFinca, estadoBD.slotsFincaMax, habilitadoFinca, "", estadoBD.slotsFincaHabilitados || 0);
 
             // Actualizar títulos dinámicos en la UI del Carretón
-            const tituloFinca = contFinca.parentElement.querySelector('h3');
-            if (tituloFinca) {
-                tituloFinca.innerText = `🏡 Contenedor Finca (${datosCarreton.cartasFinca.length} / ${estadoBD.slotsFincaHabilitados || 0})`;
+            const parentFinca = contFinca.parentElement;
+            if (parentFinca) {
+                const tituloFinca = parentFinca.querySelector('h3');
+                if (tituloFinca) tituloFinca.innerText = `🏡 Contenedor Finca (${datosCarreton.cartasFinca.length} / ${estadoBD.slotsFincaHabilitados || 0})`;
             }
 
-            const tituloAldea = contAldea.parentElement.querySelector('h3');
-            if (tituloAldea) {
-                tituloAldea.innerText = `🛡️ Contenedor Aldea (${datosCarreton.cartasAldea.length} / ${estadoBD.slotsAldeaHabilitados || 0})`;
+            const parentAldea = contAldea.parentElement;
+            if (parentAldea) {
+                const tituloAldea = parentAldea.querySelector('h3');
+                if (tituloAldea) tituloAldea.innerText = `🛡️ Contenedor Aldea (${datosCarreton.cartasAldea.length} / ${estadoBD.slotsAldeaHabilitados || 0})`;
             }
         }
 
@@ -191,7 +194,7 @@ if (typeof socket !== 'undefined' && socket) {
             // Actualizar el medidor de población superior de la Finca (Ej: POBLADORES FINCA 0/0)
             const tituloFincaEspejo = document.getElementById('finca-poblacion-titulo');
             if (tituloFincaEspejo) {
-                tituloFincaEspejo.innerText = `👨‍🌾 Pobladores Finca (${datosCarreton.cartasFinca.length} / ${estadoBD.slotsFincaHabilitados || 0})`;
+                tituloFincaEspejo.innerText = `👨------------- Pobladores Finca (${datosCarreton.cartasFinca.length} / ${estadoBD.slotsFincaHabilitados || 0})`;
             }
         }
 
