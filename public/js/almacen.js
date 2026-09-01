@@ -21,12 +21,20 @@ function cargarAlmacen() {
 function renderizarAlmacen() {
     let contenedorGrid = null;
     
-    // DETECCIÓN AUTORITARIA DE LA VISTA SPA: Forzar inyección según el elemento que esté block en el DOM
-    const pantallaFinca = document.getElementById('pantalla-finca');
-    
-    if (pantallaFinca && pantallaFinca.style.display === 'block') {
-        contenedorGrid = document.getElementById('finca-edificios-lista');
-    } else {
+    // DETECCIÓN MULTI-PANTALLA EXCLUSIVA BASADA EN ELEMENTOS EXISTENTES EN EL DOM ACTIVO
+    const contenedorFinca = document.getElementById('finca-edificios-lista');
+    const contenedorAldea = document.getElementById('aldea-edificios-lista');
+
+    // 1. Si el contenedor de la finca existe y está visible o el layout padre está activo, inyectar ahí
+    if (contenedorFinca && (contenedorFinca.offsetParent !== null || document.getElementById('pantalla-finca').style.display === 'block')) {
+        contenedorGrid = contenedorFinca;
+    } 
+    // 2. Si el contenedor de la aldea está activo, inyectar en su respectiva cinta
+    else if (contenedorAldea && (contenedorAldea.offsetParent !== null || document.getElementById('pantalla-aldea').style.display === 'block')) {
+        contenedorGrid = contenedorAldea;
+    } 
+    // 3. Fallback defensivo: Inyectar en el panel general del Almacén tradicional
+    else {
         contenedorGrid = document.getElementById('grid-almacen-recursos');
     }
     
