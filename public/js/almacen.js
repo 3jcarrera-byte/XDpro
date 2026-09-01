@@ -2,7 +2,7 @@
 
 // Estado reactivo global del Almacén (Sincronizado dinámicamente con MongoDB)
 let datosAlmacen = {
-    recursos: [] // Estructura: [{ id: UUID, nombre: string, cantidad: number, rareza: string }]
+    recursos: [] // Estructura física real: [{ id: UUID, nombre: string, cantidad: number, rareza: string }]
 };
 
 /**
@@ -29,7 +29,7 @@ function renderizarAlmacen() {
         return;
     }
 
-    // Recorrer e inyectar cada tarjeta de recurso
+    // Recorrer e inyectar cada tarjeta de recurso de forma dinámica
     datosAlmacen.recursos.forEach(recurso => {
         const tarjeta = document.createElement('div');
         // Estandarización de estilos basada en las clases de rareza imperial de style.css
