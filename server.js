@@ -122,39 +122,6 @@ app.post('/api/auth/register', async (req, res) => {
     }
 });
 
-// 2. Endpoint de Login (Añadido para conectar con main.js)
-app.post('/api/auth/login', async (req, res) => {
-    const { username, password } = req.body;
-    try {
-        if (!username || !password) {
-            return res.status(400).json({ success: false, message: 'Usuario y contraseña requeridos.' });
-        }
-
-        const usuario = await User.findOne({ username: username.trim() });
-        if (!usuario) {
-            return res.status(400).json({ success: false, message: 'El gladiador no existe en los registros.' });
-        }
-
-        if (usuario.status !== 'active') {
-            return res.status(403).json({ success: false, message: `Cuenta suspendida. Razón: ${usuario.banReason || 'No especificada'}` });
-        }
-
-        const contraseñaValida = await usuario.comparePassword(password);
-        if (!contraseñaValida) {
-            return res.status(400).json({ success: false, message: 'Contraseña incorrecta imperial.' });
-        }
-
-        return res.status(200).json({
-            success: true,
-            username: usuario.username,
-            balance: usuario.balance
-        });
-    } catch (error) {
-        console.error('❌ Error al iniciar sesión:', error);
-        return res.status(500).json({ success: false, message: 'Fallo interno en la autenticación.' });
-    }
-});
-
 // ========================================================
 // ENDPOINT: INICIO DE SESIÓN (REPARADO Y BLINDADO)
 // ========================================================
