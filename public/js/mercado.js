@@ -22,14 +22,14 @@ if (typeof socket !== 'undefined' && socket) {
     socket.on('tienda:compra-exitosa', (data) => {
         alert("🏛️ Transacción autorizada: ¡Carta añadida a tu inventario logístico!");
         
-        // Actualizar el saldo en caliente en las barras imperiales
+        // Actualizar el saldo en caliente en todas las barras imperiales del juego
         const idsBalances = ['menu-player-balance', 'carreton-player-balance', 'mercado-player-balance'];
         idsBalances.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.textContent = parseFloat(data.nuevoBalance || 0).toFixed(2);
         });
 
-        // Actualizar memoria volátil financiera
+        // Sincronizar memoria volátil financiera
         if (typeof datosFinanzas !== 'undefined') {
             datosFinanzas.saldoDisponible = parseFloat(data.nuevoBalance || 0);
         }
@@ -42,7 +42,6 @@ if (typeof socket !== 'undefined' && socket) {
 
 /**
  * Filtra y renderiza los nodos en la cuadrícula comercial SPA
- * @param {Object} stock - Payload de inventarios de la tienda del sistema
  */
 function renderizarCatalogoMercado(stock) {
     const gridCartas = document.getElementById('grid-cartas-3d');
@@ -53,10 +52,14 @@ function renderizarCatalogoMercado(stock) {
     animacionesCartasActivas = [];
     gridCartas.innerHTML = '';
 
-    // Sincronizar fondos visuales inyectando el valor actual del menú principal si hiciera falta
-    inyectarBarraFondosMercado();
+    // Forzar la actualización visual del balance del Mercado tomando el del Menú Principal
+    const balanceRealNode = document.getElementById('menu-player-balance');
+    const balanceMercadoNode = document.getElementById('mercado-player-balance');
+    if (balanceRealNode && balanceMercadoNode) {
+        balanceMercadoNode.textContent = balanceRealNode.textContent;
+    }
 
-    // 2. Extraer el catálogo según el rubro seleccionado ('edificios', 'aldeanos', 'equipamiento')
+    // 2. Extraer el catálogo según el rubro seleccionado
     const rubroActivo = filtroMercado.rubro;
     const catalogoFiltrado = stock[rubroActivo] || [];
 
@@ -65,25 +68,21 @@ function renderizarCatalogoMercado(stock) {
         return;
     }
 
-    // 3. Iterar y renderizar de forma segura aplicando discriminadores de tipo
+    // 3. Iterar y renderizar aplicando discriminadores de tipo
     catalogoFiltrado.forEach(item => {
-        // CORRECCIÓN BARRACÓN DUPLICADO: Validar estrictamente que el item pertenezca al tipo filtrado
         const tipoLimpio = item.tipo.toLowerCase().trim();
         const rubroLimpio = rubroActivo.toLowerCase().trim();
         
-        // Parche de compatibilidad por si el backend usa 'aldeanos' y la carta dice 'personaje'
         const mapeaCorrecto = (tipoLimpio === rubroLimpio) || (tipoLimpio === 'personaje' && rubroLimpio === 'aldeanos');
         if (!mapeaCorrecto) return;
 
-        // Validar filtro secundario de rarezas
+        // Filtro estricto por rarezas
         if (filtroMercado.rareza !== 'todas' && item.rareza.toLowerCase().trim() !== filtroMercado.rareza.toLowerCase().trim()) {
             return;
         }
 
         const cardBox = document.createElement('div');
         cardBox.className = `carta-mercado-3d-box borde-rareza-${item.rareza.toLowerCase().trim()}`;
-
-        // Contenedor del canvas con ID único por UUID para inyección de Three.js
         const canvasId = `canvas-item-${item.tiendaItemId}`;
 
         cardBox.innerHTML = `
@@ -91,8 +90,7 @@ function renderizarCatalogoMercado(stock) {
             <div class="info-carta-mercado">
                 <h3 class="nombre-item-mercado">${item.nombre}</h3>
                 <p class="precio-item-mercado">💰 ${parseFloat(item.precio).toFixed(2)} Monedas</p>
-                <!-- CORRECCIÓN BOTÓN: Sincronizado exactamente con la función autoritaria ejecutarCompra -->
-                <button class="btn-comprar-market" onclick="ejecutarCompraCarta('${item.tiendaItemId}', '${rubroActivo}')">
+                <button class="btn-comprar-market" onclick="window.ejecutarCompraCarta('${item.tiendaItemId}', '${rubroActivo}')">
                     🛡️ Adquirir Carta
                 </button>
             </div>
@@ -100,63 +98,92 @@ function renderizarCatalogoMercado(stock) {
 
         gridCartas.appendChild(cardBox);
 
-        // 🚀 DISPARADOR GRÁFICO 3D: Construir la mini-escena en cuanto el contenedor está vivo en el DOM
         setTimeout(() => {
             construirMiniEscena3D(canvasId, item.subtipo);
         }, 20);
     });
 }
 
-/**
- * Emana la orden de compra autoritaria hacia los sockets del servidor
- */
-function ejecutarCompraCarta(itemId, rubro) {
-    if (!itemId || !rubro) return;
-    
-    if (typeof socket !== 'undefined' && socket && socket.connected) {
-        console.log(`💸 Solicitando compra de item ${itemId} en rubro ${rubro}...`);
-        socket.emit('tienda:comprar-carta', { itemId, rubro });
-    } else {
-        alert("❌ Error logístico: Sin conexión con el Árbitro del servidor.");
-    }
-}
+// ==========================================================================
+// EXPOSICIÓN ESTRICTA AL ENTORNO GLOBAL WINDOW (EVITA ERRORES ONCLICK)
+// ==========================================================================
 
 /**
- * Conmutador de filtros superiores del mercado
+ * Conmutador de pestañas de modo comercial (Mercado General vs Ubicar Aldeas)
+ */
+window.cambiarModoMercado = function(modo) {
+    console.log(`🔄 Conmutando modo de mercado a: ${modo}`);
+    
+    // Cambiar clases activas en los botones de pestañas superiores
+    document.querySelectorAll('.tab-market').forEach(btn => btn.classList.remove('active'));
+    
+    const panelAldeas = document.getElementById('subpantalla-buscador-aldeas');
+    const panelProductos = document.getElementById('subpantalla-filtros-productos');
+
+    if (modo === 'general') {
+        const btnGen = document.getElementById('btn-mercado-general');
+        if (btnGen) btnGen.classList.add('active');
+        if (panelAldeas) panelAldeas.style.display = 'none';
+        if (panelProductos) panelProductos.style.display = 'block';
+        filtroMercado.modo = 'tienda';
+    } else {
+        const btnInt = document.getElementById('btn-mercado-interno');
+        if (btnInt) btnInt.classList.add('active');
+        if (panelAldeas) panelAldeas.style.display = 'block';
+        if (panelProductos) panelProductos.style.display = 'none';
+        filtroMercado.modo = 'p2p';
+    }
+};
+
+/**
+ * Conmutador de rubros comerciales (Edificios, Aldeanos, Equipamiento...)
  */
 window.cambiarRubroMercado = function(elementoBtn, nuevoRubro) {
-    // Remover clases activas de los botones de la barra
     document.querySelectorAll('.btn-filter-rubro').forEach(btn => btn.classList.remove('active'));
-    elementoBtn.classList.add('active');
+    if (elementoBtn) elementoBtn.classList.add('active');
 
     filtroMercado.rubro = nuevoRubro;
     
-    // Solicitar de nuevo los datos limpios al servidor para redibujar
     if (typeof socket !== 'undefined' && socket && socket.connected) {
         socket.emit('tienda:solicitar-stock');
     }
 };
 
 /**
- * Parche visual para garantizar la visualización de saldos en la cabecera del mercado
+ * Conmutador reactivo de filtros de rarezas
  */
-function inyectarBarraFondosMercado() {
-    let indicadorSaldo = document.getElementById('mercado-player-balance');
-    if (!indicadorSaldo) {
-        const contenedorMercado = document.getElementById('pantalla-mercado');
-        const barraPrincipal = document.querySelector('.player-top-bar');
-        
-        if (contenedorMercado && barraPrincipal && !contenedorMercado.querySelector('.player-top-bar')) {
-            // Clonar la barra superior de fondos de forma limpia al inicio del mercado
-            const barraClonada = barraPrincipal.cloneNode(true);
-            // Re-asignar ID para evitar colisiones lógicas
-            const saldoClonado = barraClonada.querySelector('#menu-player-balance');
-            if (saldoClonado) saldoClonado.id = 'mercado-player-balance';
-            
-            contenedorMercado.insertBefore(barraClonada, contenedorMercado.firstChild);
-        }
+window.cambiarRareza = function(nuevaRareza) {
+    console.log(`💎 Filtrando vitrina por rareza: ${nuevaRareza}`);
+    
+    // Cambiar clase activa visualmente en la fila de rarezas
+    document.querySelectorAll('.btn-filter-rareza').forEach(btn => btn.classList.remove('active'));
+    
+    // Buscar el botón presionado dinámicamente para encender su brillo CSS
+    const selectorClase = nuevaRareza === 'todas' ? '.btn-filter-rareza' : `.rareza-${nuevaRareza}`;
+    const btnActivo = document.querySelector(selectorClase);
+    if (btnActivo) btnActivo.classList.add('active');
+
+    filtroMercado.rareza = nuevaRareza;
+    
+    // Forzar redibujado local instantáneo con los filtros aplicados
+    if (typeof socket !== 'undefined' && socket && socket.connected) {
+        socket.emit('tienda:solicitar-stock');
     }
-}
+};
+
+/**
+ * Envía la orden de compra segura hacia los sockets de Render
+ */
+window.ejecutarCompraCarta = function(itemId, rubro) {
+    if (!itemId || !rubro) return;
+    
+    if (typeof socket !== 'undefined' && socket && socket.connected) {
+        console.log(`💸 Emitiendo compra de item ${itemId} en rubro ${rubro}...`);
+        socket.emit('tienda:comprar-carta', { itemId, rubro });
+    } else {
+        alert("❌ Error de comunicación: Sin conexión con el servidor.");
+    }
+};
 
 /**
  * Motor gráfico miniatura encargado de renderizar las cartas 3D de Blender
@@ -175,13 +202,11 @@ function construirMiniEscena3D(canvasId, subtipo) {
     renderMini.setSize(contenedor.clientWidth, contenedor.clientHeight);
     contenedor.appendChild(renderMini.domElement);
 
-    // Iluminación de vitrina
-    const luzMini = new THREE.AmbientLight(0xffffff, 0.8);
+    const luzMini = new THREE.AmbientLight(0xffffff, 0.85);
     escenaMini.add(luzMini);
 
-    // Geometría representativa temporal (Reemplazar por tus mallas GLB de Blender en el futuro)
     const geometry = new THREE.BoxGeometry(0.06, 0.08, 0.005);
-    let colorTarjeta = 0x5c4033; // Por defecto madera
+    let colorTarjeta = 0x5c4033; // Madera base
     if (subtipo.includes('minero')) colorTarjeta = 0x1e3e66; // Azul minero
     if (subtipo.includes('espada')) colorTarjeta = 0x8b0000;  // Rojo guerrero
 
@@ -189,8 +214,8 @@ function construirMiniEscena3D(canvasId, subtipo) {
     const mallaCarta = new THREE.Mesh(geometry, material);
     escenaMini.add(mallaCarta);
 
-    // Ciclo de animación local rotativo de la carta
     function animarCarta() {
+        if (!document.getElementById(canvasId)) return; 
         const idAnim = requestAnimationFrame(animarCarta);
         animacionesCartasActivas.push(idAnim);
 
@@ -199,23 +224,44 @@ function construirMiniEscena3D(canvasId, subtipo) {
     }
     animarCarta();
 }
-// ==========================================================================
-// DISPARADOR DE EMERGENCIA: CARGA AUTORITARIA AL DETECTAR ENTRADA EN TIENDA
-// ==========================================================================
-function inicializarEscuchadoresMercadoLocales() {
-    // Si el socket se conecta o ya está conectado, pedir el stock real a MongoDB de inmediato
-    if (typeof socket !== 'undefined' && socket) {
-        if (socket.connected) {
-            console.log("🏪 Conexión activa: Forzando sincronización de stock con el Árbitro...");
+
+// Disparador de sincronización inicial al cargar el script
+if (typeof socket !== 'undefined' && socket) {
+    if (socket.connected) {
+        socket.emit('tienda:solicitar-stock');
+    } else {
+        socket.on('connect', () => {
             socket.emit('tienda:solicitar-stock');
-        } else {
-            socket.on('connect', () => {
-                console.log("⚡ Sockets restablecidos: Cargando vitrina imperial...");
-                socket.emit('tienda:solicitar-stock');
-            });
-        }
+        });
     }
 }
-
-// Ejecutar la comprobación de red al cargar el script en el navegador
-inicializarEscuchadoresMercadoLocales();
+Usa el código con precaución.🛠️ 2. Actualización en la persistencia del cliente (public/js/main.js)Para asegurar la continuidad permanente de tus 100 monedas al iniciar sesión sin que vuelvan a caer a cero, debemos incluir el ID del mercado en el actualizador automático del Login.Busca la función de Inicio de Sesión (loginForm.addEventListener) dentro de tu archivo public/js/main.js y asegúrate de actualizar el arreglo de balances añadiendo la ID del mercado de la siguiente manera:javascript// Busca este bloque específico dentro de tu public/js/main.js
+if (response.ok && data.success) {
+    if (authScreen) authScreen.style.display = 'none';
+    
+    sessionStorage.setItem('gladiador_nick', data.username);
+    
+    // SINCRO GENERAL DE LOGUEO: Añadido 'mercado-player-balance' a la cadena de actualización
+    const idsNicks = ['menu-player-nick', 'carreton-player-nick', 'mercado-player-nick'];
+    const idsBalances = ['menu-player-balance', 'carreton-player-balance', 'mercado-player-balance'];
+    
+    idsNicks.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = data.username;
+    });
+    
+    idsBalances.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = parseFloat(data.balance || 0).toFixed(2);
+    });
+    
+    cambiarPantalla('pantalla-menu-principal');
+    
+    if (typeof inicializarMundo3D === 'function') {
+        setTimeout(inicializarMundo3D, 50);
+    }
+    
+    if (socket && socket.connected) {
+        socket.emit('jugador:autenticado', { username: data.username });
+    }
+}
