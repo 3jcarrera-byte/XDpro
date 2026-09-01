@@ -16,26 +16,34 @@ function cargarAlmacen() {
 }
 
 /**
- * Renderiza la interfaz gráfica del inventario inyectando los nodos en la cuadrícula SPA
+ * Renderiza la interfaz gráfica del inventario inyectando los nodos en la cuadrícula SPA correspondiente
  */
 function renderizarAlmacen() {
-    const contenedorGrid = document.getElementById('grid-almacen-recursos');
+    // DETECCIÓN DINÁMICA DE CONTENEDOR MULTI-PANTALLA
+    // Si el usuario está en la Finca, inyecta en su cinta inferior. Si no, en el almacén clásico.
+    let contenedorGrid = document.getElementById('finca-edificios-lista');
+    
+    // Si no encuentra el contenedor de la finca o está oculto, busca el general del almacén
+    if (!contenedorGrid || contenedorGrid.offsetParent === null) {
+        contenedorGrid = document.getElementById('grid-almacen-recursos');
+    }
+    
     if (!contenedorGrid) return;
 
     contenedorGrid.innerHTML = '';
 
     if (!datosAlmacen.recursos || datosAlmacen.recursos.length === 0) {
-        contenedorGrid.innerHTML = `<div class="almacen-vacio-txt">Tu almacén imperial se encuentra vacío. Produce recursos en tus cimientos.</div>`;
+        contenedorGrid.innerHTML = `<div class="almacen-vacio-txt" style="color:#777; font-style:italic; padding:10px;">No tienes cartas de estructuras en tu inventario logístico.</div>`;
         return;
     }
 
-    // Recorrer e inyectar cada tarjeta de recurso de forma dinámica
+    // Recorrer e inyectar cada tarjeta de recurso/edificio de forma dinámica
     datosAlmacen.recursos.forEach(recurso => {
         const tarjeta = document.createElement('div');
         // Estandarización de estilos basada en las clases de rareza imperial de style.css
         tarjeta.className = `almacen-card borde-rareza-${recurso.rareza.toLowerCase().trim()}`;
         
-        // Habilitar la propiedad nativa de arrastre para el Canvas 3D
+        // Habilitar la propiedad nativa de arrastre para el Canvas 3D de Blender
         tarjeta.setAttribute('draggable', 'true');
         
         // Mapear el identificador único tolerante en los metadatos del elemento DOM
@@ -44,11 +52,11 @@ function renderizarAlmacen() {
         
         tarjeta.innerHTML = `
             <div class="almacen-item-info">
-                <span class="almacen-item-nombre">${recurso.nombre}</span>
-                <span class="almacen-item-cantidad">Nivel: <strong>${recurso.nivel || 1}</strong></span>
+                <span class="almacen-item-nombre" style="font-weight:bold; color:#ffd700;">${recurso.nombre}</span>
+                <span class="almacen-item-cantidad" style="display:block; font-size:11px; color:#a89276;">Nivel: ${recurso.nivel || 1}</span>
             </div>
-            <button class="btn-almacen-gestionar" style="cursor: grab;">
-                🏗️ Arrastrar al Mapa
+            <button class="btn-almacen-gestionar" style="cursor: grab; margin-top:5px; width:100%; padding:3px; font-size:10px;">
+                🏗️ Arrastrar
             </button>
         `;
 
@@ -58,7 +66,7 @@ function renderizarAlmacen() {
             e.dataTransfer.setData('text/plain', tokenUnico);
             e.dataTransfer.effectAllowed = 'copy';
             
-            // Efecto visual traslúcido para dar retroalimentación de arrastre
+            // Efecto visual traslúcido para dar retroalimentación de arrastre en la interfaz
             tarjeta.style.opacity = '0.4';
             tarjeta.style.borderStyle = 'dashed';
         });
