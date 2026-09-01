@@ -247,6 +247,9 @@ io.on('connection', (socket) => {
     });
 
     // Transacción Económica Atómica P2P
+       // ==========================================================================
+    // TRANSACCIÓN COMERCIAL ATÓMICA CON REPARTO INTELIGENTE DE ACTIVOS (REPARADO)
+    // ==========================================================================
     socket.on('tienda:comprar-carta', async (datos) => {
         if (!datos) return;
         const { itemId, rubro } = datos;
@@ -267,36 +270,66 @@ io.on('connection', (socket) => {
         const cartaTienda = stockTiendaSistema[rubro][indexItem];
 
         try {
-            // Verificar fondos reales en MongoDB
+            // 1. Verificar monedas imperiales reales en MongoDB
             const usuario = await User.findOne({ username: username });
             if (!usuario || usuario.balance < cartaTienda.precio) {
                 return socket.emit('tienda:error', 'Monedas imperiales insuficientes en tus arcas.');
             }
 
-            // Descontar saldo de forma autoritaria
+            // Extraer la instancia activa de Mongoose desde la caché del Árbitro
+            const juegoData = cachePartidas[username];
+
+            // 2. Si es un ALDEANO, validar espacio en el Contenedor Central del Carretón
+            const maxSlotsCentral = cachePartidas[username]._poseeAldeaNFT ? 24 : 8;
+            if (cartaTienda.tipo === 'aldeanos' && juegoData.carretonCartas.cartasCentral.length >= maxSlotsCentral) {
+                return socket.emit('tienda:error', 'Tu Carretón Central está lleno. Requiere liberar slots.');
+            }
+
+            // 3. Descontar balance de forma autoritaria en la Base de Datos
             usuario.balance -= cartaTienda.precio;
             await usuario.save();
 
-            // Extraer la instancia viva de Mongoose desde la caché del Árbitro
-            const juegoData = cachePartidas[username];
+            // Generar identificador único criptográfico para el nuevo activo
+            const nuevoIdActivo = crypto.randomUUID();
             
-            // Registrar físicamente la carta en el inventario del backend
-            // Inyectamos el UUID mapeando el formato estricto del modelo
-            const cartaRegistrada = juegoData.registrarNuevaCarta({
-                id: crypto.randomUUID(), 
+            // Estructura reglamentaria del activo coleccionable
+            const nuevaCartaActiva = {
+                id: nuevoIdActivo,
                 tipo: cartaTienda.tipo,
                 subtipo: cartaTienda.subtipo,
+                nombre: cartaTienda.nombre,
                 rareza: cartaTienda.rareza,
-                nivel: 1
-            });
-            
-            // Forzar guardado atómico en MongoDB
+                nivel: 1,
+                slotIndex: 0
+            };
+
+            // 4. ALGORITMO DE DISTRIBUCIÓN SEGÚN TU DISEÑO DE JUEGO
+            if (cartaTienda.tipo === 'aldeanos') {
+                // Rastrear el primer slot numérico libre en el contenedor central (0, 1, 2...)
+                let slotLibre = 0;
+                while (juegoData.carretonCartas.cartasCentral.some(c => c.slotIndex === slotLibre)) {
+                    slotLibre++;
+                }
+                nuevaCartaActiva.slotIndex = slotLibre;
+                nuevaCartaActiva.icono = '👤';
+
+                // Insertar en la colección del Carretón Central de MongoDB
+                juegoData.carretonCartas.cartasCentral.push(nuevaCartaActiva);
+                console.log(`👨‍🌾 Población asignada al Carretón Central [Slot ${slotLibre}] de ${username}`);
+            } else {
+                // Si es Edificio o Equipamiento, va directo al Inventario del Almacén de activos
+                if (!juegoData.almacenActivos) juegoData.almacenActivos = [];
+                juegoData.almacenActivos.push(nuevaCartaActiva);
+                console.log(`🏢 Edificio/Equipamiento inyectado en el inventario del Almacén de ${username}`);
+            }
+
+            // 5. Persistir físicamente los subdocumentos mixtos modificados en MongoDB
+            juegoData.markModified('carretonCartas');
+            juegoData.markModified('almacenActivos');
             await juegoData.save();
 
-            // Repoblación Automática Inmediata (Mantiene siempre 3 cartas por tipo)
+            // 6. Repoblación automática e inmediata de la vitrina (AMM)
             stockTiendaSistema[rubro].splice(indexItem, 1);
-            
-            // CORRECCIÓN: Mapeo limpio usando el rubro estandarizado para evitar caídas en 'aldeanos'
             const catalogoRubro = rubro === 'aldeanos' ? 'aldeanos' : rubro;
             const diseñoOriginal = CATALOGO_DISEÑOS[catalogoRubro].find(d => d.subtipo === cartaTienda.subtipo);
             
@@ -304,20 +337,34 @@ io.on('connection', (socket) => {
                 stockTiendaSistema[rubro].push(crearCartaParaTienda(diseñoOriginal, rubro));
             }
 
-            // Notificar éxito al comprador
+            // Notificar éxito en la transacción al comprador
             socket.emit('tienda:compra-exitosa', {
                 nuevoBalance: usuario.balance,
-                carta: cartaRegistrada
+                carta: nuevaCartaActiva
             });
 
-            // Sincronizar la vitrina de forma global a todos los usuarios conectados
+            // Sincronizar la vitrina comercial de forma global para todos los gladiadores online
             io.emit('tienda:recibir-stock', stockTiendaSistema);
 
+            // 7. DISPARADORES REACTIVOS: Forzar refresco en caliente en las pantallas del jugador
+            // Envía los datos actualizados del Almacén
+            socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenActivos || [] });
+            
+            // Envía los datos actualizados del Carretón
+            socket.emit('carreton:actualizar-estado', {
+                poseeAldea: cachePartidas[username]._poseeAldeaNFT,
+                slotsCentralMax: maxSlotsCentral,
+                cartasAldea: juegoData.carretonCartas.cartasAldea,
+                cartasFinca: juegoData.carretonCartas.cartasFinca,
+                cartasCentral: juegoData.carretonCartas.cartasCentral
+            });
+
         } catch (error) {
-            console.error('❌ Error en transacción de mercado:', error);
-            socket.emit('tienda:error', 'Error interno al procesar la compra.');
+            console.error('❌ Error crítico en el procesamiento de compra:', error);
+            socket.emit('tienda:error', 'Error interno al adjudicar activos en base de datos.');
         }
     });
+
 
     // Guardado Persistente del Movimiento Drag & Drop del Carretón
     socket.on('carreton:guardar-posicion', async (data) => {
