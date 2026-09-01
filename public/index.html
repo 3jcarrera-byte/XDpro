@@ -157,29 +157,70 @@
   </div>
 
    <!-- ======================================================== -->
-  <!-- 3. PANTALLA: FINCA PERSONAL (Mapa 3D y Construcción)     -->
+  <!-- 3. PANTALLA: FINCA PERSONAL CON DISEÑO MIXTO (IDEA)       -->
   <!-- ======================================================== -->
-  <div id="pantalla-finca" class="seccion-juego" style="display: none;">
-    <h2>Cimientos de tu Finca Personal (Máx. 5 Edificios)</h2>
+  <div id="pantalla-finca" class="seccion-juego" style="display: none; padding: 0 !important; height: 100vh; overflow: hidden;">
     
-    <!-- CORREGIDO: ID alineado milimétricamente con el inicializador de main.js -->
-    <div id="canvas-contenedor-3d-finca" class="canvas-3d" style="width: 100%; height: 450px; background: #000; border: 2px solid #d4af37; border-radius: 12px; position: relative;"></div>
-    
-    <!-- ESQUEMA TÁCTICO: Vitrina inferior del Almacén para arrastrar planos hacia el Canvas -->
-    <div class="almacen-finca-drawer" style="margin-top: 15px; background: rgba(30, 22, 16, 0.9); padding: 15px; border-radius: 8px; border: 1px solid #5c4033;">
-      <h4 style="color: #d4af37; margin: 0 0 10px 0; font-family: 'Cinzel', serif;">🏗️ Planos Disponibles en tu Almacén (Arrastra al Cimiento):</h4>
-      <div id="grid-almacen-recursos" class="market-cards-grid" style="min-height: 80px; display: flex; gap: 10px; overflow-x: auto;">
-        <!-- Aquí se dibujarán tus cartas de edificios comprados de forma automática -->
+    <!-- BARRA SUPERIOR IMPERIAL -->
+    <header class="player-top-bar">
+      <div class="top-bar-left">
+        <h1 class="menu-brand-title">🏛️ ARENA Y GLORIA — FINCA PERSONAL</h1>
       </div>
-    </div>
+      <div class="top-bar-right">
+        <div class="player-profile">
+          <span class="pj-icono">👤</span>
+          <span id="finca-player-nick" class="pj-nombre">Gladiador</span>
+        </div>
+        <div class="resource-item">
+          <span class="resource-icon">🪙</span>
+          <span id="finca-player-balance" class="resource-value">0.00</span>
+        </div>
+      </div>
+    </header>
 
-    <!-- BOTONERA SPA IMPERIAL -->
-    <div class="submenu-nav" style="margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">
-      <button onclick="cambiarPantalla('pantalla-aldea')">🗺️ Ir a Aldea</button>
-      <button onclick="cambiarPantalla('pantalla-almacen')">📦 Ir a Almacén</button>
-      <button onclick="cambiarPantalla('pantalla-carreton')">🛒 Ir a Carretón</button>
-      <button onclick="cambiarPantalla('pantalla-mercado')">⚖️ Ir a Mercado</button>
-      <button onclick="cambiarPantalla('pantalla-menu-principal')" class="btn-back">🔙 Menú Principal</button>
+    <!-- DISPOSICIÓN EN MATRIZ DE TRES COLUMNAS (LAYOUT COMPLETO) -->
+    <div class="finca-main-layout" style="display: flex; width: 100%; height: calc(100vh - 60px); box-sizing: border-box;">
+      
+      <!-- COLUMNA 1: BARRA LATERAL IZQUIERDA (NAVEGACIÓN SPA) -->
+      <aside class="sidebar-nav" style="width: 260px; min-width: 260px; background: #1a1512; border-right: 2px solid #5c4033; padding: 15px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px;">
+        <h3 style="color: #d4af37; font-family: 'Cinzel', serif; font-size: 1rem; margin: 0 0 10px 0; text-align: center; border-bottom: 1px solid #5c4033; padding-bottom: 5px;">🌍 MAPA IMPERIAL</h3>
+        <button class="btn-sidebar" onclick="cambiarPantalla('pantalla-menu-principal')">🏠 Menú Principal</button>
+        <button class="btn-sidebar" onclick="cambiarPantalla('pantalla-aldea')">🗺️ Ir a Aldea</button>
+        <button class="btn-sidebar" onclick="cambiarPantalla('pantalla-carreton')">🛒 Ir a Carretón</button>
+        <button class="btn-sidebar" onclick="cambiarPantalla('pantalla-almacen')">📦 Ir a Almacén</button>
+        <button class="btn-sidebar" onclick="cambiarPantalla('pantalla-mercado')">⚖️ Ir a Mercado</button>
+      </aside>
+
+      <!-- SECCIÓN CENTRAL Y BANDA INFERIOR (CONSTRUCCIÓN TRIDIMENSIONAL) -->
+      <main class="finca-central-zone" style="flex: 1; display: flex; flex-direction: column; background: #0c0806; box-sizing: border-box; border-right: 2px solid #5c4033;">
+        
+        <!-- CANVAS CENTRAL 3D (ENTORNO THREE.JS) -->
+        <div class="canvas-3d-wrapper" style="flex: 1; position: relative; width: 100%;">
+          <!-- CORREGIDO: El ID exacto que busca tu game3d.js -->
+          <div id="canvas-finca-container" style="width: 100%; height: 100%;"></div>
+        </div>
+
+        <!-- BANDA INFERIOR CONTIENE ÚNICAMENTE CARTAS DE EDIFICIOS INACTIVOS -->
+        <footer class="finca-buildings-drawer" style="height: 160px; background: rgba(30, 22, 16, 0.95); border-top: 2px solid #5c4033; padding: 12px; box-sizing: border-box; overflow: hidden;">
+          <h4 style="color: #d4af37; margin: 0 0 8px 0; font-family: 'Cinzel', serif; font-size: 0.85rem; letter-spacing: 0.5px;">🏗️ PLANOS DE EDIFICIOS (ALMACÉN): Arrastra al Cimiento 3D</h4>
+          <!-- Grid dinámico limpio conectado a almacen.js -->
+          <div id="grid-almacen-recursos" class="market-cards-grid" style="display: flex; gap: 10px; width: 100%; overflow-x: auto; height: 105px; padding-bottom: 5px; box-sizing: border-box;">
+            <!-- Las cartas de estructuras en reposo se inyectarán de forma dinámica aquí -->
+          </div>
+        </footer>
+
+      </main>
+
+      <!-- COLUMNA 3: BARRA LATERAL DERECHA (RANURAS DE POBLADORES DE LA FINCA) -->
+      <aside class="finca-population-drawer" style="width: 240px; min-width: 240px; background: #1a1512; padding: 15px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; overflow-y: auto;">
+        <h3 id="finca-poblacion-titulo" style="color: #d4af37; font-family: 'Cinzel', serif; font-size: 0.95rem; margin: 0; text-align: center; border-bottom: 1px solid #5c4033; padding-bottom: 5px;">👨‍🌾 POBLADORES FINCA (0/0)</h3>
+        
+        <!-- Rejilla vertical de 8 slots reglamentarios de aldeanos activos/inactivos -->
+        <div id="carreton-finca-lista" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; width: 100%; margin-top: 5px;">
+          <!-- Estos slots se pintan automáticamente desde carreton.js marcando Vacío o No Disponible -->
+        </div>
+      </aside>
+
     </div>
   </div>
 
