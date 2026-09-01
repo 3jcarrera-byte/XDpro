@@ -83,7 +83,6 @@ function inicializarTiendaSistema() {
     console.log("🏪 Tienda AMM inicializada estrictamente con 3 cartas por tipo.");
 }
 inicializarTiendaSistema();
-
 // ========================================================
 // ENDPOINTS HTTP: CONTROL DE ACCESO (REPARADO)
 // ========================================================
@@ -119,7 +118,16 @@ app.post('/api/auth/register', async (req, res) => {
         const juegoData = new GameDataModel({ username: usernameLimpio });
         juegoData.inicializarEspaciosVacios();
 
-        // Inyección automática de 1 Granja y 1 Minero iniciales para que el almacén no inicie en blanco
+        // 🏛️ CARTA OBLIGATORIA INTRANFERIBLE: Inyección de la Casona Inicial (Aporta +2 Población al colocarse)
+        juegoData.almacenEdificiosDisponibles.push({
+            uuid: crypto.randomUUID(),
+            subtipo: 'casona',
+            nombre: '🏛️ Casona Base',
+            rareza: 'comun',
+            nivel: 1
+        });
+
+        // Inyección automática de 1 Granja e iniciales para que el almacén no inicie en blanco
         juegoData.almacenEdificiosDisponibles.push({
             uuid: crypto.randomUUID(),
             subtipo: 'granja',
@@ -140,7 +148,7 @@ app.post('/api/auth/register', async (req, res) => {
 
         await juegoData.save();
         
-        return res.status(201).json({ success: true, message: 'Usuario y cartas iniciales creados exitosamente.' });
+        return res.status(201).json({ success: true, message: 'Usuario y cartas iniciales (incluyendo Casona) creados exitosamente.' });
     } catch (error) {
         console.error('❌ Error al registrar:', error);
         return res.status(500).json({ success: false, message: 'Fallo interno del servidor.' });
@@ -192,7 +200,7 @@ app.post('/api/auth/login', async (req, res) => {
             }
         }
 
-        // Verificar contraseña encriptada usando el método del modelo User.js
+// Verificar contraseña encriptada usando el método del modelo User.js
         const esContraseñaValida = await usuario.comparePassword(password);
         if (!esContraseñaValida) {
             return res.status(401).json({ success: false, message: 'Usuario o contraseña inválidos.' });
@@ -206,7 +214,16 @@ app.post('/api/auth/login', async (req, res) => {
                 juegoData = new GameDataModel({ username: usuario.username });
                 juegoData.inicializarEspaciosVacios();
                 
-                // 🎁 COMPROBACIÓN RETROACTIVA: Dar cartas básicas si la cuenta se creó vacía por error
+                // 🏛️ COMPROBACIÓN RETROACTIVA: Inyectar Casona Base obligatoria e intransferible si falta
+                juegoData.almacenEdificiosDisponibles.push({
+                    uuid: crypto.randomUUID(),
+                    subtipo: 'casona',
+                    nombre: '🏛️ Casona Base',
+                    rareza: 'comun',
+                    nivel: 1
+                });
+
+                // Dar cartas básicas si la cuenta se creó vacía por error
                 juegoData.almacenEdificiosDisponibles.push({
                     uuid: crypto.randomUUID(),
                     subtipo: 'granja',
@@ -224,6 +241,20 @@ app.post('/api/auth/login', async (req, res) => {
                     equipamientoAnidado: []
                 });
                 await juegoData.save();
+            } else {
+                // 🛡️ VERIFICACIÓN DE INTEGRIDAD PARA CUENTAS EXISTENTES: Asegurar que posean la Casona
+                const tieneCasona = juegoData.almacenEdificiosDisponibles.some(e => e.subtipo === 'casona');
+                if (!tieneCasona) {
+                    juegoData.almacenEdificiosDisponibles.push({
+                        uuid: crypto.randomUUID(),
+                        subtipo: 'casona',
+                        nombre: '🏛️ Casona Base',
+                        rareza: 'comun',
+                        nivel: 1
+                    });
+                    juegoData.markModified('almacenEdificiosDisponibles');
+                    await juegoData.save();
+                }
             }
             
             // CORRECCIÓN: Guardamos el documento activo de Mongoose en la caché en lugar del objeto plano (.toObject()).
@@ -235,6 +266,20 @@ app.post('/api/auth/login', async (req, res) => {
         } else {
             // Si ya existía la caché, nos aseguramos de refrescar el estado del NFT por si cambió en la base de datos
             cachePartidas[usuario.username]._poseeAldeaNFT = usuario.poseeAldea || false;
+
+            // Verificación relámpago en memoria viva
+            const juegoDataCache = cachePartidas[usuario.username];
+            if (juegoDataCache && !juegoDataCache.almacenEdificiosDisponibles.some(e => e.subtipo === 'casona')) {
+                juegoDataCache.almacenEdificiosDisponibles.push({
+                    uuid: crypto.randomUUID(),
+                    subtipo: 'casona',
+                    nombre: '🏛️ Casona Base',
+                    rareza: 'comun',
+                    nivel: 1
+                });
+                juegoDataCache.markModified('almacenEdificiosDisponibles');
+                await juegoDataCache.save();
+            }
         }
 
         // Respuesta exitosa al cliente SPA con datos de balance actualizados
@@ -306,8 +351,7 @@ io.on('connection', (socket) => {
         });
     });
 
-
-        // Transacción Económica Atómica P2P
+    // Transacción Económica Atómica P2P
     // ==========================================================================
     // TRANSACCIÓN COMERCIAL ATÓMICA SINCRONIZADA CON SCHEMAS REALES (REPARADO)
     // ==========================================================================
@@ -444,9 +488,7 @@ io.on('connection', (socket) => {
     });
 
 
-
-
-         // ==========================================================================
+    // ==========================================================================
     // GUARDADO PERSISTENTE DEL MOVIMIENTO DRAG & DROP DEL CARRETÓN (REPARADO)
     // ==========================================================================
     socket.on('carreton:guardar-posicion', async (data) => {
@@ -554,7 +596,6 @@ io.on('connection', (socket) => {
     });
 });
 
-
 /**
  * Helper interno para centralizar el cálculo matemático de población y emitir el estado
  */
@@ -567,13 +608,22 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
             cachePartidas[username]._poseeAldeaNFT = poseeNFT;
         }
 
-        // Calcular espacio habitacional en caliente de la Finca
+        // Calcular espacio habitacional en caliente de la Finca a partir de los cimientos
         let capacidadFincaMax = 0;
         if (juegoData.cimientosFinca && juegoData.cimientosFinca.length > 0) {
             juegoData.cimientosFinca.forEach(c => {
                 if (c.estaOcupado && c.subtipo === 'casona') capacidadFincaMax += 2;
                 if (c.estaOcupado && c.subtipo === 'granja') capacidadFincaMax += 1;
             });
+        }
+
+        // 🏛️ REGLA DE NEGOCIO CASONA BASE: Si el usuario tiene la Casona en su inventario o almacén,
+        // garantizamos un mínimo de 2 slots habilitados para que sus cartas de pobladores no se vuelvan invisibles.
+        if (capacidadFincaMax === 0) {
+            const tieneCasonaEnAlmacen = juegoData.almacenEdificiosDisponibles && juegoData.almacenEdificiosDisponibles.some(e => e.subtipo === 'casona');
+            if (tieneCasonaEnAlmacen) {
+                capacidadFincaMax = 2;
+            }
         }
 
         // Calcular espacio habitacional en caliente de la Aldea
