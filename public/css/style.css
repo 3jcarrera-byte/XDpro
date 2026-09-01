@@ -833,11 +833,11 @@ body {
   color: #ffd700;
   border-radius: 6px;
 }
-css/* ==========================================================================
+/* ==========================================================================
    ESTILOS ADICIONALES PARA LAS RANURAS DE CARTAS 3D (BLENDER)
    ========================================================================== */
 .market-items-showcase.flex-showcase {
-  display: block !important; /* Cambia a bloque para permitir la cuadrícula */
+  display: block !important; 
   background: #060608;
   padding: 15px;
   border: 2px solid #423126;
@@ -922,35 +922,31 @@ css/* ==========================================================================
 .borde-rareza-mitico { border-color: #e91e63 !important; }
 .borde-rareza-legendario { border-color: #ffd700 !important; }
 
-
-
-
-
-/* ESTRUCTURA PROFESIONAL PARA EL CARRETÓN */
+/* ==========================================================================
+   ESTRUCTURA UNIFICADA PARA EL CARRETÓN Y SLOTS NFT
+   ========================================================================== */
 .carreton-tres-bloques-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr) !important; /* Forza 3 columnas idénticas para evitar desbordes */
+    grid-template-columns: repeat(3, 1fr) !important;
     gap: 15px;
     width: 100%;
-    box-sizing: border-box; /* Evita que el padding sume ancho extra */
+    box-sizing: border-box;
 }
 
-/* GRILLES INTERNAS PARA LOS SLOTS DE CARTAS */
 #carreton-aldea-lista, #carreton-finca-lista {
     display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important; /* 2 columnas de slots */
+    grid-template-columns: repeat(2, 1fr) !important;
     gap: 10px;
     padding: 5px;
 }
 
 #carreton-central-lista {
     display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important; /* 3 columnas de slots para el centro */
+    grid-template-columns: repeat(3, 1fr) !important;
     gap: 10px;
     padding: 5px;
 }
 
-/* RENDER DE CADA SLOT INDIVIDUAL */
 .carreton-slot {
     background: rgba(18, 12, 9, 0.7);
     border: 1px solid #3d2a1d;
@@ -962,4 +958,25 @@ css/* ==========================================================================
     flex-direction: column;
     align-items: center;
     justify-content: center;
+}
+
+/* 🔒 CAPA REACTIVA PARA SLOTS BLOQUEADOS POR NFT */
+.carreton-columna.bloqueado {
+    opacity: 0.35 !important;
+    filter: grayscale(90%) !important;
+    pointer-events: none !important;
+    cursor: not-allowed !important;
+    background: rgba(10, 5, 5, 0.6) !important;
+    border: 2px dashed #4a1515 !important;
+}
+
+.carreton-bloqueado-msg {
+    color: #ff4d4d;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: center;
+    padding: 15px;
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.5px;
+    text-shadow: 1px 1px 2px #000;
 }
