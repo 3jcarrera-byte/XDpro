@@ -487,7 +487,6 @@ io.on('connection', (socket) => {
         }
     });
 
-
     // ==========================================================================
     // GUARDADO PERSISTENTE DEL MOVIMIENTO DRAG & DROP DEL CARRETÓN (REPARADO)
     // ==========================================================================
@@ -527,15 +526,17 @@ io.on('connection', (socket) => {
             let slotsHabilitadosPorEdificios = 0;
             
             if (bloqueDestino === 'finca') {
+                // Cálculo estricto basado en cimientos ocupados en la zona activa (Canvas 3D)
                 if (juegoData.cimientosFinca && juegoData.cimientosFinca.length > 0) {
                     juegoData.cimientosFinca.forEach(c => {
                         if (c.estaOcupado && c.subtipo === 'casona') slotsHabilitadosPorEdificios += 2;
                         if (c.estaOcupado && c.subtipo === 'granja') slotsHabilitadosPorEdificios += 1;
                     });
                 }
-                // Si la cantidad de cartas ya posicionadas supera o iguala el espacio de la casona, frena el arrastre
+                
+                // Si la cantidad de cartas ya posicionadas supera o iguala el espacio activo, frena el arrastre
                 if (juegoData.carretonCartas.cartasFinca.length >= slotsHabilitadosPorEdificios && !juegoData.carretonCartas.cartasFinca.some(c => (c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId)))) {
-                    return socket.emit('carreton:error', `🔒 Espacio insuficiente en Finca. Población máxima: ${slotsHabilitadosPorEdificios}. ¡Instala una Casona!`);
+                    return socket.emit('carreton:error', `🔒 Espacio insuficiente en Finca. Población máxima activa: ${slotsHabilitadosPorEdificios}. ¡Instala y activa una Casona en el terreno 3D!`);
                 }
             }
 
@@ -546,7 +547,7 @@ io.on('connection', (socket) => {
                     });
                 }
                 if (juegoData.carretonCartas.cartasAldea.length >= slotsHabilitadosPorEdificios && !juegoData.carretonCartas.cartasAldea.some(c => (c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId)))) {
-                    return socket.emit('carreton:error', `🔒 Espacio insuficiente en la Aldea. Población máxima: ${slotsHabilitadosPorEdificios}. ¡Instala un Barracón!`);
+                    return socket.emit('carreton:error', `🔒 Espacio insuficiente en la Aldea. Población máxima activa: ${slotsHabilitadosPorEdificios}. ¡Instala un Barracón!`);
                 }
             }
         }
@@ -580,7 +581,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Despacho Sincronizado de datos del Carretón con auditoría residencial
+// Despacho Sincronizado de datos del Carretón con auditoría residencial
     socket.on('carreton:solicitar-datos', async () => {
         const username = socket.username;
         if (!username || !cachePartidas[username]) return;
@@ -617,14 +618,8 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
             });
         }
 
-        // 🏛️ REGLA DE NEGOCIO CASONA BASE: Si el usuario tiene la Casona en su inventario o almacén,
-        // garantizamos un mínimo de 2 slots habilitados para que sus cartas de pobladores no se vuelvan invisibles.
-        if (capacidadFincaMax === 0) {
-            const tieneCasonaEnAlmacen = juegoData.almacenEdificiosDisponibles && juegoData.almacenEdificiosDisponibles.some(e => e.subtipo === 'casona');
-            if (tieneCasonaEnAlmacen) {
-                capacidadFincaMax = 2;
-            }
-        }
+        // 🏛️ REGLA DE NEGOCIO CORREGIDA: Se eliminó el bloque que asignaba población pasiva desde el almacén.
+        // Ahora, si la Casona no está físicamente en un cimiento activo del Canvas 3D, capacidadFincaMax es 0.
 
         // Calcular espacio habitacional en caliente de la Aldea
         let capacidadAldeaMax = 0;
