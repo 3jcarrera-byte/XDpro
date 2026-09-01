@@ -156,11 +156,25 @@
     </div>
   </div>
 
-  <!-- FINCA -->
+   <!-- ======================================================== -->
+  <!-- 3. PANTALLA: FINCA PERSONAL (Mapa 3D y Construcción)     -->
+  <!-- ======================================================== -->
   <div id="pantalla-finca" class="seccion-juego" style="display: none;">
     <h2>Cimientos de tu Finca Personal (Máx. 5 Edificios)</h2>
-    <div id="canvas-finca-container" class="canvas-3d"></div>
-    <div class="submenu-nav">
+    
+    <!-- CORREGIDO: ID alineado milimétricamente con el inicializador de main.js -->
+    <div id="canvas-contenedor-3d-finca" class="canvas-3d" style="width: 100%; height: 450px; background: #000; border: 2px solid #d4af37; border-radius: 12px; position: relative;"></div>
+    
+    <!-- ESQUEMA TÁCTICO: Vitrina inferior del Almacén para arrastrar planos hacia el Canvas -->
+    <div class="almacen-finca-drawer" style="margin-top: 15px; background: rgba(30, 22, 16, 0.9); padding: 15px; border-radius: 8px; border: 1px solid #5c4033;">
+      <h4 style="color: #d4af37; margin: 0 0 10px 0; font-family: 'Cinzel', serif;">🏗️ Planos Disponibles en tu Almacén (Arrastra al Cimiento):</h4>
+      <div id="grid-almacen-recursos" class="market-cards-grid" style="min-height: 80px; display: flex; gap: 10px; overflow-x: auto;">
+        <!-- Aquí se dibujarán tus cartas de edificios comprados de forma automática -->
+      </div>
+    </div>
+
+    <!-- BOTONERA SPA IMPERIAL -->
+    <div class="submenu-nav" style="margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">
       <button onclick="cambiarPantalla('pantalla-aldea')">🗺️ Ir a Aldea</button>
       <button onclick="cambiarPantalla('pantalla-almacen')">📦 Ir a Almacén</button>
       <button onclick="cambiarPantalla('pantalla-carreton')">🛒 Ir a Carretón</button>
@@ -168,6 +182,7 @@
       <button onclick="cambiarPantalla('pantalla-menu-principal')" class="btn-back">🔙 Menú Principal</button>
     </div>
   </div>
+
 
   <!-- ======================================================== -->
   <!-- 4. MÓDULOS DE GESTIÓN, ECONOMÍA Y SOPORTE                -->
