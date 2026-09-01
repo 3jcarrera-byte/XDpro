@@ -19,12 +19,14 @@ function cargarAlmacen() {
  * Renderiza la interfaz gráfica del inventario inyectando los nodos en la cuadrícula SPA correspondiente
  */
 function renderizarAlmacen() {
-    // DETECCIÓN DINÁMICA DE CONTENEDOR MULTI-PANTALLA
-    // Si el usuario está en la Finca, inyecta en su cinta inferior. Si no, en el almacén clásico.
-    let contenedorGrid = document.getElementById('finca-edificios-lista');
+    let contenedorGrid = null;
     
-    // Si no encuentra el contenedor de la finca o está oculto, busca el general del almacén
-    if (!contenedorGrid || contenedorGrid.offsetParent === null) {
+    // DETECCIÓN AUTORITARIA DE LA VISTA SPA: Forzar inyección según el elemento que esté block en el DOM
+    const pantallaFinca = document.getElementById('pantalla-finca');
+    
+    if (pantallaFinca && pantallaFinca.style.display === 'block') {
+        contenedorGrid = document.getElementById('finca-edificios-lista');
+    } else {
         contenedorGrid = document.getElementById('grid-almacen-recursos');
     }
     
@@ -33,20 +35,18 @@ function renderizarAlmacen() {
     contenedorGrid.innerHTML = '';
 
     if (!datosAlmacen.recursos || datosAlmacen.recursos.length === 0) {
-        contenedorGrid.innerHTML = `<div class="almacen-vacio-txt" style="color:#777; font-style:italic; padding:10px;">No tienes cartas de estructuras en tu inventario logístico.</div>`;
+        contenedorGrid.innerHTML = `<div class="almacen-vacio-txt" style="color:#777; font-style:italic; padding:15px; text-align:center; width:100%;">No tienes cartas de estructuras en tu inventario logístico.</div>`;
         return;
     }
 
     // Recorrer e inyectar cada tarjeta de recurso/edificio de forma dinámica
     datosAlmacen.recursos.forEach(recurso => {
         const tarjeta = document.createElement('div');
-        // Estandarización de estilos basada en las clases de rareza imperial de style.css
         tarjeta.className = `almacen-card borde-rareza-${recurso.rareza.toLowerCase().trim()}`;
         
         // Habilitar la propiedad nativa de arrastre para el Canvas 3D de Blender
         tarjeta.setAttribute('draggable', 'true');
         
-        // Mapear el identificador único tolerante en los metadatos del elemento DOM
         const tokenUnico = recurso.uuid || recurso.id;
         tarjeta.dataset.uuid = tokenUnico;
         
@@ -56,23 +56,19 @@ function renderizarAlmacen() {
                 <span class="almacen-item-cantidad" style="display:block; font-size:11px; color:#a89276;">Nivel: ${recurso.nivel || 1}</span>
             </div>
             <button class="btn-almacen-gestionar" style="cursor: grab; margin-top:5px; width:100%; padding:3px; font-size:10px;">
-                🏗️ Arrastrar
+                🏗️ Arrastrar al Mapa
             </button>
         `;
 
         // 🚀 MANEJO DE EVENTOS DRAG & DROP CRUZADOS (DOM HACIA CANVAS THREE.JS)
         tarjeta.addEventListener('dragstart', (e) => {
-            // Empacar el UUID criptográfico en el canal de transferencia del mouse
             e.dataTransfer.setData('text/plain', tokenUnico);
             e.dataTransfer.effectAllowed = 'copy';
-            
-            // Efecto visual traslúcido para dar retroalimentación de arrastre en la interfaz
             tarjeta.style.opacity = '0.4';
             tarjeta.style.borderStyle = 'dashed';
         });
 
         tarjeta.addEventListener('dragend', () => {
-            // Restaurar los marcos imperiales al soltar la tarjeta
             tarjeta.style.opacity = '1';
             tarjeta.style.borderStyle = 'solid';
         });
@@ -83,13 +79,11 @@ function renderizarAlmacen() {
 
 /**
  * BLINDAJE AUTORITARIO: Envía una orden de consumo al servidor en lugar de restar localmente
- * @param {string} recursoId - Identificador único UUID del recurso a descontar
  */
 function solicitarConsumoRecurso(recursoId) {
     if (!recursoId) return;
 
     if (typeof socket !== 'undefined' && socket && socket.connected) {
-        // Enviar la petición al "Árbitro" de Node.js
         socket.emit('almacen:consumir-recurso', { recursoId: recursoId });
     } else {
         alert("❌ Error de comunicación: Sin conexión con el servidor del Imperio.");
@@ -101,19 +95,17 @@ function solicitarConsumoRecurso(recursoId) {
 // ========================================================
 if (typeof socket !== 'undefined' && socket) {
 
-    // Escuchar la carga autorizada del almacén desde MongoDB
     socket.on('almacen:actualizar-estado', (payload) => {
         console.log("🗃️ Datos del Almacén validados por el servidor recibidos:", payload);
         
-        // Soporte adaptable para leer colecciones generales o la grilla directa de edificios
+        // Mapeo adaptativo tolerante a las llaves enviadas por server.js
         datosAlmacen.recursos = payload.recursos || payload.almacenEdificiosDisponibles || [];
         renderizarAlmacen();
     });
 
-    // Capturar bloqueos del servidor (ej. si intenta consumir más de lo que tiene o inputs nulos)
     socket.on('almacen:error', (mensajeError) => {
         console.error("❌ Operación denegada en Almacén:", mensajeError);
         alert(`Acción inválida: ${mensajeError}`);
-        cargarAlmacen(); // Revertir interfaz al estado real de la base de datos
+        cargarAlmacen(); 
     });
 }
