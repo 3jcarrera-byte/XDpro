@@ -99,11 +99,12 @@ function renderizarCatalogoMercado(stock) {
         gridCartas.appendChild(cardBox);
 
         setTimeout(() => {
-            construirMiniEscena3D(canvasId, item.subtipo);
+            if (typeof construirMiniEscena3D === 'function') {
+                construirMiniEscena3D(canvasId, item.subtipo);
+            }
         }, 20);
     });
 }
-
 // ==========================================================================
 // EXPOSICIÓN ESTRICTA AL ENTORNO GLOBAL WINDOW (EVITA ERRORES ONCLICK)
 // ==========================================================================
@@ -139,6 +140,7 @@ window.cambiarModoMercado = function(modo) {
  * Conmutador de rubros comerciales (Edificios, Aldeanos, Equipamiento...)
  */
 window.cambiarRubroMercado = function(elementoBtn, nuevoRubro) {
+    console.log(`🏷️ Cambiando rubro comercial a: ${nuevoRubro}`);
     document.querySelectorAll('.btn-filter-rubro').forEach(btn => btn.classList.remove('active'));
     if (elementoBtn) elementoBtn.classList.add('active');
 
@@ -158,14 +160,14 @@ window.cambiarRareza = function(nuevaRareza) {
     // Cambiar clase activa visualmente en la fila de rarezas
     document.querySelectorAll('.btn-filter-rareza').forEach(btn => btn.classList.remove('active'));
     
-    // Buscar el botón presionado dinámicamente para encender su brillo CSS
-    const selectorClase = nuevaRareza === 'todas' ? '.btn-filter-rareza' : `.rareza-${nuevaRareza}`;
+    // CORRECCIÓN DE SELECTOR: Mapeo exacto para encender el brillo CSS sin importar herencias
+    const selectorClase = nuevaRareza === 'todas' ? '.grid-rarezas button:first-child' : `.rareza-${nuevaRareza}`;
     const btnActivo = document.querySelector(selectorClase);
     if (btnActivo) btnActivo.classList.add('active');
 
     filtroMercado.rareza = nuevaRareza;
     
-    // Forzar redibujado local instantáneo con los filtros aplicados
+    // Forzar redibujado local mediante la solicitud del stock filtrado al Árbitro
     if (typeof socket !== 'undefined' && socket && socket.connected) {
         socket.emit('tienda:solicitar-stock');
     }
@@ -181,7 +183,7 @@ window.ejecutarCompraCarta = function(itemId, rubro) {
         console.log(`💸 Emitiendo compra de item ${itemId} en rubro ${rubro}...`);
         socket.emit('tienda:comprar-carta', { itemId, rubro });
     } else {
-        alert("❌ Error de comunicación: Sin conexión con el servidor.");
+        alert("❌ Error de comunicación: Sin conexión con el Árbitro del servidor.");
     }
 };
 
@@ -225,43 +227,18 @@ function construirMiniEscena3D(canvasId, subtipo) {
     animarCarta();
 }
 
-// Disparador de sincronización inicial al cargar el script
+// ==========================================================================
+// DISPARADOR DE SINCRONIZACIÓN INICIAL AL CARGAR EL SCRIPT
+// ==========================================================================
 if (typeof socket !== 'undefined' && socket) {
     if (socket.connected) {
+        console.log("⚡ Túnel activo: Solicitando stock inicial al Árbitro...");
         socket.emit('tienda:solicitar-stock');
     } else {
         socket.on('connect', () => {
+            console.log("⚡ Conexión establecida: Sincronizando vitrina del mercado...");
             socket.emit('tienda:solicitar-stock');
         });
     }
 }
-Usa el código con precaución.🛠️ 2. Actualización en la persistencia del cliente (public/js/main.js)Para asegurar la continuidad permanente de tus 100 monedas al iniciar sesión sin que vuelvan a caer a cero, debemos incluir el ID del mercado en el actualizador automático del Login.Busca la función de Inicio de Sesión (loginForm.addEventListener) dentro de tu archivo public/js/main.js y asegúrate de actualizar el arreglo de balances añadiendo la ID del mercado de la siguiente manera:javascript// Busca este bloque específico dentro de tu public/js/main.js
-if (response.ok && data.success) {
-    if (authScreen) authScreen.style.display = 'none';
-    
-    sessionStorage.setItem('gladiador_nick', data.username);
-    
-    // SINCRO GENERAL DE LOGUEO: Añadido 'mercado-player-balance' a la cadena de actualización
-    const idsNicks = ['menu-player-nick', 'carreton-player-nick', 'mercado-player-nick'];
-    const idsBalances = ['menu-player-balance', 'carreton-player-balance', 'mercado-player-balance'];
-    
-    idsNicks.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = data.username;
-    });
-    
-    idsBalances.forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = parseFloat(data.balance || 0).toFixed(2);
-    });
-    
-    cambiarPantalla('pantalla-menu-principal');
-    
-    if (typeof inicializarMundo3D === 'function') {
-        setTimeout(inicializarMundo3D, 50);
-    }
-    
-    if (socket && socket.connected) {
-        socket.emit('jugador:autenticado', { username: data.username });
-    }
-}
+
