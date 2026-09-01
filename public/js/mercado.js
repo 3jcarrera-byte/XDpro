@@ -23,7 +23,7 @@ if (typeof socket !== 'undefined' && socket) {
         alert("🏛️ Transacción autorizada: ¡Carta añadida a tu inventario logístico!");
         
         // Actualizar el saldo en caliente en todas las barras imperiales del juego
-        const idsBalances = ['menu-player-balance', 'carreton-player-balance', 'mercado-player-balance'];
+        const idsBalances = ['menu-player-balance', 'carreton-player-balance', 'mercado-player-balance', 'finca-player-balance'];
         idsBalances.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.textContent = parseFloat(data.nuevoBalance || 0).toFixed(2);
@@ -73,6 +73,7 @@ function renderizarCatalogoMercado(stock) {
         const tipoLimpio = item.tipo.toLowerCase().trim();
         const rubroLimpio = rubroActivo.toLowerCase().trim();
         
+        // CORRECCIÓN INTERNA: Soporta mapeo cruzado 'personaje' / 'aldeanos' para la base de datos
         const mapeaCorrecto = (tipoLimpio === rubroLimpio) || (tipoLimpio === 'personaje' && rubroLimpio === 'aldeanos');
         if (!mapeaCorrecto) return;
 
@@ -90,6 +91,7 @@ function renderizarCatalogoMercado(stock) {
             <div class="info-carta-mercado">
                 <h3 class="nombre-item-mercado">${item.nombre}</h3>
                 <p class="precio-item-mercado">💰 ${parseFloat(item.precio).toFixed(2)} Monedas</p>
+                <!-- CORRECCIÓN ENLACE: Llama directamente a window.ejecutarCompraCarta expuesta de forma global -->
                 <button class="btn-comprar-market" onclick="window.ejecutarCompraCarta('${item.tiendaItemId}', '${rubroActivo}')">
                     🛡️ Adquirir Carta
                 </button>
@@ -105,6 +107,7 @@ function renderizarCatalogoMercado(stock) {
         }, 20);
     });
 }
+
 // ==========================================================================
 // EXPOSICIÓN ESTRICTA AL ENTORNO GLOBAL WINDOW (EVITA ERRORES ONCLICK)
 // ==========================================================================
