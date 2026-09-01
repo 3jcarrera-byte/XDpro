@@ -146,8 +146,8 @@
   <!-- ALDEA -->
   <div id="pantalla-aldea" class="seccion-juego" style="display: none;">
     <h2>Cimientos de la Aldea (Máx. 12 Edificios)</h2>
-    <div id="canvas-aldea-container" class="canvas-3d"></div>
-    <div class="submenu-nav">
+    <div id="canvas-aldea-container" class="canvas-3d" style="width: 100%; height: 450px; background: #000; border: 2px solid #d4af37; border-radius: 12px;"></div>
+    <div class="submenu-nav" style="margin-top: 15px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">
       <button onclick="cambiarPantalla('pantalla-finca')">🏡 Ir a Finca</button>
       <button onclick="cambiarPantalla('pantalla-almacen')">📦 Ir a Almacén</button>
       <button onclick="cambiarPantalla('pantalla-carreton')">🛒 Ir a Carretón</button>
@@ -156,8 +156,8 @@
     </div>
   </div>
 
-   <!-- ======================================================== -->
-  <!-- 3. PANTALLA: FINCA PERSONAL CON DISEÑO MIXTO (IDEA)       -->
+  <!-- ======================================================== -->
+  <!-- 3. PANTALLA: FINCA PERSONAL CON DISEÑO DE TRES COLUMNAS  -->
   <!-- ======================================================== -->
   <div id="pantalla-finca" class="seccion-juego" style="display: none; padding: 0 !important; height: 100vh; overflow: hidden;">
     
@@ -181,8 +181,8 @@
     <!-- DISPOSICIÓN EN MATRIZ DE TRES COLUMNAS (LAYOUT COMPLETO) -->
     <div class="finca-main-layout" style="display: flex; width: 100%; height: calc(100vh - 60px); box-sizing: border-box;">
       
-      <!-- COLUMNA 1: BARRA LATERAL IZQUIERDA (NAVEGACIÓN SPA) -->
-      <aside class="sidebar-nav" style="width: 260px; min-width: 260px; background: #1a1512; border-right: 2px solid #5c4033; padding: 15px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px;">
+      <!-- COLUMNA 1: BARRA LATERAL IZQUIERDA (NAVEGACIÓN SPA SIMÉTRICA) -->
+      <aside class="sidebar-nav" style="width: 260px; min-width: 260px; background: #1a1512; border-right: 2px solid #3d2a1d; padding: 15px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px;">
         <h3 style="color: #d4af37; font-family: 'Cinzel', serif; font-size: 1rem; margin: 0 0 10px 0; text-align: center; border-bottom: 1px solid #5c4033; padding-bottom: 5px;">🌍 MAPA IMPERIAL</h3>
         <button class="btn-sidebar" onclick="cambiarPantalla('pantalla-menu-principal')">🏠 Menú Principal</button>
         <button class="btn-sidebar" onclick="cambiarPantalla('pantalla-aldea')">🗺️ Ir a Aldea</button>
@@ -191,21 +191,20 @@
         <button class="btn-sidebar" onclick="cambiarPantalla('pantalla-mercado')">⚖️ Ir a Mercado</button>
       </aside>
 
-      <!-- SECCIÓN CENTRAL Y BANDA INFERIOR (CONSTRUCCIÓN TRIDIMENSIONAL) -->
-      <main class="finca-central-zone" style="flex: 1; display: flex; flex-direction: column; background: #0c0806; box-sizing: border-box; border-right: 2px solid #5c4033;">
+      <!-- SECCIÓN CENTRAL Y BANDA INFERIOR (ESPACIO DE CONSTRUCCIÓN 3D) -->
+      <main class="finca-central-zone" style="flex: 1; display: flex; flex-direction: column; background: #0c0806; box-sizing: border-box; border-right: 2px solid #3d2a1d;">
         
         <!-- CANVAS CENTRAL 3D (ENTORNO THREE.JS) -->
         <div class="canvas-3d-wrapper" style="flex: 1; position: relative; width: 100%;">
-          <!-- CORREGIDO: El ID exacto que busca tu game3d.js -->
           <div id="canvas-finca-container" style="width: 100%; height: 100%;"></div>
         </div>
 
-        <!-- BANDA INFERIOR CONTIENE ÚNICAMENTE CARTAS DE EDIFICIOS INACTIVOS -->
+        <!-- BANDA INFERIOR: PLANOS DE EDIFICIOS DISPONIBLES EN EL ALMACÉN -->
         <footer class="finca-buildings-drawer" style="height: 160px; background: rgba(30, 22, 16, 0.95); border-top: 2px solid #5c4033; padding: 12px; box-sizing: border-box; overflow: hidden;">
-          <h4 style="color: #d4af37; margin: 0 0 8px 0; font-family: 'Cinzel', serif; font-size: 0.85rem; letter-spacing: 0.5px;">🏗️ PLANOS DE EDIFICIOS (ALMACÉN): Arrastra al Cimiento 3D</h4>
-          <!-- Grid dinámico limpio conectado a almacen.js -->
-          <div id="grid-almacen-recursos" class="market-cards-grid" style="display: flex; gap: 10px; width: 100%; overflow-x: auto; height: 105px; padding-bottom: 5px; box-sizing: border-box;">
-            <!-- Las cartas de estructuras en reposo se inyectarán de forma dinámica aquí -->
+          <h4 style="color: #d4af37; margin: 0 0 8px 0; font-family: 'Cinzel', serif; font-size: 0.85rem; letter-spacing: 0.5px; text-transform: uppercase;">🏗️ PLANOS DE EDIFICIOS (ALMACÉN): Arrastra al Cimiento 3D</h4>
+          <!-- CORREGIDO: ID único para evitar choques con el Almacén general -->
+          <div id="finca-edificios-lista" class="market-cards-grid" style="display: flex; gap: 10px; width: 100%; overflow-x: auto; height: 105px; padding-bottom: 5px; box-sizing: border-box;">
+            <!-- Se inyectan las cartas por arrastre desde almacen.js -->
           </div>
         </footer>
 
@@ -213,11 +212,11 @@
 
       <!-- COLUMNA 3: BARRA LATERAL DERECHA (RANURAS DE POBLADORES DE LA FINCA) -->
       <aside class="finca-population-drawer" style="width: 240px; min-width: 240px; background: #1a1512; padding: 15px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; overflow-y: auto;">
-        <h3 id="finca-poblacion-titulo" style="color: #d4af37; font-family: 'Cinzel', serif; font-size: 0.95rem; margin: 0; text-align: center; border-bottom: 1px solid #5c4033; padding-bottom: 5px;">👨‍🌾 POBLADORES FINCA (0/0)</h3>
+        <h3 id="finca-poblacion-titulo" style="color: #d4af37; font-family: 'Cinzel', serif; font-size: 0.95rem; margin: 0; text-align: center; border-bottom: 1px solid #5c4033; padding-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px;">👨‍🌾 POBLADORES FINCA (0/0)</h3>
         
-        <!-- Rejilla vertical de 8 slots reglamentarios de aldeanos activos/inactivos -->
-        <div id="carreton-finca-lista" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; width: 100%; margin-top: 5px;">
-          <!-- Estos slots se pintan automáticamente desde carreton.js marcando Vacío o No Disponible -->
+        <!-- CORREGIDO: ID exclusivo para pintar la población simulando la lógica del carretón -->
+        <div id="finca-pobladores-lista" style="display: grid; grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; width: 100% !important; margin-top: 5px !important;">
+          <!-- Estos slots se dibujarán marcando Vacío o No disponible -->
         </div>
       </aside>
 
