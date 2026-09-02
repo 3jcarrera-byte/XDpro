@@ -565,22 +565,21 @@ io.on('connection', (socket) => {
         if (bloqueDestino === 'central') juegoData.carretonCartas.cartasCentral.push(cartaEncontrada);
 
         try {
-            // Marcamos el subdocumento mixto como modificado para asegurar la escritura persistente
-            juegoData.markModified('carretonCartas');
+                       juegoData.markModified('carretonCartas');
             await juegoData.save();
             console.log(`💾 Movimiento salvado de forma persistente en MongoDB para ${username}.`);
+
+            // Re-calcular topes para refrescar la UI de forma reactiva
+            if (typeof forzarEnvioEstadoCarreton === 'function') {
+                await forzarEnvioEstadoCarreton(socket, username, juegoData);
+            }
         } catch (err) {
             console.error("❌ Error al salvar coordenadas del carretón:", err);
             return socket.emit('carreton:error', 'Fallo al sincronizar coordenadas en base de datos.');
         }
+    }); // 👈 AQUÍ SE CIERRA CORRECTAMENTE socket.on('carreton:guardar-posicion')
 
-        // Re-calcular topes para refrescar la UI de forma reactiva
-        if (typeof forzarEnvioEstadoCarreton === 'function') {
-            await forzarEnvioEstadoCarreton(socket, username, juegoData);
-        }
-    });
-
-      // Despacho Sincronizado de datos del Carretón con auditoría residencial
+    // Despacho Sincronizado de datos del Carretón con auditoría residencial
     socket.on('carreton:solicitar-datos', async () => {
         const username = socket.username;
         if (!username) return;
@@ -604,7 +603,7 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log(`❌ Jugador desconectado: ${socket.id}`);
     });
-});
+}); // 👈 AQUÍ SE CIERRA EL io.on('connection')
 
 /**
  * Helper interno para centralizar el cálculo matemático de población y emitir el estado
@@ -627,8 +626,6 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
             });
         }
 
-        // 🏛️ REGLA DE NEGOCIO CORREGIDA: Si la Casona no está físicamente en un cimiento activo del Canvas 3D, capacidadFincaMax es 0.
-
         // Calcular espacio habitacional en caliente de la Aldea
         let capacidadAldeaMax = 0;
         if (juegoData.cimientosAldea && juegoData.cimientosAldea.length > 0) {
@@ -639,7 +636,6 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
 
         const maxSlotsCentral = poseeNFT ? 24 : 8;
 
-        // CORRECCIÓN DE SEGURIDAD EN SOCKETS: Sanitización mediante conversión a POJO limpio (.toObject())
         const arrayAldeaSaneado = juegoData.carretonCartas.cartasAldea.map(c => typeof c.toObject === 'function' ? c.toObject() : c);
         const arrayFincaSaneado = juegoData.carretonCartas.cartasFinca.map(c => typeof c.toObject === 'function' ? c.toObject() : c);
         const arrayCentralSaneado = juegoData.carretonCartas.cartasCentral.map(c => typeof c.toObject === 'function' ? c.toObject() : c);
@@ -647,13 +643,10 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
         socket.emit('carreton:actualizar-estado', {
             poseeAldea: poseeNFT,
             slotsCentralMax: maxSlotsCentral,
-            
-            // Valores dinámicos calculados a partir de los subdocumentos construidos
             slotsFincaMax: 8,
             slotsFincaHabilitados: capacidadFincaMax, 
             slotsAldeaMax: 16,
             slotsAldeaHabilitados: capacidadAldeaMax,
-
             cartasAldea: arrayAldeaSaneado,
             cartasFinca: arrayFincaSaneado,
             cartasCentral: arrayCentralSaneado
