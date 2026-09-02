@@ -200,7 +200,7 @@ app.post('/api/auth/login', async (req, res) => {
         console.error('❌ Error crítico en la autenticación:', error);
         return res.status(500).json({ success: false, message: 'Fallo interno del servidor.' });
     }
-});
+
 
 // ========================================================
 // server.js - Bloque 3 de 6: Conclusión del Login e Integridad
