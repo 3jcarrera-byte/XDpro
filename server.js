@@ -1,46 +1,33 @@
-// server.js (Bloque 1 de 6 - Configuración, Tienda y Registro Saneado)
+// server.js (Bloques 1 y 2 - Configuración, Registro y Login Blindado)
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const mongoose = require('mongoose');
 const path = require('path');
 const cors = require('cors');
-const crypto = require('crypto'); // Módulo nativo para generar UUIDs seguros
+const crypto = require('crypto');
 const User = require('./models/User'); 
-const GameDataModel = require('./models/GameData'); // Tu modelo de persistencia/control de juego
+const GameDataModel = require('./models/GameData');
 
 const app = express();
 const server = http.createServer(app);
 
-// Configuración de Socket.io (Configurada para mitigar caídas en Render)
 const io = new Server(server, {
-    cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
-    },
+    cors: { origin: "*", methods: ["GET", "POST"] },
     transports: ['websocket'] 
 });
 
-// ========================================================
-// MIDDLEWARES ESENCIALES
-// ========================================================
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public'))); 
 
-// ========================================================
-// CONEXIÓN A LA BASE DE DATOS MONGODB
-// ========================================================
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/xdpro'; 
 mongoose.connect(MONGO_URI)
   .then(() => console.log('✅ Conectado a la base de datos MongoDB'))
   .catch(err => console.error('❌ Error conectando a MongoDB:', err));
 
-// ========================================================
-// CACHÉ EN MEMORIA DEL ÁRBITRO Y CATÁLOGO DE LA TIENDA
-// ========================================================
-const cachePartidas = {}; // Guarda instancias activas indexadas por username
+const cachePartidas = {};
 let stockTiendaSistema = { edificios: [], aldeanos: [], equipamiento: [] };
 
 const CATALOGO_DISEÑOS = {
@@ -57,7 +44,6 @@ const CATALOGO_DISEÑOS = {
     ]
 };
 
-// Genera cartas individuales destinadas al mostrador público de la tienda
 function crearCartaParaTienda(diseño, rubro) {
     return {
         tiendaItemId: crypto.randomUUID(), 
@@ -83,10 +69,6 @@ function inicializarTiendaSistema() {
 }
 inicializarTiendaSistema();
 
-// ========================================================
-// ENDPOINTS HTTP: CONTROL DE ACCESO (REPARADO)
-// ========================================================
-
 // 1. Endpoint de Registro
 app.post('/api/auth/register', async (req, res) => {
     const { username, password, email, pais, nombre, apellido, wallet } = req.body;
@@ -97,7 +79,6 @@ app.post('/api/auth/register', async (req, res) => {
         
         const usernameLimpio = username.trim();
         
-        // 🛡️ BLINDAJE CONTRA CACHÉ FANTASMA: Limpiar RAM si el usuario existía previamente en memoria
         if (cachePartidas[usernameLimpio]) {
             delete cachePartidas[usernameLimpio];
         }
@@ -107,7 +88,6 @@ app.post('/api/auth/register', async (req, res) => {
             return res.status(400).json({ success: false, message: 'El Nick ya está ocupado por otro gladiador.' });
         }
         
-        // Limpiar también cualquier GameData huérfano en MongoDB por seguridad
         await GameDataModel.deleteOne({ username: usernameLimpio });
 
         const nuevoUsuario = new User({ 
@@ -118,14 +98,32 @@ app.post('/api/auth/register', async (req, res) => {
             nombre: nombre ? nombre.trim() : null,
             apellido: apellido ? apellido.trim() : null,
             wallet: wallet ? wallet.trim() : null,
-            balance: 100.00 // Balance inicial de cortesía para pruebas en el mercado
+            balance: 100.00
         });
         
         await nuevoUsuario.save();
 
-        // 🎁 ASIGNACIÓN DE DATOS DE JUEGO LIMPIOS AL REGISTRARSE
         const juegoData = new GameDataModel({ username: usernameLimpio });
         juegoData.inicializarEspaciosVacios();
+
+        // ÚNICA CARTA INICIAL: Casona Base (Sin cortesías extras)
+        juegoData.almacenEdificiosDisponibles.push({
+            uuid: crypto.randomUUID(),
+            subtipo: 'casona',
+            nombre: '🏛️ Casona Base',
+            rareza: 'comun',
+            nivel: 1
+        });
+
+        await juegoData.save();
+        
+        return res.status(201).json({ success: true, message: 'Usuario y Casona Base creados exitosamente.' });
+    } catch (error) {
+        console.error('❌ Error al registrar:', error);
+        return res.status(500).json({ success: false, message: 'Fallo interno del servidor.' });
+    }
+});
+
 
         // 🏛️ ÚNICA CARTA INICIAL: Inyección exclusiva de la Casona Base (Sin granjas ni aldeanos de cortesía)
         juegoData.almacenEdificiosDisponibles.push({
