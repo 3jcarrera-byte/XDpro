@@ -1,33 +1,46 @@
-// server.js (Bloques 1 y 2 - Configuración, Registro y Login Blindado)
+// server.js (Bloque 1 de 6 - Configuración, Tienda y Registro Saneado)
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const mongoose = require('mongoose');
 const path = require('path');
 const cors = require('cors');
-const crypto = require('crypto');
+const crypto = require('crypto'); // Módulo nativo para generar UUIDs seguros
 const User = require('./models/User'); 
-const GameDataModel = require('./models/GameData');
+const GameDataModel = require('./models/GameData'); // Tu modelo de persistencia/control de juego
 
 const app = express();
 const server = http.createServer(app);
 
+// Configuración de Socket.io (Configurada para mitigar caídas en Render)
 const io = new Server(server, {
-    cors: { origin: "*", methods: ["GET", "POST"] },
+    cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+    },
     transports: ['websocket'] 
 });
 
+// ========================================================
+// MIDDLEWARES ESENCIALES
+// ========================================================
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public'))); 
 
+// ========================================================
+// CONEXIÓN A LA BASE DE DATOS MONGODB
+// ========================================================
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/xdpro'; 
 mongoose.connect(MONGO_URI)
   .then(() => console.log('✅ Conectado a la base de datos MongoDB'))
   .catch(err => console.error('❌ Error conectando a MongoDB:', err));
 
-const cachePartidas = {};
+// ========================================================
+// CACHÉ EN MEMORIA DEL ÁRBITRO Y CATÁLOGO DE LA TIENDA
+// ========================================================
+const cachePartidas = {}; // Guarda instancias activas indexadas por username
 let stockTiendaSistema = { edificios: [], aldeanos: [], equipamiento: [] };
 
 const CATALOGO_DISEÑOS = {
@@ -44,6 +57,7 @@ const CATALOGO_DISEÑOS = {
     ]
 };
 
+// Genera cartas individuales destinadas al mostrador público de la tienda
 function crearCartaParaTienda(diseño, rubro) {
     return {
         tiendaItemId: crypto.randomUUID(), 
@@ -69,6 +83,10 @@ function inicializarTiendaSistema() {
 }
 inicializarTiendaSistema();
 
+// ========================================================
+// ENDPOINTS HTTP: CONTROL DE ACCESO (REPARADO)
+// ========================================================
+
 // 1. Endpoint de Registro
 app.post('/api/auth/register', async (req, res) => {
     const { username, password, email, pais, nombre, apellido, wallet } = req.body;
@@ -79,6 +97,7 @@ app.post('/api/auth/register', async (req, res) => {
         
         const usernameLimpio = username.trim();
         
+        // 🛡️ BLINDAJE CONTRA CACHÉ FANTASMA: Limpiar RAM si el usuario existía previamente en memoria
         if (cachePartidas[usernameLimpio]) {
             delete cachePartidas[usernameLimpio];
         }
@@ -88,6 +107,7 @@ app.post('/api/auth/register', async (req, res) => {
             return res.status(400).json({ success: false, message: 'El Nick ya está ocupado por otro gladiador.' });
         }
         
+        // Limpiar también cualquier GameData huérfano en MongoDB por seguridad
         await GameDataModel.deleteOne({ username: usernameLimpio });
 
         const nuevoUsuario = new User({ 
@@ -98,32 +118,14 @@ app.post('/api/auth/register', async (req, res) => {
             nombre: nombre ? nombre.trim() : null,
             apellido: apellido ? apellido.trim() : null,
             wallet: wallet ? wallet.trim() : null,
-            balance: 100.00
+            balance: 100.00 // Balance inicial de cortesía para pruebas en el mercado
         });
         
         await nuevoUsuario.save();
 
+        // 🎁 ASIGNACIÓN DE DATOS DE JUEGO LIMPIOS AL REGISTRARSE
         const juegoData = new GameDataModel({ username: usernameLimpio });
         juegoData.inicializarEspaciosVacios();
-
-        // ÚNICA CARTA INICIAL: Casona Base (Sin cortesías extras)
-        juegoData.almacenEdificiosDisponibles.push({
-            uuid: crypto.randomUUID(),
-            subtipo: 'casona',
-            nombre: '🏛️ Casona Base',
-            rareza: 'comun',
-            nivel: 1
-        });
-
-        await juegoData.save();
-        
-        return res.status(201).json({ success: true, message: 'Usuario y Casona Base creados exitosamente.' });
-    } catch (error) {
-        console.error('❌ Error al registrar:', error);
-        return res.status(500).json({ success: false, message: 'Fallo interno del servidor.' });
-    }
-});
-
 
         // 🏛️ ÚNICA CARTA INICIAL: Inyección exclusiva de la Casona Base (Sin granjas ni aldeanos de cortesía)
         juegoData.almacenEdificiosDisponibles.push({
@@ -142,7 +144,6 @@ app.post('/api/auth/register', async (req, res) => {
         return res.status(500).json({ success: false, message: 'Fallo interno del servidor.' });
     }
 });
-
 // ========================================================
 // ENDPOINT: INICIO DE SESIÓN (REPARADO Y BLINDADO)
 // ========================================================
@@ -341,7 +342,6 @@ io.on('connection', (socket) => {
             socket.emit('almacen:error', 'Error interno al consultar el almacén.');
         }
     });
-
     // Transacción Económica Atómica P2P
     socket.on('tienda:comprar-carta', async (datos) => {
         if (!datos) return;
@@ -453,7 +453,6 @@ io.on('connection', (socket) => {
             socket.emit('tienda:error', 'Error interno al adjudicar activos en base de datos.');
         }
     });
-
     // ==========================================================================
     // GUARDADO PERSISTENTE DEL MOVIMIENTO DRAG & DROP DEL CARRETÓN (REPARADO)
     // ==========================================================================
@@ -492,7 +491,6 @@ io.on('connection', (socket) => {
             return socket.emit('carreton:error', 'Fallo al sincronizar coordenadas en base de datos.');
         }
     });
-
         // 2. AUDITORÍA HABITACIONAL EXTREMA ANTES DE TRANSFERIR EL ACTIVO
         if (bloqueDestino === 'finca' || bloqueDestino === 'aldea') {
             let slotsHabilitadosPorEdificios = 0;
@@ -599,57 +597,3 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
                 if (c.estaOcupado && c.subtipo === 'granja') capacidadFincaMax += 1;
             });
         }
-
-
-              // 🏛️ REGLA DE NEGOCIO CORREGIDA: Se eliminó el bloque que asignaba población pasiva desde el almacén.
-        // Ahora, si la Casona no está físicamente en un cimiento activo del Canvas 3D, capacidadFincaMax es 0.
-
-        // Calcular espacio habitacional en caliente de la Aldea
-        let capacidadAldeaMax = 0;
-        if (juegoData.cimientosAldea && juegoData.cimientosAldea.length > 0) {
-            juegoData.cimientosAldea.forEach(c => {
-                if (c.estaOcupado && c.subtipo === 'barracon') capacidadAldeaMax += 4;
-            });
-        }
-
-        const maxSlotsCentral = poseeNFT ? 24 : 8;
-
-        // CORRECCIÓN DE SEGURIDAD EN SOCKETS: Sanitización mediante conversión a POJO limpio (.toObject())
-        // Esto previene que las funciones cíclicas de Mongoose desestabilicen los datos que renderizan las ranuras del carreton.js
-        const arrayAldeaSaneado = juegoData.carretonCartas.cartasAldea.map(c => typeof c.toObject === 'function' ? c.toObject() : c);
-        const arrayFincaSaneado = juegoData.carretonCartas.cartasFinca.map(c => typeof c.toObject === 'function' ? c.toObject() : c);
-        const arrayCentralSaneado = juegoData.carretonCartas.cartasCentral.map(c => typeof c.toObject === 'function' ? c.toObject() : c);
-
-        socket.emit('carreton:actualizar-estado', {
-            poseeAldea: poseeNFT,
-            slotsCentralMax: maxSlotsCentral,
-            
-            // Valores dinámicos calculados a partir de los subdocumentos construidos
-            slotsFincaMax: 8,
-            slotsFincaHabilitados: capacidadFincaMax, 
-            slotsAldeaMax: 16,
-            slotsAldeaHabilitados: capacidadAldeaMax,
-
-            cartasAldea: arrayAldeaSaneado,
-            cartasFinca: arrayFincaSaneado,
-            cartasCentral: arrayCentralSaneado
-        });
-    } catch (err) {
-        console.error("❌ Error en forzarEnvioEstadoCarreton:", err);
-    }
-}
-
-// ========================================================
-// RUTA COMODÍN PARA SPA
-// ========================================================
-app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// ========================================================
-// INICIAR EL SERVIDOR
-// ========================================================
-const PORT = process.env.PORT || 5173; 
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Árbitro de XDpro corriendo en el puerto ${PORT}`);
-});
