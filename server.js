@@ -151,7 +151,7 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // ========================================================
-// ENDPOINT: INICIO DE SESIÓN (REPARADO Y BLINDADO)
+// ENDPOINT: INICIO DE SESIÓN (COMPLETAMENTE SANEADO Y UNIFICADO)
 // ========================================================
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
@@ -194,20 +194,7 @@ app.post('/api/auth/login', async (req, res) => {
             }
         }
 
-        // NOTA: La verificación de contraseña y la carga de datos del juego continúan en el siguiente bloque.
-        // Mantenemos este punto abierto para enganchar con la continuación del código de login que me pases.
-
-    } catch (error) {
-        console.error('❌ Error crítico en la autenticación:', error);
-        return res.status(500).json({ success: false, message: 'Fallo interno del servidor.' });
-    }
-});
-
-       // ========================================================
-// server.js - Bloque 3 de 6: Cierre de Login e Inicio de Sockets
-// ========================================================
-
-        // Verificar contraseña encriptada usando el método del modelo User.js
+        // 🔑 VERIFICAR CONTRASEÑA ENCRIPTADA (Ahora dentro del scope async correcto)
         const esContraseñaValida = await usuario.comparePassword(password);
         if (!esContraseñaValida) {
             return res.status(401).json({ success: false, message: 'Usuario o contraseña inválidos.' });
@@ -216,7 +203,6 @@ app.post('/api/auth/login', async (req, res) => {
         const usernameReal = usuario.username; // Usar el nombre exacto de la base de datos
 
         // 🗄️ PERSISTENCIA AUTOMÁTICA EN MONGODB E INICIALIZACIÓN DE LA CACHÉ VIVA
-        // Forzamos la recarga desde MongoDB si hubo cambios o reseteos previos en la BD
         let juegoData = await GameDataModel.findOne({ username: usernameReal });
         
         if (!juegoData) {
@@ -233,7 +219,7 @@ app.post('/api/auth/login', async (req, res) => {
             });
             await juegoData.save();
         } else {
-            // 🛡️ VERIFICACIÓN DE INTEGRIDAD: Asegurar que posea la Casona Base (sin cartas de cortesía extras)
+            // 🛡️ VERIFICACIÓN DE INTEGRIDAD: Asegurar que posea la Casona Base
             const tieneCasona = juegoData.almacenEdificiosDisponibles && juegoData.almacenEdificiosDisponibles.some(e => e.subtipo === 'casona');
             const estaConstruidaCasona = juegoData.cimientosFinca && juegoData.cimientosFinca.some(c => c.estaOcupado && c.subtipo === 'casona');
 
@@ -254,6 +240,22 @@ app.post('/api/auth/login', async (req, res) => {
         // Guardar la instancia fresca y limpia en la memoria RAM del Árbitro
         cachePartidas[usernameReal] = juegoData;
         cachePartidas[usernameReal]._poseeAldeaNFT = usuario.poseeAldea || false;
+
+        // Respuesta exitosa al cliente SPA con datos de balance actualizados
+        return res.status(200).json({ 
+            success: true, 
+            userId: usuario._id,
+            username: usernameReal,
+            balance: usuario.balance || 0,
+            poseeAldea: usuario.poseeAldea || false 
+        });
+        
+    } catch (error) {
+        console.error('❌ Error crítico en la autenticación:', error);
+        return res.status(500).json({ success: false, message: 'Fallo interno del servidor.' });
+    }
+});
+
 
         // Respuesta exitosa al cliente SPA con datos de balance actualizados
         return res.status(200).json({ 
