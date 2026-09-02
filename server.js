@@ -580,7 +580,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // Despacho Sincronizado de datos del Carretón con auditoría residencial
+      // Despacho Sincronizado de datos del Carretón con auditoría residencial
     socket.on('carreton:solicitar-datos', async () => {
         const username = socket.username;
         if (!username) return;
@@ -618,7 +618,7 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
             cachePartidas[username]._poseeAldeaNFT = poseeNFT;
         }
 
-                // Calcular espacio habitacional en caliente de la Finca a partir de los cimientos
+        // Calcular espacio habitacional en caliente de la Finca a partir de los cimientos
         let capacidadFincaMax = 0;
         if (juegoData.cimientosFinca && juegoData.cimientosFinca.length > 0) {
             juegoData.cimientosFinca.forEach(c => {
@@ -627,9 +627,7 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
             });
         }
 
-
-              // 🏛️ REGLA DE NEGOCIO CORREGIDA: Se eliminó el bloque que asignaba población pasiva desde el almacén.
-        // Ahora, si la Casona no está físicamente en un cimiento activo del Canvas 3D, capacidadFincaMax es 0.
+        // 🏛️ REGLA DE NEGOCIO CORREGIDA: Si la Casona no está físicamente en un cimiento activo del Canvas 3D, capacidadFincaMax es 0.
 
         // Calcular espacio habitacional en caliente de la Aldea
         let capacidadAldeaMax = 0;
@@ -642,7 +640,6 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
         const maxSlotsCentral = poseeNFT ? 24 : 8;
 
         // CORRECCIÓN DE SEGURIDAD EN SOCKETS: Sanitización mediante conversión a POJO limpio (.toObject())
-        // Esto previene que las funciones cíclicas de Mongoose desestabilicen los datos que renderizan las ranuras del carreton.js
         const arrayAldeaSaneado = juegoData.carretonCartas.cartasAldea.map(c => typeof c.toObject === 'function' ? c.toObject() : c);
         const arrayFincaSaneado = juegoData.carretonCartas.cartasFinca.map(c => typeof c.toObject === 'function' ? c.toObject() : c);
         const arrayCentralSaneado = juegoData.carretonCartas.cartasCentral.map(c => typeof c.toObject === 'function' ? c.toObject() : c);
