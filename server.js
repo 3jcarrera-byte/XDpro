@@ -1,4 +1,7 @@
-// server.js (Bloque 1 de 6 - Configuración, Tienda y Registro Saneado)
+// ========================================================
+// server.js - Bloque 1 de 6: Configuración e Inicialización
+// ========================================================
+
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -6,8 +9,9 @@ const mongoose = require('mongoose');
 const path = require('path');
 const cors = require('cors');
 const crypto = require('crypto'); // Módulo nativo para generar UUIDs seguros
+
 const User = require('./models/User'); 
-const GameDataModel = require('./models/GameData'); // Tu modelo de persistencia/control de juego
+const GameDataModel = require('./models/GameData'); // Modelo de persistencia/control de juego
 
 const app = express();
 const server = http.createServer(app);
@@ -81,10 +85,11 @@ function inicializarTiendaSistema() {
     }
     console.log("🏪 Tienda AMM inicializada estrictamente con 3 cartas por tipo.");
 }
+
 inicializarTiendaSistema();
 
 // ========================================================
-// ENDPOINTS HTTP: CONTROL DE ACCESO (REPARADO)
+// server.js - Bloque 2 de 6: Endpoints HTTP de Autenticación
 // ========================================================
 
 // 1. Endpoint de Registro
@@ -144,6 +149,7 @@ app.post('/api/auth/register', async (req, res) => {
         return res.status(500).json({ success: false, message: 'Fallo interno del servidor.' });
     }
 });
+
 // ========================================================
 // ENDPOINT: INICIO DE SESIÓN (REPARADO Y BLINDADO)
 // ========================================================
@@ -187,6 +193,19 @@ app.post('/api/auth/login', async (req, res) => {
                 await usuario.save();
             }
         }
+
+        // NOTA: La verificación de contraseña y la carga de datos del juego continúan en el siguiente bloque.
+        // Mantenemos este punto abierto para enganchar con la continuación del código de login que me pases.
+
+    } catch (error) {
+        console.error('❌ Error crítico en la autenticación:', error);
+        return res.status(500).json({ success: false, message: 'Fallo interno del servidor.' });
+    }
+});
+
+       // ========================================================
+// server.js - Bloque 3 de 6: Cierre de Login e Inicio de Sockets
+// ========================================================
 
         // Verificar contraseña encriptada usando el método del modelo User.js
         const esContraseñaValida = await usuario.comparePassword(password);
@@ -250,6 +269,7 @@ app.post('/api/auth/login', async (req, res) => {
         return res.status(500).json({ success: false, message: 'Fallo interno del servidor.' });
     }
 });
+
 // ==========================================================================
 // LÓGICA DE SOCKET.IO (EL ÁRBITRO EN TIEMPO REAL - CORREGIDO Y PERSISTENTE)
 // ==========================================================================
@@ -300,7 +320,23 @@ io.on('connection', (socket) => {
                     await juegoData.save();
                 }
             }
+
+            // Actualizar la caché RAM con la data real verificada
+            cachePartidas[usernameLimpio] = juegoData;
+            cachePartidas[usernameLimpio]._poseeAldeaNFT = usuarioBD ? usuarioBD.poseeAldea : false;
+
+        } catch (err) {
+            console.error("❌ Fallo crítico al sincronizar caché en socket:", err);
+        }
+    });
+
+    // NOTA: Los siguientes manejadores de eventos (como 'tienda:solicitar-stock') se conectarán aquí dentro de io.on('connection').
+
             
+       // ========================================================
+// server.js - Bloque 4 de 6: Eventos de Sockets (Tienda, Almacén e Inicio de Compra)
+// ========================================================
+
             // Actualizar la caché RAM con la data real verificada
             cachePartidas[usernameLimpio] = juegoData;
             cachePartidas[usernameLimpio]._poseeAldeaNFT = usuarioBD ? usuarioBD.poseeAldea : false;
@@ -342,6 +378,7 @@ io.on('connection', (socket) => {
             socket.emit('almacen:error', 'Error interno al consultar el almacén.');
         }
     });
+
     // Transacción Económica Atómica P2P
     socket.on('tienda:comprar-carta', async (datos) => {
         if (!datos) return;
@@ -405,8 +442,25 @@ io.on('connection', (socket) => {
                     slotIndex: slotLibre,
                     equipamientoAnidado: []
                 };
-
+                
                 juegoData.carretonCartas.cartasCentral.push(nuevoPoblador);
+            }
+            
+            // NOTA: El bloque se mantiene abierto aquí para enganchar la lógica del else (para edificios)
+            // y la posterior persistencia/emisión de stock que envíes en el Bloque 5.
+
+        } catch (error) {
+            console.error('❌ Error crítico en el procesamiento de compra:', error);
+            socket.emit('tienda:error', 'Error interno al adjudicar activos en base de datos.');
+        }
+    });
+
+
+     // ========================================================
+// server.js - Bloque 5 de 6: Cierre de Compra e Inicio de Drag & Drop
+// ========================================================
+
+            juegoData.carretonCartas.cartasCentral.push(nuevoPoblador);
             } else {
                 const nuevoEdificio = {
                     id: nuevoIdActivo,
@@ -453,6 +507,7 @@ io.on('connection', (socket) => {
             socket.emit('tienda:error', 'Error interno al adjudicar activos en base de datos.');
         }
     });
+
     // ==========================================================================
     // GUARDADO PERSISTENTE DEL MOVIMIENTO DRAG & DROP DEL CARRETÓN (REPARADO)
     // ==========================================================================
@@ -497,6 +552,19 @@ io.on('connection', (socket) => {
             if (!cartaEncontrada) {
                 return socket.emit('carreton:error', 'La carta especificada no existe en tu carretón.');
             }
+            
+            // NOTA: El bloque se mantiene abierto aquí para enganchar con la auditoría habitacional extrema
+            // y la reubicación de slots correspondiente que enviarás en el Bloque 6.
+
+        } catch (err) {
+            console.error("❌ Error al salvar coordenadas del carretón:", err);
+            socket.emit('carreton:error', 'Fallo al sincronizar coordenadas en base de datos.');
+        }
+    });
+
+// ========================================================
+// server.js - Bloque 6 de 7: Auditoría de Inventario y Cierre de Sockets
+// ========================================================
 
             // 2. AUDITORÍA HABITACIONAL EXTREMA ANTES DE TRANSFERIR EL ACTIVO
             if (bloqueDestino === 'finca' || bloqueDestino === 'aldea') {
@@ -527,45 +595,20 @@ io.on('connection', (socket) => {
                 }
             }
 
-            // 3. Completar movimiento al confirmarse la habitabilidad
+            // 3. Completar movimiento al confirmarse la habitabilidad (Estructura Unificada y Reparada)
             const indexRemover = listaOrigen.findIndex(c => c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId));
             if (indexRemover !== -1) listaOrigen.splice(indexRemover, 1);
 
+            // Re-asignar coordenadas de slot destino (Forzamos tipo numérico limpio y validado)
             const targetSlotIndex = parseInt(slotDestinoIndex);
             cartaEncontrada.slotIndex = isNaN(targetSlotIndex) ? 0 : targetSlotIndex;
 
+            // Inyectar en el array correspondiente del backend
             if (bloqueDestino === 'aldea') juegoData.carretonCartas.cartasAldea.push(cartaEncontrada);
             if (bloqueDestino === 'finca') juegoData.carretonCartas.cartasFinca.push(cartaEncontrada);
             if (bloqueDestino === 'central') juegoData.carretonCartas.cartasCentral.push(cartaEncontrada);
 
             juegoData.markModified('carretonCartas');
-            await juegoData.save();
-
-            if (typeof forzarEnvioEstadoCarreton === 'function') {
-                await forzarEnvioEstadoCarreton(socket, username, juegoData);
-            }
-        } catch (err) {
-            console.error("❌ Error al salvar coordenadas del carretón:", err);
-            return socket.emit('carreton:error', 'Fallo al sincronizar coordenadas en base de datos.');
-        }
-    });
-
-
-        // 3. Completar movimiento al confirmarse la habitabilidad
-        const indexRemover = listaOrigen.findIndex(c => c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId));
-        if (indexRemover !== -1) listaOrigen.splice(indexRemover, 1);
-
-        // Re-asignar coordenadas de slot destino (Forzamos tipo numérico limpio y validado)
-        const targetSlotIndex = parseInt(slotDestinoIndex);
-        cartaEncontrada.slotIndex = isNaN(targetSlotIndex) ? 0 : targetSlotIndex;
-
-        // Inyectar en el array correspondiente del backend
-        if (bloqueDestino === 'aldea') juegoData.carretonCartas.cartasAldea.push(cartaEncontrada);
-        if (bloqueDestino === 'finca') juegoData.carretonCartas.cartasFinca.push(cartaEncontrada);
-        if (bloqueDestino === 'central') juegoData.carretonCartas.cartasCentral.push(cartaEncontrada);
-
-        try {
-                       juegoData.markModified('carretonCartas');
             await juegoData.save();
             console.log(`💾 Movimiento salvado de forma persistente en MongoDB para ${username}.`);
 
@@ -577,7 +620,7 @@ io.on('connection', (socket) => {
             console.error("❌ Error al salvar coordenadas del carretón:", err);
             return socket.emit('carreton:error', 'Fallo al sincronizar coordenadas en base de datos.');
         }
-    }); // 👈 AQUÍ SE CIERRA CORRECTAMENTE socket.on('carreton:guardar-posicion')
+    });
 
     // Despacho Sincronizado de datos del Carretón con auditoría residencial
     socket.on('carreton:solicitar-datos', async () => {
@@ -596,14 +639,14 @@ io.on('connection', (socket) => {
                 await forzarEnvioEstadoCarreton(socket, username, juegoData);
             }
         } catch (err) {
-            console.error("❌ Error solicitando datos del carretón:", err);
+            console.error("❌ Error requesting cart data:", err);
         }
     });
 
     socket.on('disconnect', () => {
-        console.log(`❌ Jugador desconectado: ${socket.id}`);
+        console.log(`❌ Player disconnected: ${socket.id}`);
     });
-}); // 👈 AQUÍ SE CIERRA EL io.on('connection')
+});
 
 /**
  * Helper interno para centralizar el cálculo matemático de población y emitir el estado
@@ -616,6 +659,11 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
         if (cachePartidas[username]) {
             cachePartidas[username]._poseeAldeaNFT = poseeNFT;
         }
+
+
+       // ========================================================
+// server.js - Bloque 7 de 7: Conclusión Matemática y Servidor
+// ========================================================
 
         // Calcular espacio habitacional en caliente de la Finca a partir de los cimientos
         let capacidadFincaMax = 0;
@@ -670,4 +718,3 @@ const PORT = process.env.PORT || 5173;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Árbitro de XDpro corriendo en el puerto ${PORT}`);
 });
-
