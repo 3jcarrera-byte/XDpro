@@ -477,8 +477,66 @@ io.on('connection', (socket) => {
             }
             cachePartidas[username] = juegoData;
 
-            // Procesamiento y persistencia del movimiento de la carta en el carretón con validación de espacios.
-            // (Código de validación de cimientos y guardado en base de datos ejecutado de forma segura).
+            let listaOrigen = null;
+            let cartaEncontrada = null;
+            
+            // 1. Rastrear la ubicación actual de la carta en las 3 zonas del inventario
+            const bloques = ['cartasAldea', 'cartasFinca', 'cartasCentral'];
+            for (const bloque of bloques) {
+                const idx = juegoData.carretonCartas[bloque].findIndex(c => {
+                    return c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId);
+                });
+                
+                if (idx !== -1) {
+                    cartaEncontrada = juegoData.carretonCartas[bloque][idx];
+                    listaOrigen = juegoData.carretonCartas[bloque];
+                    break;
+                }
+            }
+
+            if (!cartaEncontrada) {
+                return socket.emit('carreton:error', 'La carta especificada no existe en tu carretón.');
+            }
+
+            // 2. AUDITORÍA HABITACIONAL EXTREMA ANTES DE TRANSFERIR EL ACTIVO
+            if (bloqueDestino === 'finca' || bloqueDestino === 'aldea') {
+                let slotsHabilitadosPorEdificios = 0;
+                
+                if (bloqueDestino === 'finca') {
+                    if (juegoData.cimientosFinca && juegoData.cimientosFinca.length > 0) {
+                        juegoData.cimientosFinca.forEach(c => {
+                            if (c.estaOcupado && c.subtipo === 'casona') slotsHabilitadosPorEdificios += 2;
+                            if (c.estaOcupado && c.subtipo === 'granja') slotsHabilitadosPorEdificios += 1;
+                        });
+                    }
+                    
+                    if (juegoData.carretonCartas.cartasFinca.length >= slotsHabilitadosPorEdificios && !juegoData.carretonCartas.cartasFinca.some(c => (c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId)))) {
+                        return socket.emit('carreton:error', `🔒 Espacio insuficiente en Finca. Población máxima activa: ${slotsHabilitadosPorEdificios}. ¡Instala y activa una Casona en el terreno 3D!`);
+                    }
+                }
+
+                if (bloqueDestino === 'aldea') {
+                    if (juegoData.cimientosAldea && juegoData.cimientosAldea.length > 0) {
+                        juegoData.cimientosAldea.forEach(c => {
+                            if (c.estaOcupado && c.subtipo === 'barracon') slotsHabilitadosPorEdificios += 4;
+                        });
+                    }
+                    if (juegoData.carretonCartas.cartasAldea.length >= slotsHabilitadosPorEdificios && !juegoData.carretonCartas.cartasAldea.some(c => (c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId)))) {
+                        return socket.emit('carreton:error', `🔒 Espacio insuficiente en la Aldea. Población máxima activa: ${slotsHabilitadosPorEdificios}. ¡Instala un Barracón!`);
+                    }
+                }
+            }
+
+            // 3. Completar movimiento al confirmarse la habitabilidad
+            const indexRemover = listaOrigen.findIndex(c => c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId));
+            if (indexRemover !== -1) listaOrigen.splice(indexRemover, 1);
+
+            const targetSlotIndex = parseInt(slotDestinoIndex);
+            cartaEncontrada.slotIndex = isNaN(targetSlotIndex) ? 0 : targetSlotIndex;
+
+            if (bloqueDestino === 'aldea') juegoData.carretonCartas.cartasAldea.push(cartaEncontrada);
+            if (bloqueDestino === 'finca') juegoData.carretonCartas.cartasFinca.push(cartaEncontrada);
+            if (bloqueDestino === 'central') juegoData.carretonCartas.cartasCentral.push(cartaEncontrada);
 
             juegoData.markModified('carretonCartas');
             await juegoData.save();
@@ -491,36 +549,7 @@ io.on('connection', (socket) => {
             return socket.emit('carreton:error', 'Fallo al sincronizar coordenadas en base de datos.');
         }
     });
-        // 2. AUDITORÍA HABITACIONAL EXTREMA ANTES DE TRANSFERIR EL ACTIVO
-        if (bloqueDestino === 'finca' || bloqueDestino === 'aldea') {
-            let slotsHabilitadosPorEdificios = 0;
-            
-            if (bloqueDestino === 'finca') {
-                // Cálculo estricto basado en cimientos ocupados en la zona activa (Canvas 3D)
-                if (juegoData.cimientosFinca && juegoData.cimientosFinca.length > 0) {
-                    juegoData.cimientosFinca.forEach(c => {
-                        if (c.estaOcupado && c.subtipo === 'casona') slotsHabilitadosPorEdificios += 2;
-                        if (c.estaOcupado && c.subtipo === 'granja') slotsHabilitadosPorEdificios += 1;
-                    });
-                }
-                
-                // Si la cantidad de cartas ya posicionadas supera o iguala el espacio activo, frena el arrastre
-                if (juegoData.carretonCartas.cartasFinca.length >= slotsHabilitadosPorEdificios && !juegoData.carretonCartas.cartasFinca.some(c => (c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId)))) {
-                    return socket.emit('carreton:error', `🔒 Espacio insuficiente en Finca. Población máxima activa: ${slotsHabilitadosPorEdificios}. ¡Instala y activa una Casona en el terreno 3D!`);
-                }
-            }
 
-            if (bloqueDestino === 'aldea') {
-                if (juegoData.cimientosAldea && juegoData.cimientosAldea.length > 0) {
-                    juegoData.cimientosAldea.forEach(c => {
-                        if (c.estaOcupado && c.subtipo === 'barracon') slotsHabilitadosPorEdificios += 4;
-                    });
-                }
-                if (juegoData.carretonCartas.cartasAldea.length >= slotsHabilitadosPorEdificios && !juegoData.carretonCartas.cartasAldea.some(c => (c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId)))) {
-                    return socket.emit('carreton:error', `🔒 Espacio insuficiente en la Aldea. Población máxima activa: ${slotsHabilitadosPorEdificios}. ¡Instala un Barracón!`);
-                }
-            }
-        }
 
         // 3. Completar movimiento al confirmarse la habitabilidad
         const indexRemover = listaOrigen.findIndex(c => c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId));
