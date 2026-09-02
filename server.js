@@ -194,7 +194,19 @@ app.post('/api/auth/login', async (req, res) => {
             }
         }
 
-        // 🔑 VERIFICAR CONTRASEÑA ENCRIPTADA (Ahora dentro del scope async correcto)
+        // NOTA: Aquí encajará la verificación de contraseña y la carga de datos del juego del Bloque 3.
+        
+    } catch (error) {
+        console.error('❌ Error crítico en la autenticación:', error);
+        return res.status(500).json({ success: false, message: 'Fallo interno del servidor.' });
+    }
+});
+
+// ========================================================
+// server.js - Bloque 3 de 6: Conclusión del Login e Integridad
+// ========================================================
+
+        // 🔑 VERIFICAR CONTRASEÑA ENCRIPTADA (Dentro del scope async correcto)
         const esContraseñaValida = await usuario.comparePassword(password);
         if (!esContraseñaValida) {
             return res.status(401).json({ success: false, message: 'Usuario o contraseña inválidos.' });
@@ -254,26 +266,11 @@ app.post('/api/auth/login', async (req, res) => {
         console.error('❌ Error crítico en la autenticación:', error);
         return res.status(500).json({ success: false, message: 'Fallo interno del servidor.' });
     }
-});
+}); // Cierre definitivo y limpio del endpoint de login
 
-
-        // Respuesta exitosa al cliente SPA con datos de balance actualizados
-        return res.status(200).json({ 
-            success: true, 
-            userId: usuario._id,
-            username: usernameReal,
-            balance: usuario.balance || 0,
-            poseeAldea: usuario.poseeAldea || false 
-        });
-        
-    } catch (error) {
-        console.error('❌ Error crítico en la autenticación:', error);
-        return res.status(500).json({ success: false, message: 'Fallo interno del servidor.' });
-    }
-});
 
 // ==========================================================================
-// LÓGICA DE SOCKET.IO (EL ÁRBITRO EN TIEMPO REAL - CORREGIDO Y PERSISTENTE)
+// LÓGICA DE SOCKET.IO (EL ÁRBITRO EN TIEMPO REAL - SANEADO Y PERSISTENTE)
 // ==========================================================================
 io.on('connection', (socket) => {
     console.log(`🎮 Un jugador se ha conectado: ${socket.id}`);
@@ -323,25 +320,10 @@ io.on('connection', (socket) => {
                 }
             }
 
-            // Actualizar la caché RAM con la data real verificada
+            // Actualizar la caché RAM con la data real verificada (Estructura Unificada)
             cachePartidas[usernameLimpio] = juegoData;
             cachePartidas[usernameLimpio]._poseeAldeaNFT = usuarioBD ? usuarioBD.poseeAldea : false;
 
-        } catch (err) {
-            console.error("❌ Fallo crítico al sincronizar caché en socket:", err);
-        }
-    });
-
-    // NOTA: Los siguientes manejadores de eventos (como 'tienda:solicitar-stock') se conectarán aquí dentro de io.on('connection').
-
-            
-       // ========================================================
-// server.js - Bloque 4 de 6: Eventos de Sockets (Tienda, Almacén e Inicio de Compra)
-// ========================================================
-
-            // Actualizar la caché RAM con la data real verificada
-            cachePartidas[usernameLimpio] = juegoData;
-            cachePartidas[usernameLimpio]._poseeAldeaNFT = usuarioBD ? usuarioBD.poseeAldea : false;
         } catch (err) {
             console.error("❌ Fallo crítico al sincronizar caché en socket:", err);
         }
@@ -380,6 +362,12 @@ io.on('connection', (socket) => {
             socket.emit('almacen:error', 'Error interno al consultar el almacén.');
         }
     });
+
+    // NOTA: El callback io.on('connection') sigue abierto para alojar las funciones del Bloque 5.
+
+// ========================================================
+// server.js - Bloque 5 de 6: Lógica Transaccional de la Tienda
+// ========================================================
 
     // Transacción Económica Atómica P2P
     socket.on('tienda:comprar-carta', async (datos) => {
@@ -448,18 +436,11 @@ io.on('connection', (socket) => {
                 juegoData.carretonCartas.cartasCentral.push(nuevoPoblador);
             }
             
-            // NOTA: El bloque se mantiene abierto aquí para enganchar la lógica del else (para edificios)
-            // y la posterior persistencia/emisión de stock que envíes en el Bloque 5.
-
-        } catch (error) {
-            console.error('❌ Error crítico en el procesamiento de compra:', error);
-            socket.emit('tienda:error', 'Error interno al adjudicar activos en base de datos.');
-        }
-    });
+            // NOTA: El bloque continúa de forma asíncrona inmediatamente con la sentencia 'else' del Bloque 6.
 
 
-     // ========================================================
-// server.js - Bloque 5 de 6: Cierre de Compra e Inicio de Drag & Drop
+  // ========================================================
+// server.js - Bloque 6 de 7: Conclusión de Compra y Rastreo de Inventario
 // ========================================================
 
             juegoData.carretonCartas.cartasCentral.push(nuevoPoblador);
@@ -555,8 +536,7 @@ io.on('connection', (socket) => {
                 return socket.emit('carreton:error', 'La carta especificada no existe en tu carretón.');
             }
             
-            // NOTA: El bloque se mantiene abierto aquí para enganchar con la auditoría habitacional extrema
-            // y la reubicación de slots correspondiente que enviarás en el Bloque 6.
+            // NOTA: La auditoría residencial extrema y la reubicación de slots engancharán aquí en el Bloque 7.
 
         } catch (err) {
             console.error("❌ Error al salvar coordenadas del carretón:", err);
@@ -565,7 +545,7 @@ io.on('connection', (socket) => {
     });
 
 // ========================================================
-// server.js - Bloque 6 de 7: Auditoría de Inventario y Cierre de Sockets
+// server.js - Bloque 7: Auditoría de Inventario y Cierre de Sockets
 // ========================================================
 
             // 2. AUDITORÍA HABITACIONAL EXTREMA ANTES DE TRANSFERIR EL ACTIVO
@@ -597,7 +577,7 @@ io.on('connection', (socket) => {
                 }
             }
 
-            // 3. Completar movimiento al confirmarse la habitabilidad (Estructura Unificada y Reparada)
+            // 3. Completar movimiento al confirmarse la habitabilidad
             const indexRemover = listaOrigen.findIndex(c => c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId));
             if (indexRemover !== -1) listaOrigen.splice(indexRemover, 1);
 
@@ -648,7 +628,7 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log(`❌ Player disconnected: ${socket.id}`);
     });
-});
+}); // Cierre definitivo de io.on('connection')
 
 /**
  * Helper interno para centralizar el cálculo matemático de población y emitir el estado
