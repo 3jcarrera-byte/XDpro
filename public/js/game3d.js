@@ -135,6 +135,7 @@ function configurarDragAndDropCanvas(contenedorCanvas) {
             if (intersecciones.length > 0) {
                 const cimientoGolpeado = intersecciones[0].object;
                 const cimientoIndex = cimientoGolpeado.userData.index;
+                const cimientoDbId = cimientoGolpeado.userData.id;
 
                 // CASO A: REORDENAMIENTO / INTERCAMBIO ENTRE CIMIENTOS 3D
                 if (origenSlotStr !== "" && origenSlotStr !== undefined) {
@@ -162,10 +163,11 @@ function configurarDragAndDropCanvas(contenedorCanvas) {
                     return;
                 }
 
-                console.log(`🎯 Instalando edificio nuevo en Slot Index ${cimientoIndex}. UUID: ${cartaUuid}`);
+                console.log(`🎯 Instalando edificio nuevo en Slot Index ${cimientoIndex} (ID: ${cimientoDbId}). UUID: ${cartaUuid}`);
 
                 if (typeof socket !== 'undefined' && socket && socket.connected) {
                     socket.emit('finca:instalar-edificio', {
+                        slotId: cimientoDbId,
                         edificioUuid: cartaUuid,
                         cartaUuid: cartaUuid,
                         edificioId: cartaUuid,
@@ -400,7 +402,9 @@ function generarCimientos(containerId, cantidad) {
             cimientoMesh.position.z = pos.z;
 
             cimientoMesh.userData = { 
+                id: null,             // ID de MongoDB sincronizado dinámicamente
                 index: i, 
+                slotIndex: i,         // Compatibilidad estricta con ranuras
                 slotId: i, 
                 estaOcupado: false,
                 tipoEdificio: null,
@@ -434,7 +438,9 @@ function generarCimientos(containerId, cantidad) {
             cimientoMesh.position.z = (fila - 1) * distancia;
 
             cimientoMesh.userData = { 
+                id: null,             // ID de MongoDB sincronizado dinámicamente
                 index: i, 
+                slotIndex: i,         // Compatibilidad estricta con ranuras
                 slotId: i, 
                 estaOcupado: false,
                 tipoEdificio: null,
@@ -504,6 +510,7 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
         malla.userData.estaOcupado = false;
         malla.userData.tipoEdificio = null;
         malla.userData.edificioUuid = null;
+        malla.userData.id = null;
         malla.material.color.setHex(0xd4af37);
         malla.material.opacity = 0.35;
         malla.material.transparent = true;
@@ -512,13 +519,14 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
 
     // Luego aplicamos los edificios activos devueltos por el servidor con blindaje visual absoluto
     edificiosConstruidos.forEach(edificio => {
-        const slotId = parseInt(edificio.slotId !== undefined ? edificio.slotId : edificio.cimientoIndex);
+        const slotId = parseInt(edificio.slotId !== undefined ? edificio.slotId : (edificio.cimientoIndex !== undefined ? edificio.cimientoIndex : edificio.slotIndex));
         const malla3D = listaCimientos3D.find(c => c.userData.index === slotId);
 
         if (malla3D) {
             malla3D.userData.estaOcupado = true;
             malla3D.userData.tipoEdificio = edificio.subtipo;
             malla3D.userData.edificioUuid = edificio.uuid || edificio._id || edificio.edificioUuid;
+            malla3D.userData.id = edificio._id || edificio.id || edificio.uuid || null;
 
             if (edificio.subtipo === 'casona') {
                 malla3D.material.color.setHex(0x8b4513); // Marrón terráqueo Casona
