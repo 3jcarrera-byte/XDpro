@@ -13,9 +13,6 @@
   <!-- ======================================================== -->
   <!-- 1. PANTALLA DE AUTENTICACIÓN (LOGIN / REGISTRO)          -->
   <!-- ======================================================== -->
-
-  <!-- Abre el contenedor centrado -->
-<!-- Envoltura centrada de Autenticación -->
 <div class="auth-screen">
   <main class="login-card">
     
@@ -77,8 +74,8 @@
     </footer>
 
   </main>
-</div><!-- Cierra el contenedor centrado -->
-  
+</div>
+
   <!-- ======================================================== -->
   <!-- 2. PANTALLA: MENÚ PRINCIPAL (Layout Profesional Lateral)  -->
   <!-- ======================================================== -->
@@ -125,13 +122,12 @@
         <button onclick="cambiarPantalla('pantalla-terminos')" class="btn-sidebar">📜 Términos</button>
       </aside>
 
-      <!-- ÁREA CENTRAL DE JUEGO (CANVAS O PANEL INMERSIÓN) -->
+      <!-- ÁREA CENTRAL DE JUEGO -->
       <main class="center-game-canvas-wrapper">
         <div class="canvas-header-info">
           <h3>Vista de la Ciudadela</h3>
           <span class="status-indicator-online">● Árbitro Conectado</span>
         </div>
-        <!-- Contenedor del Canvas Principal del Menú -->
         <div id="canvas-menu-central" class="canvas-menu-3d">
           <div class="canvas-placeholder-msg">El motor gráfico tridimensional se está inicializando...</div>
         </div>
@@ -141,9 +137,8 @@
   </div>
 
   <!-- ======================================================== -->
-  <!-- 3. MÓDULOS VISUALES (THREE.JS CANVAS)                    -->
+  <!-- 3. MÓDULOS VISUALES (THREE.JS CANVAS) -->
   <!-- ======================================================== -->
-  <!-- ALDEA -->
   <div id="pantalla-aldea" class="seccion-juego" style="display: none;">
     <h2>Cimientos de la Aldea (Máx. 12 Edificios)</h2>
     <div id="canvas-aldea-container" class="canvas-3d" style="width: 100%; height: 450px; background: #000; border: 2px solid #d4af37; border-radius: 12px;"></div>
@@ -178,10 +173,10 @@
       </div>
     </header>
 
-    <!-- DISPOSICIÓN EN MATRIZ DE TRES COLUMNAS (LAYOUT COMPLETO) -->
+    <!-- DISPOSICIÓN EN MATRIZ DE TRES COLUMNAS -->
     <div class="finca-main-layout" style="display: flex; width: 100%; height: calc(100vh - 60px); box-sizing: border-box;">
       
-      <!-- COLUMNA 1: BARRA LATERAL IZQUIERDA (NAVEGACIÓN SPA SIMÉTRICA) -->
+      <!-- COLUMNA 1: BARRA LATERAL IZQUIERDA -->
       <aside class="sidebar-nav" style="width: 260px; min-width: 260px; background: #1a1512; border-right: 2px solid #3d2a1d; padding: 15px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px;">
         <h3 style="color: #d4af37; font-family: 'Cinzel', serif; font-size: 1rem; margin: 0 0 10px 0; text-align: center; border-bottom: 1px solid #5c4033; padding-bottom: 5px;">🌍 MAPA IMPERIAL</h3>
         <button class="btn-sidebar" onclick="cambiarPantalla('pantalla-menu-principal')">🏠 Menú Principal</button>
@@ -191,56 +186,50 @@
         <button class="btn-sidebar" onclick="cambiarPantalla('pantalla-mercado')">⚖️ Ir a Mercado</button>
       </aside>
 
-      <!-- SECCIÓN CENTRAL Y BANDA INFERIOR (ESPACIO DE CONSTRUCCIÓN 3D) -->
+      <!-- SECCIÓN CENTRAL Y BANDA INFERIOR -->
       <main class="finca-central-zone" style="flex: 1; display: flex; flex-direction: column; background: #0c0806; box-sizing: border-box; border-right: 2px solid #3d2a1d;">
         
-        <!-- CANVAS CENTRAL 3D (ENTORNO THREE.JS) -->
+        <!-- CANVAS CENTRAL 3D -->
         <div class="canvas-3d-wrapper" style="flex: 1; position: relative; width: 100%;">
           <div id="canvas-finca-container" style="width: 100%; height: 100%;"></div>
         </div>
 
-        <!-- BANDA INFERIOR: PLANOS DE EDIFICIOS DISPONIBLES EN EL ALMACÉN -->
+        <!-- BANDA INFERIOR: PLANOS DE EDIFICIOS -->
         <footer class="finca-buildings-drawer" style="height: 160px; background: rgba(30, 22, 16, 0.95); border-top: 2px solid #5c4033; padding: 12px; box-sizing: border-box; overflow: hidden;">
           <h4 style="color: #d4af37; margin: 0 0 8px 0; font-family: 'Cinzel', serif; font-size: 0.85rem; letter-spacing: 0.5px; text-transform: uppercase;">🏗️ PLANOS DE EDIFICIOS (ALMACÉN): Arrastra al Cimiento 3D</h4>
-          <!-- CORREGIDO: ID único para evitar choques con el Almacén general -->
           <div id="finca-edificios-lista" class="market-cards-grid" style="display: flex; gap: 10px; width: 100%; overflow-x: auto; height: 105px; padding-bottom: 5px; box-sizing: border-box;">
-            <!-- Se inyectan las cartas por arrastre desde almacen.js -->
+            <!-- Se inyectan las cartas desde almacen.js -->
           </div>
         </footer>
 
       </main>
 
-      <!-- COLUMNA 3: BARRA LATERAL DERECHA (RANURAS DE POBLADORES DE LA FINCA) -->
+      <!-- COLUMNA 3: BARRA LATERAL DERECHA -->
       <aside class="finca-population-drawer" style="width: 240px; min-width: 240px; background: #1a1512; padding: 15px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; overflow-y: auto;">
         <h3 id="finca-poblacion-titulo" style="color: #d4af37; font-family: 'Cinzel', serif; font-size: 0.95rem; margin: 0; text-align: center; border-bottom: 1px solid #5c4033; padding-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px;">👨‍🌾 POBLADORES FINCA (0/0)</h3>
-        
-        <!-- CORREGIDO: ID exclusivo para pintar la población simulando la lógica del carretón -->
         <div id="finca-pobladores-lista" style="display: grid; grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; width: 100% !important; margin-top: 5px !important;">
-          <!-- Estos slots se dibujarán marcando Vacío o No disponible -->
+          <!-- Slots de población -->
         </div>
       </aside>
 
     </div>
   </div>
 
-
   <!-- ======================================================== -->
-  <!-- 4. MÓDULOS DE GESTIÓN, ECONOMÍA Y SOPORTE                -->
+  <!-- 4. MÓDULOS DE GESTIÓN, ECONOMÍA Y SOPORTE  -->
   <!-- ======================================================== -->
   <!-- ALMACÉN -->
   <div id="pantalla-almacen" class="seccion-juego" style="display: none; padding: 20px;">
     <h2>Almacén de Recursos y Cartas</h2>
     <div id="grid-almacen-recursos" class="market-cards-grid" style="display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0;">
-      <!-- Las cartas del almacén general se inyectarán dinámicamente aquí -->
+      <!-- Almacén general -->
     </div>
     <button onclick="cambiarPantalla('pantalla-menu-principal')">🔙 Volver</button>
   </div>
 
-  <!-- PANTALLA: CARRETÓN (Layout Imperial en L Integrado)      -->
-  <!-- ======================================================== -->
+  <!-- PANTALLA: CARRETÓN -->
   <div id="pantalla-carreton" class="seccion-juego" style="display: none;">
     
-    <!-- BARRA SUPERIOR IMPERIAL (Igual al Menú Principal) -->
     <header class="player-top-bar">
       <div class="top-bar-left">
         <h1 class="menu-brand-title">🏛️ ARENA Y GLORIA — CARRETÓN</h1>
@@ -257,10 +246,8 @@
       </div>
     </header>
 
-    <!-- CONTENEDOR EN L (Navegación Izquierda + Inventario Central) -->
     <div class="main-layout-container">
       
-      <!-- NAV LATERAL IZQUIERDA COMPLETA (Misma navegación del menú inicial) -->
       <aside class="sidebar-navigation">
         <div class="nav-section-title">🗺️ EXPANSIÓN</div>
         <button onclick="cambiarPantalla('pantalla-aldea')" class="btn-sidebar">🗺️ Aldea (3D)</button>
@@ -279,7 +266,6 @@
         <button onclick="cambiarPantalla('pantalla-menu-principal')" class="btn-sidebar btn-back">🏛️ Menú Principal</button>
       </aside>
 
-      <!-- ÁREA CENTRAL: CONTENEDORES ENMARCADOS DEL CARRETÓN -->
       <main class="center-game-canvas-wrapper" style="overflow-y: auto; padding: 20px;">
         
         <div class="canvas-header-info" style="margin-bottom: 20px;">
@@ -287,34 +273,23 @@
           <span id="carreton-central-capacidad" class="status-indicator-online" style="background: rgba(212, 175, 55, 0.2); color: #ffd700; border: 1px solid #d4af37; padding: 5px 12px; border-radius: 4px;">
             Slots Centrales: 0 / 0
           </span>
-
         </div>
 
-        <!-- 3 CONTENEDORES PRINCIPALES ENMARCADOS -->
         <div class="carreton-tres-bloques-grid" style="display: grid; grid-template-columns: 1fr 1.5fr 1fr; gap: 20px; min-height: 500px;">
           
-          <!-- BLOQUE 1: CONTENEDOR ALDEA (CON CLASES DE CONTROL DE RESTRICCIÓN) -->
           <div class="market-sub-view" style="border: 1px solid #33221a; padding: 15px; border-radius: 8px; background: rgba(15, 10, 8, 0.95); display: flex; flex-direction: column;">
             <h3 style="color: #ffd700; border-bottom: 2px solid #33221a; padding-bottom: 8px; margin-bottom: 15px; text-align: center;">🗺️ Contenedor Aldea</h3>
-            <div id="carreton-aldea-lista" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; flex-grow: 1;">
-              <!-- Los 16 slots se inyectan aquí -->
-            </div>
+            <div id="carreton-aldea-lista" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; flex-grow: 1;"></div>
           </div>
 
-          <!-- BLOQUE 2: CONTENEDOR CENTRAL (ALMACENAMIENTO DINÁMICO DE POBLADORES) -->
           <div class="market-sub-view" style="border: 2px solid #d4af37; padding: 15px; border-radius: 8px; background: rgba(20, 15, 10, 0.95); display: flex; flex-direction: column;">
             <h3 style="color: #ffd700; border-bottom: 2px solid #d4af37; padding-bottom: 8px; margin-bottom: 15px; text-align: center;">🛒 Carretón Central</h3>
-            <div id="carreton-central-lista" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; flex-grow: 1;">
-              <!-- Los 8 o 24 slots variables se inyectan aquí -->
-            </div>
+            <div id="carreton-central-lista" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; flex-grow: 1;"></div>
           </div>
 
-          <!-- BLOQUE 3: CONTENEDOR FINCA -->
           <div class="market-sub-view" style="border: 1px solid #33221a; padding: 15px; border-radius: 8px; background: rgba(15, 10, 8, 0.95); display: flex; flex-direction: column;">
             <h3 style="color: #ffd700; border-bottom: 2px solid #33221a; padding-bottom: 8px; margin-bottom: 15px; text-align: center;">🏡 Contenedor Finca</h3>
-            <div id="carreton-finca-lista" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; flex-grow: 1;">
-              <!-- Los 8 slots se inyectan aquí -->
-            </div>
+            <div id="carreton-finca-lista" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; flex-grow: 1;"></div>
           </div>
 
         </div>
@@ -323,12 +298,9 @@
     </div>
   </div>
 
- <!-- ======================================================== -->
- <!-- 4. PANTALLA: MERCADO MUNDIAL P2P (Sistema Avanzado)      -->
- <!-- ======================================================== -->
- <div id="pantalla-mercado" class="seccion-juego" style="display: none; padding: 0 !important;">
+  <!-- PANTALLA: MERCADO MUNDIAL P2P -->
+  <div id="pantalla-mercado" class="seccion-juego" style="display: none; padding: 0 !important;">
     
-    <!-- BARRA SUPERIOR IMPERIAL DE FONDOS REGENERADA -->
     <header class="player-top-bar">
       <div class="top-bar-left">
         <h1 class="menu-brand-title">🏛️ ARENA Y GLORIA — MERCADO</h1>
@@ -347,7 +319,6 @@
 
     <div class="market-layout-container" style="padding: 20px 30px;">
       
-      <!-- ENCABEZADO Y PESTAÑAS DE MODALIDAD -->
       <header class="market-header">
         <h2>⚖️ Mercado Comercial del Imperio</h2>
         <div class="market-modes-tabs">
@@ -356,22 +327,17 @@
         </div>
       </header>
 
-      <!-- SECCIÓN DINÁMICA 1: BUSCADOR DE ALDEAS (Oculto por defecto) -->
       <section id="subpantalla-buscador-aldeas" class="market-sub-view" style="display: none;">
         <div class="village-search-bar">
           <input type="text" id="input-buscar-aldea" placeholder="Escribe el nombre o ID de la aldea objetivo...">
           <button class="btn-primary-market" onclick="if(window.ejecutarBusquedaAldea) window.ejecutarBusquedaAldea()">🔍 Buscar Aldea</button>
         </div>
-        <div id="lista-aldeas-resultado" class="villages-grid-results">
-          <!-- Se inyectarán dinámicamente las aldeas encontradas -->
-        </div>
+        <div id="lista-aldeas-resultado" class="villages-grid-results"></div>
       </section>
 
-      <!-- SECCIÓN DINÁMICA 2: FILTROS DE PRODUCTOS (Se muestra al operar) -->
       <section id="subpantalla-filtros-productos" class="market-sub-view">
         <div class="market-filter-dashboard">
           
-          <!-- FILTRO 1: RUBROS PRINCIPALES (CONECTADOS A MERCADO.JS) -->
           <div class="filter-group">
             <label class="filter-label">🏷️ Seleccionar Rubro:</label>
             <div class="filter-buttons-row">
@@ -383,7 +349,6 @@
             </div>
           </div>
 
-          <!-- SUB-FILTRO: SUB-RUBROS DE EQUIPAMIENTO (Solo visible si Rubro == Equipamiento) -->
           <div id="grupo-subfiltro-equipamiento" class="filter-group sub-filter-box" style="display: none;">
             <label class="filter-label">🛡️ Tipo de Equipamiento:</label>
             <div class="filter-buttons-row">
@@ -395,7 +360,6 @@
             </div>
           </div>
 
-          <!-- FILTRO 2: RAREZAS CRUCIALES -->
           <div class="filter-group">
             <label class="filter-label">💎 Rareza del Item:</label>
             <div class="filter-buttons-row grid-rarezas">
@@ -412,13 +376,11 @@
 
         </div>
 
-        <!-- ESCAPARATE DE CARTAS COMERCIALES INTEGRADO PARA MUNDO 3D -->
         <div id="contenedor-items-mercado" class="market-items-showcase flex-showcase">
           <div id="grid-cartas-3d" class="market-cards-grid"></div>
         </div>
       </section>
 
-      <!-- BOTÓN GLOBAL DE RETORNO -->
       <footer class="market-footer-actions">
         <button onclick="cambiarPantalla('pantalla-menu-principal')" class="btn-back-menu">🔙 Volver al Menú Principal</button>
       </footer>
@@ -454,20 +416,17 @@
   <div id="pantalla-terminos" class="seccion-juego" style="display: none;">
     <h2>Términos y Condiciones del Dominio</h2>
     <button onclick="cambiarPantalla('pantalla-menu-principal')">🔙 Volver</button>
-  </div> <!-- Asegúrate de que este div cierre aquí -->
+  </div>
 
- <!-- ======================================================== -->
- <!-- 5. CONTROL SCRIPTS (REPARADO Y COMPLETADO)                -->
- <!-- ======================================================== -->
- <!-- Módulos Core del Motor Gráfico 3D -->
- <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- ======================================================== -->
+  <!-- 5. CONTROL SCRIPTS -->
+  <!-- ======================================================== -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/game3d.js"></script>
+  <script src="js/almacen.js"></script>
+  <script src="js/carreton.js"></script>
+  <script src="js/mercado.js"></script>
 
- <!-- Lógica del Cliente del Imperio (ORDEN DE CARGA SANEADO) -->
- <script src="js/main.js"></script>
- <script src="js/game3d.js"></script>
- <script src="js/almacen.js"></script>
- <script src="js/carreton.js"></script>
- <script src="js/mercado.js"></script>
-  
-  </body>
+</body>
 </html>
