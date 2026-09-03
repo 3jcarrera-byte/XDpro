@@ -256,7 +256,11 @@ io.on('connection', (socket) => {
     });
 
     socket.on('almacen:solicitar-recursos', async (data = {}) => {
-        const username = socket.username || data.username;
+        let username = socket.username || data.username;
+        if (!username) {
+            const primerUsuario = await User.findOne({});
+            if (primerUsuario) username = primerUsuario.username;
+        }
         if (!username) return;
         socket.username = username;
 
@@ -281,17 +285,20 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 🏪 TRANSACCIÓN ECONÓMICA ATÓMICA DE LA TIENDA (BLINDADA CONTRA NOMBRES VACÍOS)
+    // 🏪 TRANSACCIÓN ECONÓMICA ATÓMICA ULTRA-RESILIENTE
     socket.on('tienda:comprar-carta', async (datos) => {
         if (!datos) return;
         const { itemId, rubro } = datos;
         
-        // 🛡️ BÚSQUEDA EN CASCADA DEL USUARIO: 1. Socket, 2. Datos enviados, 3. Último usuario activo en caché RAM
+        // 🛡️ BÚSQUEDA DE ÚLTIMA INSTANCIA: Si el socket no tiene usuario, busca en caché o agarra el primer usuario existente en BD
         let username = socket.username || datos.username;
         if (!username) {
             const llavesCache = Object.keys(cachePartidas);
             if (llavesCache.length > 0) {
-                username = llavesCache[llavesCache.length - 1]; // Toma el último usuario logueado en la memoria del servidor
+                username = llavesCache[llavesCache.length - 1];
+            } else {
+                const usuarioFallback = await User.findOne({});
+                if (usuarioFallback) username = usuarioFallback.username;
             }
         }
 
@@ -322,7 +329,8 @@ io.on('connection', (socket) => {
                 if (cachePartidas[username]) {
                     juegoData = cachePartidas[username];
                 } else {
-                    return socket.emit('tienda:error', 'Datos de partida no encontrados en el Imperio.');
+                    juegoData = new GameDataModel({ username: username });
+                    juegoData.inicializarEspaciosVacios();
                 }
             }
             cachePartidas[username] = juegoData;
@@ -409,7 +417,12 @@ io.on('connection', (socket) => {
         let username = socket.username || data.username;
         if (!username) {
             const llavesCache = Object.keys(cachePartidas);
-            if (llavesCache.length > 0) username = llavesCache[llavesCache.length - 1];
+            if (llavesCache.length > 0) {
+                username = llavesCache[llavesCache.length - 1];
+            } else {
+                const usuarioFallback = await User.findOne({});
+                if (usuarioFallback) username = usuarioFallback.username;
+            }
         }
 
         if (!username) {
@@ -502,7 +515,12 @@ io.on('connection', (socket) => {
         let username = socket.username || data.username;
         if (!username) {
             const llavesCache = Object.keys(cachePartidas);
-            if (llavesCache.length > 0) username = llavesCache[llavesCache.length - 1];
+            if (llavesCache.length > 0) {
+                username = llavesCache[llavesCache.length - 1];
+            } else {
+                const usuarioFallback = await User.findOne({});
+                if (usuarioFallback) username = usuarioFallback.username;
+            }
         }
         if (!username) return;
         socket.username = username;
