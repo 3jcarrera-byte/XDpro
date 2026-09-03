@@ -574,22 +574,22 @@ io.on('connection', (socket) => {
                 nivel: edificioRetirado.nivel || 0
             });
 
-            // 🛠️ CORRECCIÓN: Asignamos explícitamente TODOS los identificadores para evitar "undefined"
-            juegoData.cimientosFinca[cimientoIndex] = {
-                slotIndex: cimientoIndex,
-                cimientoIndex: cimientoIndex,
-                slotId: cimientoIndex,
-                estaOcupado: false,
-                subtipo: null,
-                nombre: null,
-                rareza: null,
-                nivel: 0,
-                pobladoresAsignados: []
-            };
+          // ====== REEMPLAZAR TOTALMENTE LÍNEAS 451 A 461 EN SERVER.JS ======
+juegoData.cimientosFinca[cimientoIdx] = {
+    slotIndex: cimientoIndex,
+    cimientoIndex: cimientoIndex,
+    slotId: cimientoIndex,
+    estaOcupado: false,
+    subtipo: null,
+    nombre: null,
+    rareza: null,
+    nivel: 0,
+    pobladoresAsignados: []
+};
 
-            juegoData.markModified('cimientosFinca');
-            juegoData.markModified('almacenEdificiosDisponibles');
-            await juegoData.save();
+juegoData.markModified('cimientosFinca');
+juegoData.markModified('almacenEdificiosDisponibles');
+await juegoData.save();
 
             socket.emit('finca:retiro-exitoso', { slotIndex: cimientoIndex, slotId: cimientoIndex });
             socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles || [] });
