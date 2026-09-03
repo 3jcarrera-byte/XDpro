@@ -243,7 +243,7 @@ return res.status(400).json({ success: false, message: 'Campos incompletos.' });
 // ==========================================================================
 
 io.on('connection', (socket) => {
-console.log(🔌 Nuevo cliente conectado: ${socket.id});
+    console.log(`🔌 Nuevo cliente conectado: ${socket.id}`); 
 
 if (socket.handshake.auth && socket.handshake.auth.username) {
     socket.username = socket.handshake.auth.username;
