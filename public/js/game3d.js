@@ -1,4 +1,4 @@
-// public/js/game3d.js (Actualización Completa - Corrección de 5 Cimientos y Fijación de Cartas)
+// public/js/game3d.js (Versión Completa Definitiva - Corrección de Posiciones, Canvas y Eventos de Arrastre)
 
 // Configuración global de optimización de GPU conectada con el ruteo SPA de main.js
 window.estadoMotor3D = {
@@ -60,7 +60,7 @@ function init3D(containerId, maxCimientos) {
     raycaster = new THREE.Raycaster();
     mouse = new THREE.Vector2();
 
-    // 🚀 ENLACE DRAG & DROP NATIVO PARA EL LIENZO CANVAS 3D
+    // 🚀 ENLACE DRAG & DROP NATIVO PARA EL LIENZO CANVAS 3D Y EL CONTENEDOR
     configurarDragAndDropCanvas(container);
 
     // 8. Distribución y renderizado de los Cimientos lógicos
@@ -72,36 +72,46 @@ function init3D(containerId, maxCimientos) {
 }
 
 /**
- * Agrega los listeners del mouse sobre el contenedor para procesar las tarjetas soltadas
+ * Configura los eventos nativos de Drag and Drop vinculados directamente al canvas y contenedor
  */
 function configurarDragAndDropCanvas(container) {
-    // Permitir que elementos flotantes se arrastren sobre el Canvas 3D de manera estricta
-    container.addEventListener('dragover', (e) => {
+    // Permitir el evento dragover de manera estricta tanto en el contenedor como en el canvas
+    const permitirArrastre = (e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'copy';
-    });
+    };
 
-    // Evento interceptor al soltar la tarjeta de edificio sobre la grilla tridimensional
-    container.addEventListener('drop', (e) => {
+    container.addEventListener('dragover', permitirArrastre);
+    if (renderer && renderer.domElement) {
+        renderer.domElement.addEventListener('dragover', permitirArrastre);
+    }
+
+    // Función unificada para procesar el soltado (drop) de las cartas de planos
+    const procesarSoltadoPlano = (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (!renderer) return;
+        if (!renderer || !camera) return;
 
-        // Capturar los metadatos de transferencia inyectados por la tarjeta del almacén
         const edificioUuid = e.dataTransfer.getData('text/plain');
         if (!edificioUuid) return;
 
-        // Calcular la posición exacta del cursor respecto al rectángulo del lienzo de Three.js
+        // Calcular la posición exacta del cursor respecto al rectángulo del lienzo WebGL
         const rect = renderer.domElement.getBoundingClientRect();
-        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        const clientX = e.clientX - rect.left;
+        const clientY = e.clientY - rect.top;
 
-        // Proyectar el rayo matemático desde la cámara hacia las mallas de los cimientos
+        mouse.x = (clientX / rect.width) * 2 - 1;
+        mouse.y = -(clientY / rect.height) * 2 + 1;
+
+        // Lanzar el rayo a través de la cámara hacia la escena completa
         raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectObjects(cimientos);
+        const intersects = raycaster.intersectObjects(scene.children, true);
 
-        if (intersects.length > 0) {
-            const cimientoMalla = intersects[0].object;
+        // Filtrar el objeto intersectado que pertenezca al arreglo de cimientos
+        const cimientoIntersectado = intersects.find(hit => cimientos.includes(hit.object));
+
+        if (cimientoIntersectado) {
+            const cimientoMalla = cimientoIntersectado.object;
             const datosCimiento = cimientoMalla.userData;
 
             if (datosCimiento.estaOcupado) {
@@ -111,31 +121,37 @@ function configurarDragAndDropCanvas(container) {
 
             console.log(`🏗️ Intentando instalar plano ${edificioUuid} en cimiento 3D [Slot ${datosCimiento.slotId}]`);
 
-            // Emitir la orden autoritaria a través del túnel de sockets hacia el Árbitro
             if (typeof socket !== 'undefined' && socket && socket.connected) {
                 socket.emit('finca:instalar-edificio', {
                     cimientoSlotId: datosCimiento.slotId,
                     edificioUuid: edificioUuid
                 });
             }
+        } else {
+            console.warn("⚠️ El plano fue soltado fuera de un cimiento 3D válido.");
         }
-    });
+    };
+
+    container.addEventListener('drop', procesarSoltadoPlano);
+    if (renderer && renderer.domElement) {
+        renderer.domElement.addEventListener('drop', procesarSoltadoPlano);
+    }
 }
 
 /**
- * Distribuye espacialmente los cimientos geométricos translúcidos en el plano (Exactamente 5 para Finca)
+ * Distribuye espacialmente los cimientos geométricos translúcidos en el plano (5 Cimientos corregidos para Finca)
  */
 function generarCimientos(containerId, cantidad) {
     cimientos = []; 
 
-    // Si nos encontramos en la pantalla de finca, utilizamos exactamente las 5 coordenadas que marcaste con las X rojas
+    // Posiciones de los 5 cimientos corregidas milimétricamente acorde a la interfaz visual de la Finca
     if (containerId === 'canvas-finca-container') {
         const posicionesCimientosFinca = [
-            { x:  3, z: -3 }, // Cimiento superior derecho
-            { x: -1, z:  0 }, // Cimiento central izquierdo
-            { x:  1, z:  0 }, // Cimiento central derecho
-            { x: -5, z:  4 }, // Cimiento inferior izquierdo externo
-            { x:  5, z:  4 }  // Cimiento inferior derecho externo
+            { x: -3.5, z:  0.5 }, // 1. Cimiento izquierdo (alineado con la marca izquierda)
+            { x:  0.0, z:  1.5 }, // 2. Cimiento central izquierdo (círculo rojo izquierdo)
+            { x:  2.5, z:  1.5 }, // 3. Cimiento central derecho (círculo rojo derecho)
+            { x:  0.0, z: -2.5 }, // 4. Cimiento superior (alineado con la flecha superior)
+            { x:  4.5, z:  3.5 }  // 5. Cimiento inferior derecho externo
         ];
 
         posicionesCimientosFinca.forEach((pos, i) => {
@@ -143,8 +159,8 @@ function generarCimientos(containerId, cantidad) {
             const material = new THREE.MeshStandardMaterial({ 
                 color: 0xd4af37, // Oro imperial translúcido
                 transparent: true, 
-                opacity: 0.25,
-                roughness: 0.5
+                opacity: 0.35,
+                roughness: 0.4
             });
             const cimientoMesh = new THREE.Mesh(geometry, material);
 
