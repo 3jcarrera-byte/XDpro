@@ -1,4 +1,4 @@
-// public/js/game3d.js (Versión Definitiva Integrada - 5 Cimientos & Receptor Drag & Drop Blindado)
+// public/js/game3d.js (Versión Definitiva con Doble Compatibilidad de Emisión y Actualización de Terreno)
 
 // Configuración global de optimización de GPU conectada con el ruteo SPA de main.js
 window.estadoMotor3D = {
@@ -122,12 +122,14 @@ function configurarDragAndDropCanvas(contenedorCanvas) {
 
                 console.log(`🎯 Cimiento detectado: Slot Index ${cimientoIndex}. Solicitando autorización al servidor...`);
 
-                // 📡 EMISIÓN AUTORITARIA AL BACKEND: Delegar la construcción segura al Árbitro
+                // 📡 EMISIÓN AUTORITARIA AL BACKEND: Cobertura total de nombres de variables para el Árbitro
                 if (typeof socket !== 'undefined' && socket && socket.connected) {
                     socket.emit('finca:instalar-edificio', {
                         edificioUuid: cartaUuid,
+                        cartaUuid: cartaUuid,       // Cubre la propiedad que lee el backend estricto
+                        edificioId: cartaUuid,      // Cobertura alternativa genérica
                         cimientoSlotId: cimientoIndex,
-                        cimientoIndex: cimientoIndex // Compatibilidad total con ambos nombres de parámetros del backend
+                        cimientoIndex: cimientoIndex
                     });
                 } else {
                     alert("❌ Error de red: No hay conexión activa con el servidor del Imperio.");
@@ -244,10 +246,11 @@ window.reanudarAnimacion3D = function() {
 // RECEPTORES DE RED DE SOCKET.IO PARA LA INGENIERÍA DE CONSTRUCCIÓN
 // ==========================================================================
 if (typeof socket !== 'undefined' && socket) {
+    // Receptor unificado para construcción exitosa en tiempo real
     socket.on('finca:construccion-exitosa', (data) => {
-        alert(data.mensaje);
+        if (data.mensaje) alert(data.mensaje);
         
-        // Localizar de forma atómica la malla 3D correspondiente en la escena para redibujarla de forma fija
+        // Localizar de forma atómica la malla 3D correspondiente en la escena para redibujarla
         if (listaCimientos3D && listaCimientos3D.length > 0) {
             const slotObjetivo = parseInt(data.slotId !== undefined ? data.slotId : data.cimientoIndex);
             const malla3D = listaCimientos3D.find(c => c.userData.index === slotObjetivo);
@@ -267,11 +270,32 @@ if (typeof socket !== 'undefined' && socket) {
             }
         }
 
-        // 🚀 DISPARADOR DE ACTUALIZACIÓN EN VIVO DE HABITABILIDAD:
-        // Una vez levantada la obra civil en Three.js, forzamos de forma autoritaria al backend
-        // a actualizar las mallas del almacén (para restar la carta) y del carretón (para liberar los slots de población).
+        // Actualizar dinámicamente el almacén y el carretón de población
         if (typeof cargarAlmacen === 'function') cargarAlmacen();
         if (typeof cargarCarreton === 'function') cargarCarreton();
+    });
+
+    // Receptor para sincronizar edificios ya construidos al iniciar sesión o recargar la vista
+    socket.on('finca:actualizar-terreno', (edificiosConstruidos) => {
+        if (!edificiosConstruidos || !Array.isArray(edificiosConstruidos)) return;
+
+        edificiosConstruidos.forEach(edificio => {
+            const slotId = parseInt(edificio.slotId !== undefined ? edificio.slotId : edificio.cimientoIndex);
+            const malla3D = listaCimientos3D.find(c => c.userData.index === slotId);
+
+            if (malla3D) {
+                malla3D.userData.estaOcupado = true;
+                malla3D.userData.tipoEdificio = edificio.subtipo;
+
+                if (edificio.subtipo === 'casona') {
+                    malla3D.material.color.setHex(0x8b4513);
+                    malla3D.material.opacity = 0.95;
+                } else {
+                    malla3D.material.color.setHex(0x4a5d4e);
+                    malla3D.material.opacity = 0.90;
+                }
+            }
+        });
     });
 
     socket.on('finca:error', (msgError) => {
