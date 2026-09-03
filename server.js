@@ -815,6 +815,7 @@ res.sendFile(path.join(__dirname, 'public', 'index.html'));
 // INICIAR EL SERVIDOR
 // ========================================================
 const PORT = process.env.PORT || 5173;
+
 server.listen(PORT, '0.0.0.0', () => {
-console.log(🚀 Árbitro de XDpro corriendo en el puerto ${PORT});
+    console.log(`🚀 Árbitro de XDpro corriendo en el puerto ${PORT}`); // ⚡ REPARADO: Comillas invertidas añadidas
 });
