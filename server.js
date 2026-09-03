@@ -575,6 +575,7 @@ io.on('connection', (socket) => {
             });
 
           // ====== REEMPLAZAR TOTALMENTE LÍNEAS 451 A 461 EN SERVER.JS ======
+
 juegoData.cimientosFinca[cimientoIdx] = {
     slotIndex: cimientoIndex,
     cimientoIndex: cimientoIndex,
@@ -586,6 +587,7 @@ juegoData.cimientosFinca[cimientoIdx] = {
     nivel: 0,
     pobladoresAsignados: []
 };
+
 
 juegoData.markModified('cimientosFinca');
 juegoData.markModified('almacenEdificiosDisponibles');
