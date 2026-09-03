@@ -19,24 +19,31 @@ function cargarAlmacen() {
  * Renderiza la interfaz gráfica del inventario inyectando las tarjetas estilizadas en la cuadrícula SPA correspondiente
  */
 function renderizarAlmacen() {
-    let contenedorGrid = null;
-
-    // DETECCIÓN MULTI-PANTALLA EXCLUSIVA BASADA EN ELEMENTOS EXISTENTES EN EL DOM ACTIVO
+    // DETECCIÓN MULTI-PANTALLA EXCLUSIVA Y DINÁMICA DE CONTENEDORES ACTIVOS
     const contenedorFinca = document.getElementById('finca-edificios-lista');
     const contenedorAldea = document.getElementById('aldea-edificios-lista');
     const gridAlmacenGeneral = document.getElementById('grid-almacen-recursos');
 
-    if (contenedorFinca) {
+    // Lista de todos los contenedores posibles para limpiar fantasmagorías o duplicidades de render en vistas cruzadas
+    const todosLosContenedores = [contenedorFinca, contenedorAldea, gridAlmacenGeneral];
+
+    todosLosContenedores.forEach(cont => {
+        if (cont) cont.innerHTML = '';
+    });
+
+    // Seleccionar de forma prioritaria el contenedor activo según el DOM de la SPA actual
+    let contenedorGrid = null;
+    if (contenedorFinca && window.getComputedStyle(contenedorFinca).display !== 'none') {
         contenedorGrid = contenedorFinca;
-    } else if (contenedorAldea) {
+    } else if (contenedorAldea && window.getComputedStyle(contenedorAldea).display !== 'none') {
         contenedorGrid = contenedorAldea;
-    } else {
+    } else if (gridAlmacenGeneral) {
         contenedorGrid = gridAlmacenGeneral;
+    } else {
+        contenedorGrid = contenedorFinca || contenedorAldea || gridAlmacenGeneral;
     }
 
     if (!contenedorGrid) return;
-
-    contenedorGrid.innerHTML = '';
 
     if (!datosAlmacen.recursos || datosAlmacen.recursos.length === 0) {
         contenedorGrid.innerHTML = '<div class="almacen-vacio-txt" style="color:#a89276; font-style:italic; padding:20px; text-align:center; width:100%; font-family:serif;">No tienes cartas de estructuras en tu inventario logístico.</div>';
@@ -132,7 +139,7 @@ if (typeof socket !== 'undefined' && socket) {
             datosAlmacen.recursos = [];
         }
         
-        // Forzar redibujado de la interfaz de inmediato
+        // Forzar redibujado de la interfaz de inmediato en el contenedor activo
         renderizarAlmacen();
     });
 
