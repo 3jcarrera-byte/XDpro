@@ -147,7 +147,7 @@ function generarCimientos(containerId, cantidad) {
     // Posiciones de los 5 cimientos corregidas milimétricamente acorde a la interfaz visual de la Finca
     if (containerId === 'canvas-finca-container') {
         const posicionesCimientosFinca = [
-            { x: 0, z:  0.5 }, // 1. Cimiento izquierdo (alineado con la marca izquierda)
+            { x: -3.5, z:  0.5 }, // 1. Cimiento izquierdo (alineado con la marca izquierda)
             { x:  0.0, z:  1.5 }, // 2. Cimiento central izquierdo (círculo rojo izquierdo)
             { x:  2.5, z:  1.5 }, // 3. Cimiento central derecho (círculo rojo derecho)
             { x:  0.0, z: -2.5 }, // 4. Cimiento superior (alineado con la flecha superior)
