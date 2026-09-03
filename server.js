@@ -579,12 +579,12 @@ io.on('connection', (socket) => {
                 slotIndex: cimientoIndex,
                 cimientoIndex: cimientoIndex,
                 slotId: cimientoIndex,
-                estaOcupado: false,
-                subtipo: null,
-                nombre: null,
-                rareza: null,
-                nivel: 0,
-                pobladoresAsignados: []
+                juegoData.cimientosFinca[cimientoIdx].estaOcupado = false;
+                juegoData.cimientosFinca[cimientoIdx].subtipo = null;
+                juegoData.cimientosFinca[cimientoIdx].nombre = null;
+                juegoData.cimientosFinca[cimientoIdx].rareza = null;
+                juegoData.cimientosFinca[cimientoIdx].nivel = 0;
+                juegoData.cimientosFinca[cimientoIdx.pobladoresAsignados = [];
             };
 
             juegoData.markModified('cimientosFinca');
