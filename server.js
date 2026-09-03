@@ -575,16 +575,16 @@ io.on('connection', (socket) => {
             });
 
             // 🛠️ CORRECCIÓN: Asignamos explícitamente TODOS los identificadores para evitar "undefined"
-            juegoData.cimientosFinca[cimientoIdx] = {
+            juegoData.cimientosFinca[imientoIdx] = {
                 slotIndex: cimientoIndex,
                 cimientoIndex: cimientoIndex,
                 slotId: cimientoIndex,
-                juegoData.cimientosFinca[cimientoIdx].estaOcupado = false;
-                juegoData.cimientosFinca[cimientoIdx].subtipo = null;
-                juegoData.cimientosFinca[cimientoIdx].nombre = null;
-                juegoData.cimientosFinca[cimientoIdx].rareza = null;
-                juegoData.cimientosFinca[cimientoIdx].nivel = 0;
-                juegoData.cimientosFinca[cimientoIdx.pobladoresAsignados = [];
+                estaOcupado: false,
+                subtipo: null,
+                nombre: null,
+                rareza: null,
+                nivel: 0,
+                pobladoresAsignados: []
             };
 
             juegoData.markModified('cimientosFinca');
