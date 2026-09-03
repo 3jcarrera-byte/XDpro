@@ -635,9 +635,12 @@ io.on('connection', (socket) => {
 
             const cimientos = juegoData.cimientosFinca;
             // 🛠️ CORRECCIÓN: Garantizamos que validará contra slotId, slotIndex o cimientoIndex
-            const indexOrigen = cimientos.findIndex(c => (c.slotId ?? c.slotIndex ?? c.cimientoIndex) === parseInt(origenSlotId));
-            const indexDestino = cimientos.findIndex(c => (c.slotId ?? c.slotIndex ?? c.cimientoIndex) === parseInt(destinoSlotId));
-
+            const indexOrigen = cimientos.findIndex(c => 
+    parseInt(c.slotId ?? c.slotIndex ?? c.cimientoIndex) === parseInt(origenSlotId)
+);
+           const indexDestino = cimientos.findIndex(c => 
+    parseInt(c.slotId ?? c.slotIndex ?? c.cimientoIndex) === parseInt(destinoSlotId)
+);
             if (indexOrigen === -1) {
                 socket.emit('finca:error', 'No se encontró un edificio en el cimiento de origen.');
                 return;
