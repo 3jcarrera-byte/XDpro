@@ -491,7 +491,7 @@ io.on('connection', (socket) => {
                 rareza: planoEdificio.rareza,
                 nivel: planoEdificio.nivel || 0,
                 pobladoresAsignados: []
-            };
+            }
 
             const idxCimientoExistente = juegoData.cimientosFinca.findIndex(c => (c.slotIndex ?? c.cimientoIndex ?? c.slotId) === cimientoIndex);
             if (idxCimientoExistente !== -1) {
