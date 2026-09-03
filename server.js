@@ -779,10 +779,8 @@ for (const username of usuariosActivos) {
 }
 }, INTERVALO_PRODUCCION_MS);
 
-/
-
-Helper atómico para buscar recursos existentes o inyectar nuevos respetando stacks
-*/
+// Helper atómico para buscar recursos existentes o inyectar nuevos respetando stacks
+//
 function actualizarStackRecurso(almacen, subtipo, nombre, cantidadASumar) {
 if (cantidadASumar <= 0) return;
 
