@@ -1,5 +1,5 @@
 // ========================================================
-// server.js - Configuración e Inicialización
+// server.js - Configuración e Inicialización Completa
 // ========================================================
 
 const express = require('express');
@@ -249,6 +249,37 @@ io.on('connection', (socket) => {
         socket.username = socket.handshake.auth.username;
     }
 
+    // ==========================================================================
+    // 🛡️ VINCULACIÓN AUTORITARIA DE RED Y SINCRONIZACIÓN DE CACHÉ
+    // ==========================================================================
+    socket.on('jugador:autenticado', async (data) => {
+        if (!data || !data.username) return;
+        
+        const usernameLimpio = data.username.trim();
+        socket.username = usernameLimpio; // 🔑 FIJA EL NICK EN EL SOCKET DE RED EN TIEMPO REAL
+        console.log(`🏛️ Gladiador enlazado con éxito en sockets: ${socket.username}`);
+        
+        try {
+            let juegoData = await GameDataModel.findOne({ username: usernameLimpio });
+            const usuarioBD = await User.findOne({ username: usernameLimpio });
+            
+            if (juegoData) {
+                cachePartidas[usernameLimpio] = juegoData;
+                cachePartidas[usernameLimpio]._poseeAldeaNFT = usuarioBD ? usuarioBD.poseeAldea : false;
+                
+                // 📡 RESPUESTA REACTIVA: Enviar al canvas 3D los edificios ya construidos
+                socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca || []);
+                
+                // Forzar el envío del estado actual del carretón y población habilitada
+                if (typeof forzarEnvioEstadoCarreton === 'function') {
+                    await forzarEnvioEstadoCarreton(socket, usernameLimpio, juegoData);
+                }
+            }
+        } catch (err) {
+            console.error("❌ Fallo crítico al sincronizar sesión de socket:", err);
+        }
+    });
+
     socket.emit('tienda:recibir-stock', stockTiendaSistema);
     
     socket.on('tienda:solicitar-stock', () => {
@@ -410,7 +441,7 @@ io.on('connection', (socket) => {
     });
 
     // ==========================================================================
-    // 🏗️ INGENIERÍA DE OBRA CIVIL Y COLOCACIÓN DE EDIFICIOS 3D (NUEVO)
+    // 🏗️ INGENIERÍA DE OBRA CIVIL Y COLOCACIÓN DE EDIFICIOS 3D
     // ==========================================================================
     socket.on('finca:instalar-edificio', async (datos) => {
         if (!datos) return;
@@ -484,6 +515,9 @@ io.on('connection', (socket) => {
             socket.emit('almacen:actualizar-estado', { 
                 recursos: juegoData.almacenEdificiosDisponibles || [] 
             });
+
+            // Sincronizar el terreno actualizado a 3D
+            socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca || []);
 
             if (typeof forzarEnvioEstadoCarreton === 'function') {
                 await forzarEnvioEstadoCarreton(socket, username, juegoData);
