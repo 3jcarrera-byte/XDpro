@@ -1,9 +1,9 @@
-// public/js/game3d.js (Parte 1 de 2 - Configuración de Escena, Cámara y Raycasting)
+// public/js/game3d.js (Actualización Completa - Corrección de 5 Cimientos y Fijación de Cartas)
 
 // Configuración global de optimización de GPU conectada con el ruteo SPA de main.js
 window.estadoMotor3D = {
     activo: false,
-    maxCimientosActivos: 8
+    maxCimientosActivos: 5
 };
 
 // Variables de control de las instancias de Three.js
@@ -75,7 +75,7 @@ function init3D(containerId, maxCimientos) {
  * Agrega los listeners del mouse sobre el contenedor para procesar las tarjetas soltadas
  */
 function configurarDragAndDropCanvas(container) {
-    // Permitir que elementos flotantes se arrastren sobre el Canvas 3D
+    // Permitir que elementos flotantes se arrastren sobre el Canvas 3D de manera estricta
     container.addEventListener('dragover', (e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'copy';
@@ -84,6 +84,7 @@ function configurarDragAndDropCanvas(container) {
     // Evento interceptor al soltar la tarjeta de edificio sobre la grilla tridimensional
     container.addEventListener('drop', (e) => {
         e.preventDefault();
+        e.stopPropagation();
         if (!renderer) return;
 
         // Capturar los metadatos de transferencia inyectados por la tarjeta del almacén
@@ -120,23 +121,21 @@ function configurarDragAndDropCanvas(container) {
         }
     });
 }
-// public/js/game3d.js (Continuación - Parte 2)
 
 /**
- * Distribuye espacialmente los cimientos geométricos translúcidos en el plano
+ * Distribuye espacialmente los cimientos geométricos translúcidos en el plano (Exactamente 5 para Finca)
  */
 function generarCimientos(containerId, cantidad) {
     cimientos = []; 
 
-    // Si nos encontramos en la pantalla de finca, utilizamos exactamente las coordenadas de las X rojas de la imagen
+    // Si nos encontramos en la pantalla de finca, utilizamos exactamente las 5 coordenadas que marcaste con las X rojas
     if (containerId === 'canvas-finca-container') {
         const posicionesCimientosFinca = [
-            { x: -3, z: -3 }, // X roja superior izquierda aproximada
-            { x:  3, z: -2 }, // X roja superior derecha aproximada
-            { x: -1, z:  0 }, // X roja central izquierda
-            { x:  1, z:  0 }, // X roja central derecha
-            { x: -5, z:  4 }, // X roja inferior izquierda externa
-            { x:  5, z:  4 }  // X roja inferior derecha externa
+            { x:  3, z: -3 }, // Cimiento superior derecho
+            { x: -1, z:  0 }, // Cimiento central izquierdo
+            { x:  1, z:  0 }, // Cimiento central derecho
+            { x: -5, z:  4 }, // Cimiento inferior izquierdo externo
+            { x:  5, z:  4 }  // Cimiento inferior derecho externo
         ];
 
         posicionesCimientosFinca.forEach((pos, i) => {
@@ -163,7 +162,7 @@ function generarCimientos(containerId, cantidad) {
             cimientos.push(cimientoMesh);
         });
     } else {
-        // Distribución original predeterminada para la Aldea u otros contenedores
+        // Distribución predeterminada para la Aldea (12 cimientos)
         const columnas = cantidad === 16 ? 4 : 3; 
         const distancia = 4.5; 
 
@@ -229,14 +228,14 @@ if (typeof socket !== 'undefined' && socket) {
     socket.on('finca:construccion-exitosa', (data) => {
         alert(data.mensaje);
         
-        // Localizar de forma atómica la malla 3D correspondiente en la escena para redibujarla
+        // Localizar de forma atómica la malla 3D correspondiente en la escena para redibujarla de forma fija
         if (cimientos && cimientos.length > 0) {
             const malla3D = cimientos.find(c => c.userData.slotId === parseInt(data.slotId));
             if (malla3D) {
                 malla3D.userData.estaOcupado = true;
                 malla3D.userData.tipoEdificio = data.subtipo;
                 
-                // Si es la Casona residencial, cambia su color a terracota romano para dar feedback visual
+                // Si es la Casona residencial, cambia su color a terracota romano para dar feedback visual y fijarlo
                 if (data.subtipo === 'casona') {
                     malla3D.material.color.setHex(0x8b4513); 
                     malla3D.material.opacity = 0.95;
