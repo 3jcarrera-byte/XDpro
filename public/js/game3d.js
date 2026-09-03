@@ -155,9 +155,9 @@ function generarCimientos(containerId, cantidad) {
     if (containerId === 'canvas-finca-container') {
         const posicionesCimientosFinca = [
             { x: -9.0, z:  6.0 }, // Cimiento 0: Izquierdo
-            { x:  0.0, z:  1.5 }, // Cimiento 1: Central izquierdo
-            { x:  2.5, z:  1.5 }, // Cimiento 2: Central derecho
-            { x:  0.0, z: -2.5 }, // Cimiento 3: Superior
+            { x: -6.0, z:  0.0 }, // Cimiento 1: Central izquierdo
+            { x:  6.0, z:  0.0 }, // Cimiento 2: Central derecho
+            { x:  0.0, z: -2.0 }, // Cimiento 3: Superior
             { x:  9.0, z:  6.0 }  // Cimiento 4: Inferior derecho externo
         ];
 
