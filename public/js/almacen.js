@@ -19,7 +19,6 @@ function cargarAlmacen() {
  * Renderiza la interfaz gráfica del inventario inyectando las tarjetas estilizadas en la cuadrícula SPA correspondiente
  */
 function renderizarAlmacen() {
-    // DETECCIÓN MULTI-PANTALLA EXCLUSIVA Y DINÁMICA DE CONTENEDORES ACTIVOS
     const contenedorFinca = document.getElementById('finca-edificios-lista');
     const contenedorAldea = document.getElementById('aldea-edificios-lista');
     const gridAlmacenGeneral = document.getElementById('grid-almacen-recursos');
@@ -31,16 +30,25 @@ function renderizarAlmacen() {
         if (cont) cont.innerHTML = '';
     });
 
-    // Seleccionar de forma prioritaria el contenedor activo según el DOM de la SPA actual
+    // ==========================================================================
+    // DETECCIÓN MULTI-PANTALLA BASADA EN LA VISTA ACTIVA DE LA SPA (CORREGIDO)
+    // ==========================================================================
+    const seccionFinca = document.getElementById('pantalla-finca');
+    const seccionAldea = document.getElementById('pantalla-aldea');
+    const seccionAlmacen = document.getElementById('pantalla-almacen');
+
     let contenedorGrid = null;
-    if (contenedorFinca && window.getComputedStyle(contenedorFinca).display !== 'none') {
-        contenedorGrid = contenedorFinca;
-    } else if (contenedorAldea && window.getComputedStyle(contenedorAldea).display !== 'none') {
-        contenedorGrid = contenedorAldea;
-    } else if (gridAlmacenGeneral) {
-        contenedorGrid = gridAlmacenGeneral;
+
+    // Evaluar cuál sección de juego principal de la SPA está visible en el navegador
+    if (seccionFinca && window.getComputedStyle(seccionFinca).display !== 'none') {
+        contenedorGrid = document.getElementById('finca-edificios-lista');
+    } else if (seccionAldea && window.getComputedStyle(seccionAldea).display !== 'none') {
+        contenedorGrid = document.getElementById('aldea-edificios-lista');
+    } else if (seccionAlmacen && window.getComputedStyle(seccionAlmacen).display !== 'none') {
+        contenedorGrid = document.getElementById('grid-almacen-recursos');
     } else {
-        contenedorGrid = contenedorFinca || contenedorAldea || gridAlmacenGeneral;
+        // Fallback seguro por si se llama durante transiciones rápidas
+        contenedorGrid = gridAlmacenGeneral || contenedorFinca || contenedorAldea;
     }
 
     if (!contenedorGrid) return;
