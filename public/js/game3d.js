@@ -134,19 +134,28 @@ function configurarDragAndDropCanvas(contenedorCanvas) {
 
             if (intersecciones.length > 0) {
                 const cimientoGolpeado = intersecciones[0].object;
-                const cimientoIndex = cimientoGolpeado.userData.index;
+                const cimientoIndex = parseInt(cimientoGolpeado.userData.index, 10);
                 const cimientoDbId = cimientoGolpeado.userData.id;
+
+                if (isNaN(cimientoIndex)) {
+                    console.error('El índice del cimiento golpeado no es válido.');
+                    return;
+                }
 
                 // CASO A: REORDENAMIENTO / INTERCAMBIO ENTRE CIMIENTOS 3D
                 if (origenSlotStr !== "" && origenSlotStr !== undefined) {
-                    const origenSlot = parseInt(origenSlotStr);
-                    if (origenSlot === cimientoIndex) return; // Mismo slot, no hay acción
+                    const origenSlotIdNum = parseInt(origenSlotStr, 10);
+                    if (isNaN(origenSlotIdNum)) {
+                        console.error('El slot de origen no es un número válido:', origenSlotStr);
+                        return;
+                    }
+                    if (origenSlotIdNum === cimientoIndex) return; // Mismo slot, no hay acción
 
-                    console.log(`🔄 Intercambio de cimientos detectado: Origen [${origenSlot}] ➡️ Destino [${cimientoIndex}]`);
+                    console.log(`🔄 Intercambio de cimientos detectado: Origen [${origenSlotIdNum}] ➡️ Destino [${cimientoIndex}]`);
 
                     if (typeof socket !== 'undefined' && socket && socket.connected) {
                         socket.emit('finca:intercambiar-cimientos', {
-                            origenSlotId: origenSlot,
+                            origenSlotId: origenSlotIdNum,
                             destinoSlotId: cimientoIndex
                         });
                     } else {
@@ -167,7 +176,7 @@ function configurarDragAndDropCanvas(contenedorCanvas) {
 
                 if (typeof socket !== 'undefined' && socket && socket.connected) {
                     socket.emit('finca:instalar-edificio', {
-                        slotId: cimientoDbId,
+                        slotId: cimientoIndex,
                         edificioUuid: cartaUuid,
                         cartaUuid: cartaUuid,
                         edificioId: cartaUuid,
@@ -216,10 +225,13 @@ function configurarEventosPunteroAvanzados(contenedorCanvas) {
 
                 // Si el cimiento está ocupado, iniciamos el arrastre interno 3D
                 if (cimientoGolpeado.userData.estaOcupado) {
+                    const cimientoIndexNum = parseInt(cimientoGolpeado.userData.index, 10);
+                    if (isNaN(cimientoIndexNum)) return;
+
                     arrastreActivoJS = true;
                     datosArrastreActuales = {
                         edificioUuid: cimientoGolpeado.userData.edificioUuid,
-                        origenSlot: cimientoGolpeado.userData.index,
+                        origenSlot: cimientoIndexNum,
                         tipoEdificio: cimientoGolpeado.userData.tipoEdificio
                     };
 
@@ -262,6 +274,12 @@ function configurarEventosPunteroAvanzados(contenedorCanvas) {
 
         if (!datosArrastre) return;
 
+        const slotIdNumerico = parseInt(datosArrastre.origenSlot, 10);
+        if (isNaN(slotIdNumerico)) {
+            console.error('El slot de origen extraído no es válido.');
+            return;
+        }
+
         // Verificar si el cursor se soltó sobre la banda inferior del almacén (zona de retiro)
         const elementoBandaInferior = document.querySelector('.finca-buildings-drawer');
         if (elementoBandaInferior) {
@@ -272,11 +290,10 @@ function configurarEventosPunteroAvanzados(contenedorCanvas) {
                 e.clientY >= rectBanda.top &&
                 e.clientY <= rectBanda.bottom
             ) {
-                console.log(`📦 Soltado en banda inferior. Retirando estructura del slot [${datosArrastre.origenSlot}] al almacén...`);
+                console.log(`📦 Soltado en banda inferior. Retirando estructura del slot [${slotIdNumerico}] al almacén...`);
                 if (typeof socket !== 'undefined' && socket && socket.connected) {
                     socket.emit('finca:retirar-edificio', {
-                        cimientoSlotId: datosArrastre.origenSlot,
-                        edificioUuid: datosArrastre.edificioUuid
+                        slotId: slotIdNumerico
                     });
                 }
                 return;
@@ -304,16 +321,17 @@ function configurarEventosPunteroAvanzados(contenedorCanvas) {
         const intersecciones = raycaster.intersectObjects(listaCimientos3D, true);
         if (intersecciones.length > 0) {
             const cimientoDestino = intersecciones[0].object;
-            const destinoIndex = cimientoDestino.userData.index;
+            const destinoIndexNum = parseInt(cimientoDestino.userData.index, 10);
 
-            if (datosArrastre.origenSlot === destinoIndex) return;
+            if (isNaN(destinoIndexNum)) return;
+            if (slotIdNumerico === destinoIndexNum) return;
 
-            console.log(`🔄 Intercambio avanzado de cimientos: Origen [${datosArrastre.origenSlot}] ➡️ Destino [${destinoIndex}]`);
+            console.log(`🔄 Intercambio avanzado de cimientos: Origen [${slotIdNumerico}] ➡️ Destino [${destinoIndexNum}]`);
 
             if (typeof socket !== 'undefined' && socket && socket.connected) {
                 socket.emit('finca:intercambiar-cimientos', {
-                    origenSlotId: datosArrastre.origenSlot,
-                    destinoSlotId: destinoIndex
+                    origenSlotId: slotIdNumerico,
+                    destinoSlotId: destinoIndexNum
                 });
             } else {
                 alert("❌ Error de red: No hay conexión activa con el servidor del Imperio.");
@@ -402,9 +420,9 @@ function generarCimientos(containerId, cantidad) {
             cimientoMesh.position.z = pos.z;
 
             cimientoMesh.userData = { 
-                id: null,             // ID de MongoDB sincronizado dinámicamente
+                id: null,              // ID de MongoDB sincronizado dinámicamente
                 index: i, 
-                slotIndex: i,         // Compatibilidad estricta con ranuras
+                slotIndex: i,          // Compatibilidad estricta con ranuras
                 slotId: i, 
                 estaOcupado: false,
                 tipoEdificio: null,
@@ -438,9 +456,9 @@ function generarCimientos(containerId, cantidad) {
             cimientoMesh.position.z = (fila - 1) * distancia;
 
             cimientoMesh.userData = { 
-                id: null,             // ID de MongoDB sincronizado dinámicamente
+                id: null,              // ID de MongoDB sincronizado dinámicamente
                 index: i, 
-                slotIndex: i,         // Compatibilidad estricta con ranuras
+                slotIndex: i,          // Compatibilidad estricta con ranuras
                 slotId: i, 
                 estaOcupado: false,
                 tipoEdificio: null,
@@ -519,7 +537,10 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
 
     // Luego aplicamos los edificios activos devueltos por el servidor con blindaje visual absoluto
     edificiosConstruidos.forEach(edificio => {
-        const slotId = parseInt(edificio.slotId !== undefined ? edificio.slotId : (edificio.cimientoIndex !== undefined ? edificio.cimientoIndex : edificio.slotIndex));
+        const rawSlot = edificio.slotId !== undefined ? edificio.slotId : (edificio.cimientoIndex !== undefined ? edificio.cimientoIndex : edificio.slotIndex);
+        const slotId = parseInt(rawSlot, 10);
+        if (isNaN(slotId)) return;
+
         const malla3D = listaCimientos3D.find(c => c.userData.index === slotId);
 
         if (malla3D) {
@@ -598,16 +619,19 @@ if (typeof socket !== 'undefined' && socket) {
 window.manejarDropInversoAlmacen = function(e) {
     e.preventDefault();
     const origenSlotStr = e.dataTransfer.getData('text/origen-slot');
-    const edificioUuid = e.dataTransfer.getData('text/plain');
 
     if (origenSlotStr !== "" && origenSlotStr !== undefined) {
-        const slotIndex = parseInt(origenSlotStr);
-        console.log(`📦 Retirando estructura del slot 3D [${slotIndex}] de regreso al almacén...`);
+        const slotIdNumerico = parseInt(origenSlotStr, 10);
+        if (isNaN(slotIdNumerico)) {
+            console.error('El slot de origen inverso no es válido.');
+            return;
+        }
+
+        console.log(`📦 Retirando estructura del slot 3D [${slotIdNumerico}] de regreso al almacén...`);
 
         if (typeof socket !== 'undefined' && socket && socket.connected) {
             socket.emit('finca:retirar-edificio', {
-                cimientoSlotId: slotIndex,
-                edificioUuid: edificioUuid
+                slotId: slotIdNumerico
             });
         }
     }
