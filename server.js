@@ -8,15 +8,15 @@ const { Server } = require('socket.io');
 const mongoose = require('mongoose');
 const path = require('path');
 const cors = require('cors');
-const crypto = require('crypto'); // Módulo nativo para generar UUIDs seguros
+const crypto = require('crypto');
 
 const User = require('./models/User'); 
-const GameDataModel = require('./models/GameData'); // Modelo de persistencia/control de juego
+const GameDataModel = require('./models/GameData'); 
 
 const app = express();
 const server = http.createServer(app);
 
-// Configuración de Socket.io (Configurada para mitigar caídas en Render)
+// Configuración de Socket.io
 const io = new Server(server, {
     cors: {
         origin: "*",
@@ -38,16 +38,15 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ========================================================
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/xdpro'; 
 mongoose.connect(MONGO_URI)
-  .then(() => console.log('✅ Conectado a la base de datos MongoDB'))
-  .catch(err => console.error('❌ Error conectando a MongoDB:', err));
+    .then(() => console.log('✅ Conectado a la base de datos MongoDB'))
+    .catch(err => console.error('❌ Error conectando a MongoDB:', err));
 
 // ========================================================
 // CACHÉ EN MEMORIA DEL ÁRBITRO Y CATÁLOGO DE LA TIENDA
 // ========================================================
-const cachePartidas = {}; // Guarda instancias activas indexadas por username
+const cachePartidas = {}; 
 let stockTiendaSistema = { edificios: [], aldeanos: [], equipamiento: [] };
 
-// 🛡️ CORRECCIÓN DE ALINEACIÓN: Todos los diseños base se estructuran con nivel inicial 0
 const CATALOGO_DISEÑOS = {
     edificios: [
         { subtipo: 'granja', nombre: '🌾 Granja Imperial', rareza: 'comun', precioBase: 50, nivelInicial: 0 },
@@ -62,7 +61,6 @@ const CATALOGO_DISEÑOS = {
     ]
 };
 
-// Genera cartas individuales destinadas al mostrador público de la tienda
 function crearCartaParaTienda(diseño, rubro) {
     return {
         tiendaItemId: crypto.randomUUID(), 
@@ -94,7 +92,6 @@ inicializarTiendaSistema();
 // ENDPOINTS HTTP DE AUTENTICACIÓN
 // ========================================================
 
-// 1. Endpoint de Registro
 app.post('/api/auth/register', async (req, res) => {
     const { username, password, email, pais, nombre, apellido, wallet } = req.body;
     try {
@@ -104,7 +101,6 @@ app.post('/api/auth/register', async (req, res) => {
         
         const usernameLimpio = username.trim();
         
-        // 🛡️ BLINDAJE CONTRA CACHÉ FANTASMA
         if (cachePartidas[usernameLimpio]) {
             delete cachePartidas[usernameLimpio];
         }
@@ -114,7 +110,6 @@ app.post('/api/auth/register', async (req, res) => {
             return res.status(400).json({ success: false, message: 'El Nick ya está ocupado por otro gladiador.' });
         }
         
-        // Limpiar también cualquier GameData huérfano en MongoDB
         await GameDataModel.deleteOne({ username: usernameLimpio });
 
         const nuevoUsuario = new User({ 
@@ -125,16 +120,14 @@ app.post('/api/auth/register', async (req, res) => {
             nombre: nombre ? nombre.trim() : null,
             apellido: apellido ? apellido.trim() : null,
             wallet: wallet ? wallet.trim() : null,
-            balance: 100.00 // Balance inicial de cortesía
+            balance: 100.00 
         });
         
         await nuevoUsuario.save();
 
-        // 🎁 ASIGNACIÓN DE DATOS DE JUEGO LIMPIOS
         const juegoData = new GameDataModel({ username: usernameLimpio });
         juegoData.inicializarEspaciosVacios();
 
-        // 🏛️ ÚNICA CARTA INICIAL: Inyección exclusiva de la Casona Base
         juegoData.almacenEdificiosDisponibles.push({
             uuid: crypto.randomUUID(),
             subtipo: 'casona',
@@ -152,9 +145,6 @@ app.post('/api/auth/register', async (req, res) => {
     }
 });
 
-// ========================================================
-// 2. Endpoint de Inicio de Sesión (COMPLETAMENTE CORREGIDO)
-// ========================================================
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
     try {
@@ -162,7 +152,6 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Campos incompletos.' });
         }
 
-        // Buscar al gladiador ignorando mayúsculas/minúsculas y espacios
         const usuario = await User.findOne({ 
             username: { $regex: new RegExp(`^${username.trim()}$`, 'i') } 
         });
@@ -171,7 +160,6 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(401).json({ success: false, message: 'Usuario o contraseña inválidos.' });
         }
 
-        // 🛡️ CONTROL DE ACCESO ESTRICTO: BANEO PERMANENTE
         if (usuario.status === 'banned_perm') {
             return res.status(403).json({ 
                 success: false, 
@@ -179,7 +167,6 @@ app.post('/api/auth/login', async (req, res) => {
             });
         }
 
-        // 🛡️ CONTROL DE ACCESO ESTRICTO: BANEO TEMPORAL
         if (usuario.status === 'banned_temp') {
             if (usuario.banUntil && new Date() < usuario.banUntil) {
                 const horasRestantes = Math.ceil((usuario.banUntil - new Date()) / (1000 * 60 * 60));
@@ -195,22 +182,19 @@ app.post('/api/auth/login', async (req, res) => {
             }
         }
 
-        // 🔑 VERIFICAR CONTRASEÑA ENCRIPTADA ASÍNCRONAMENTE
         const esContraseñaValida = await usuario.comparePassword(password);
         if (!esContraseñaValida) {
             return res.status(401).json({ success: false, message: 'Usuario o contraseña inválidos.' });
         }
 
-        const usernameReal = usuario.username; // Nombre exacto de la base de datos
+        const usernameReal = usuario.username; 
 
-        // 🗄️ PERSISTENCIA Y VERIFICACIÓN DE INTEGRIDAD EN MONGODB
         let juegoData = await GameDataModel.findOne({ username: usernameReal });
         
         if (!juegoData) {
             juegoData = new GameDataModel({ username: usernameReal });
             juegoData.inicializarEspaciosVacios();
             
-            // Inyección exclusiva de la Casona Base obligatoria en Nivel 0
             juegoData.almacenEdificiosDisponibles.push({
                 uuid: crypto.randomUUID(),
                 subtipo: 'casona',
@@ -220,7 +204,6 @@ app.post('/api/auth/login', async (req, res) => {
             });
             await juegoData.save();
         } else {
-            // Validar que el usuario no haya perdido su Casona Base
             const tieneCasona = juegoData.almacenEdificiosDisponibles && juegoData.almacenEdificiosDisponibles.some(e => e.subtipo === 'casona');
             const estaConstruidaCasona = juegoData.cimientosFinca && juegoData.cimientosFinca.some(c => c.estaOcupado && c.subtipo === 'casona');
 
@@ -238,11 +221,9 @@ app.post('/api/auth/login', async (req, res) => {
             }
         }
         
-        // Guardar la instancia activa en la caché RAM del Árbitro
         cachePartidas[usernameReal] = juegoData;
         cachePartidas[usernameReal]._poseeAldeaNFT = usuario.poseeAldea || false;
 
-        // Responder con éxito enviando los datos financieros y de entorno a la SPA
         return res.status(200).json({ 
             success: true, 
             userId: usuario._id,
@@ -264,15 +245,24 @@ app.post('/api/auth/login', async (req, res) => {
 io.on('connection', (socket) => {
     console.log(`🔌 Nuevo cliente conectado: ${socket.id}`);
     
-    // Capturamos el username si viene en la conexión inicial (opcional, dependiendo de tu cliente)
     if (socket.handshake.auth && socket.handshake.auth.username) {
         socket.username = socket.handshake.auth.username;
     }
 
+    // Enviamos el stock de la tienda apenas se conecte, por si el frontend lo pinta de inmediato
+    socket.emit('tienda:recibir-stock', stockTiendaSistema);
+    
+    // Evento de respaldo por si el frontend solicita el stock manualmente
+    socket.on('tienda:solicitar-stock', () => {
+        socket.emit('tienda:recibir-stock', stockTiendaSistema);
+    });
+
     // ⚡ DESPACHO AUTORITARIO DE RECURSOS DEL ALMACÉN
-    socket.on('almacen:solicitar-recursos', async () => {
-        const username = socket.username;
+    socket.on('almacen:solicitar-recursos', async (data = {}) => {
+        // 🔥 FIX IMPORTANTE: Si socket.username está vacío, lo saca de los datos (data.username)
+        const username = socket.username || data.username;
         if (!username) return;
+        socket.username = username; // Guardamos para futuras peticiones
 
         try {
             let juegoData = await GameDataModel.findOne({ username: username });
@@ -299,11 +289,14 @@ io.on('connection', (socket) => {
     socket.on('tienda:comprar-carta', async (datos) => {
         if (!datos) return;
         const { itemId, rubro } = datos;
-        const username = socket.username;
+        
+        // 🔥 FIX IMPORTANTE: Respaldo del username
+        const username = socket.username || datos.username;
 
         if (!username) {
             return socket.emit('tienda:error', 'Sesión de juego no válida. Por favor, re-conecta.');
         }
+        socket.username = username;
 
         if (!stockTiendaSistema[rubro]) {
             return socket.emit('tienda:error', 'Categoría comercial no válida.');
@@ -343,7 +336,6 @@ io.on('connection', (socket) => {
 
             const nuevoIdActivo = crypto.randomUUID();
             
-            // RUTEO 1: Aldeanos
             if (cartaTienda.tipo === 'aldeanos') {
                 let slotLibre = 0;
                 while (juegoData.carretonCartas.cartasCentral.some(c => c.slotIndex === slotLibre)) {
@@ -363,9 +355,7 @@ io.on('connection', (socket) => {
                 
                 juegoData.carretonCartas.cartasCentral.push(nuevoPoblador);
                 juegoData.markModified('carretonCartas');
-            } 
-            // RUTEO 2: Edificios
-            else {
+            } else {
                 const nuevoEdificio = {
                     id: nuevoIdActivo,
                     uuid: nuevoIdActivo,
@@ -382,7 +372,6 @@ io.on('connection', (socket) => {
 
             await juegoData.save();
 
-            // 🔄 TRIGGER DE REPOBLACIÓN
             stockTiendaSistema[rubro].splice(indexItem, 1);
             const catalogoRubro = rubro === 'aldeanos' ? 'aldeanos' : rubro;
             const diseñoOriginal = CATALOGO_DISEÑOS[catalogoRubro].find(d => d.subtipo === cartaTienda.subtipo);
@@ -411,17 +400,17 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ==========================================================================
-    // GUARDADO PERSISTENTE DEL MOVIMIENTO DRAG & DROP DEL CARRETÓN
-    // ==========================================================================
-    socket.on('carreton:guardar-posicion', async (data) => {
+    socket.on('carreton:guardar-posicion', async (data = {}) => {
         if (!data) return;
         const { cartaId, bloqueDestino, slotDestinoIndex } = data;
-        const username = socket.username;
+        
+        // 🔥 FIX IMPORTANTE
+        const username = socket.username || data.username;
 
         if (!username) {
             return socket.emit('carreton:error', 'Sesión de juego no válida o expirada.');
         }
+        socket.username = username;
         
         try {
             let juegoData = await GameDataModel.findOne({ username: username });
@@ -454,7 +443,6 @@ io.on('connection', (socket) => {
                 return socket.emit('carreton:error', 'La carta especificada no existe en tu carretón.');
             }
             
-            // 2. AUDITORÍA HABITACIONAL EXTREMA
             if (bloqueDestino === 'finca' || bloqueDestino === 'aldea') {
                 let slotsHabilitadosPorEdificios = 0;
                 
@@ -483,7 +471,6 @@ io.on('connection', (socket) => {
                 }
             }
 
-            // 3. Completar movimiento
             const indexRemover = listaOrigen.findIndex(c => c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId));
             if (indexRemover !== -1) listaOrigen.splice(indexRemover, 1);
 
@@ -507,9 +494,11 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('carreton:solicitar-datos', async () => {
-        const username = socket.username;
+    socket.on('carreton:solicitar-datos', async (data = {}) => {
+        // 🔥 FIX IMPORTANTE
+        const username = socket.username || data.username;
         if (!username) return;
+        socket.username = username;
 
         try {
             let juegoData = await GameDataModel.findOne({ username: username });
@@ -530,11 +519,8 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log(`❌ Player disconnected: ${socket.id}`);
     });
-}); // 🏛️ CIERRE DEFINITIVO Y SEGURO DE IO.ON('CONNECTION')
+});
 
-/**
- * Helper interno para centralizar el cálculo matemático de población y emitir el estado
- */
 async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
     try {
         const usuarioBD = await User.findOne({ username: username });
