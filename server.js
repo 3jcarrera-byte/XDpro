@@ -484,6 +484,7 @@ io.on('connection', (socket) => {
             const nuevoEdificioConstruido = {
                 slotIndex: cimientoIndex,
                 cimientoIndex: cimientoIndex,
+                slotId: cimientoIndex, // ⚡ CORRECCIÓN CRÍTICA: Satisface la validación 'required' del esquema GameData.js
                 estaOcupado: true,
                 subtipo: planoEdificio.subtipo,
                 nombre: planoEdificio.nombre,
