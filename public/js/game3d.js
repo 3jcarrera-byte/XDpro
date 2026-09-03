@@ -1,4 +1,4 @@
-// public/js/game3d.js (Versión Completa Definitiva - Corrección de Posiciones, Canvas y Eventos de Arrastre)
+// public/js/game3d.js (Versión Definitiva Integrada - 5 Cimientos & Receptor Drag & Drop Blindado)
 
 // Configuración global de optimización de GPU conectada con el ruteo SPA de main.js
 window.estadoMotor3D = {
@@ -8,7 +8,7 @@ window.estadoMotor3D = {
 
 // Variables de control de las instancias de Three.js
 let scene, camera, renderer;
-let cimientos = [];
+let listaCimientos3D = []; // Array unificado para el Raycasting del Drag & Drop
 let raycaster, mouse;
 
 /**
@@ -22,18 +22,19 @@ function init3D(containerId, maxCimientos) {
 
     // 1. Limpieza preventiva total del contenedor para mitigar canvas duplicados
     container.innerHTML = '';
-    cimientos = [];
+    listaCimientos3D = [];
     window.estadoMotor3D.maxCimientosActivos = maxCimientos;
 
     // 2. Creación y configuración de la Escena
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x120c09); // Fondo terráqueo imperial oscuro
 
-    // 3. Configuración de la Cámara Perspectiva
+    // 3. Configuración de la Cámara Perspectiva y exposición global segura
     const aspect = container.clientWidth / (container.clientHeight || 1);
     camera = new THREE.PerspectiveCamera(45, aspect, 1, 1000);
     camera.position.set(0, 14, 18);
     camera.lookAt(0, 0, 0);
+    window.cameraGlobalFinca = camera;
 
     // 4. Configuración del Renderizador WebGL con perfil de alto rendimiento
     renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
@@ -60,98 +61,98 @@ function init3D(containerId, maxCimientos) {
     raycaster = new THREE.Raycaster();
     mouse = new THREE.Vector2();
 
-    // 🚀 ENLACE DRAG & DROP NATIVO PARA EL LIENZO CANVAS 3D Y EL CONTENEDOR
-    configurarDragAndDropCanvas(container);
-
     // 8. Distribución y renderizado de los Cimientos lógicos
     generarCimientos(containerId, maxCimientos);
 
-    // 9. Encender el motor e iniciar el ciclo de animación inteligente
+    // 🚀 9. CONFIGURACIÓN DEL RECEPTOR DRAG & DROP NATIVO PARA EL CANVAS 3D
+    configurarDragAndDropCanvas(container);
+
+    // 10. Encender el motor e iniciar el ciclo de animación inteligente
     window.estadoMotor3D.activo = true;
     animate();
 }
 
 /**
- * Configura los eventos nativos de Drag and Drop vinculados directamente al canvas y contenedor
+ * Configura los eventos de arrastre y soltado directamente sobre el contenedor y canvas tridimensional
  */
-function configurarDragAndDropCanvas(container) {
-    // Permitir el evento dragover de manera estricta tanto en el contenedor como en el canvas
-    const permitirArrastre = (e) => {
+function configurarDragAndDropCanvas(contenedorCanvas) {
+    if (!contenedorCanvas) return;
+
+    // 1. Permitir que elementos externos sobrevuelen la rejilla tridimensional
+    contenedorCanvas.addEventListener('dragover', (e) => {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'copy';
-    };
+    });
 
-    container.addEventListener('dragover', permitirArrastre);
-    if (renderer && renderer.domElement) {
-        renderer.domElement.addEventListener('dragover', permitirArrastre);
-    }
+    contenedorCanvas.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+    });
 
-    // Función unificada para procesar el soltado (drop) de las cartas de planos
-    const procesarSoltadoPlano = (e) => {
+    // 2. Procesar el drop de la carta e interactuar con el Árbitro en Render
+    contenedorCanvas.addEventListener('drop', async (e) => {
         e.preventDefault();
         e.stopPropagation();
+
+        // Extraer el UUID único de la carta enviado por almacen.js
+        const cartaUuid = e.dataTransfer.getData('text/plain');
+        if (!cartaUuid) return;
+
+        console.log(`🏗️ Carta detectada sobre el terreno 3D. UUID: ${cartaUuid}`);
+
         if (!renderer || !camera) return;
 
-        const edificioUuid = e.dataTransfer.getData('text/plain');
-        if (!edificioUuid) return;
+        // LÓGICA DE RAYCASTING: Detectar sobre cuál cimiento amarillo se soltó la carta
+        const rect = contenedorCanvas.getBoundingClientRect();
+        const mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        const mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
-        // Calcular la posición exacta del cursor respecto al rectángulo del lienzo WebGL
-        const rect = renderer.domElement.getBoundingClientRect();
-        const clientX = e.clientX - rect.left;
-        const clientY = e.clientY - rect.top;
+        raycaster.setFromCamera(new THREE.Vector2(mouseX, mouseY), window.cameraGlobalFinca || camera);
 
-        mouse.x = (clientX / rect.width) * 2 - 1;
-        mouse.y = -(clientY / rect.height) * 2 + 1;
+        if (listaCimientos3D && listaCimientos3D.length > 0) {
+            const intersecciones = raycaster.intersectObjects(listaCimientos3D);
 
-        // Lanzar el rayo a través de la cámara hacia la escena completa
-        raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectObjects(scene.children, true);
+            if (intersecciones.length > 0) {
+                const cimientoGolpeado = intersecciones[0].object;
+                const cimientoIndex = cimientoGolpeado.userData.index; // Índice exacto del cimiento (0 a 4)
 
-        // Filtrar el objeto intersectado que pertenezca al arreglo de cimientos
-        const cimientoIntersectado = intersects.find(hit => cimientos.includes(hit.object));
+                if (cimientoGolpeado.userData.estaOcupado) {
+                    alert("❌ Este cimiento ya se encuentra ocupado por otra estructura imperial.");
+                    return;
+                }
 
-        if (cimientoIntersectado) {
-            const cimientoMalla = cimientoIntersectado.object;
-            const datosCimiento = cimientoMalla.userData;
+                console.log(`🎯 Cimiento detectado: Slot Index ${cimientoIndex}. Solicitando autorización al servidor...`);
 
-            if (datosCimiento.estaOcupado) {
-                alert("❌ Este cimiento ya se encuentra ocupado por otra estructura imperial.");
-                return;
+                // 📡 EMISIÓN AUTORITARIA AL BACKEND: Delegar la construcción segura al Árbitro
+                if (typeof socket !== 'undefined' && socket && socket.connected) {
+                    socket.emit('finca:instalar-edificio', {
+                        edificioUuid: cartaUuid,
+                        cimientoSlotId: cimientoIndex,
+                        cimientoIndex: cimientoIndex // Compatibilidad total con ambos nombres de parámetros del backend
+                    });
+                } else {
+                    alert("❌ Error de red: No hay conexión activa con el servidor del Imperio.");
+                }
+            } else {
+                console.warn("⚠️ La carta se soltó fuera de los cimientos dorados habilitados.");
             }
-
-            console.log(`🏗️ Intentando instalar plano ${edificioUuid} en cimiento 3D [Slot ${datosCimiento.slotId}]`);
-
-            if (typeof socket !== 'undefined' && socket && socket.connected) {
-                socket.emit('finca:instalar-edificio', {
-                    cimientoSlotId: datosCimiento.slotId,
-                    edificioUuid: edificioUuid
-                });
-            }
-        } else {
-            console.warn("⚠️ El plano fue soltado fuera de un cimiento 3D válido.");
         }
-    };
-
-    container.addEventListener('drop', procesarSoltadoPlano);
-    if (renderer && renderer.domElement) {
-        renderer.domElement.addEventListener('drop', procesarSoltadoPlano);
-    }
+    });
 }
 
 /**
- * Distribuye espacialmente los cimientos geométricos translúcidos en el plano (5 Cimientos corregidos para Finca)
+ * Distribuye espacialmente los cimientos geométricos translúcidos en el plano (Exactamente 5 para Finca)
  */
 function generarCimientos(containerId, cantidad) {
-    cimientos = []; 
+    listaCimientos3D = []; 
 
-    // Posiciones de los 5 cimientos corregidas milimétricamente acorde a la interfaz visual de la Finca
     if (containerId === 'canvas-finca-container') {
+        // Coordenadas milimétricas exactas alineadas con las posiciones de la interfaz visual de la Finca
         const posicionesCimientosFinca = [
-            { x: -3.5, z:  0.5 }, // 1. Cimiento izquierdo (alineado con la marca izquierda)
-            { x:  0.0, z:  1.5 }, // 2. Cimiento central izquierdo (círculo rojo izquierdo)
-            { x:  2.5, z:  1.5 }, // 3. Cimiento central derecho (círculo rojo derecho)
-            { x:  0.0, z: -2.5 }, // 4. Cimiento superior (alineado con la flecha superior)
-            { x:  4.5, z:  3.5 }  // 5. Cimiento inferior derecho externo
+            { x: -3.5, z:  0.5 }, // Cimiento 0: Izquierdo
+            { x:  0.0, z:  1.5 }, // Cimiento 1: Central izquierdo
+            { x:  2.5, z:  1.5 }, // Cimiento 2: Central derecho
+            { x:  0.0, z: -2.5 }, // Cimiento 3: Superior
+            { x:  4.5, z:  3.5 }  // Cimiento 4: Inferior derecho externo
         ];
 
         posicionesCimientosFinca.forEach((pos, i) => {
@@ -169,13 +170,14 @@ function generarCimientos(containerId, cantidad) {
             cimientoMesh.position.z = pos.z;
 
             cimientoMesh.userData = { 
+                index: i, 
                 slotId: i, 
                 estaOcupado: false,
                 tipoEdificio: null 
             };
 
             scene.add(cimientoMesh);
-            cimientos.push(cimientoMesh);
+            listaCimientos3D.push(cimientoMesh);
         });
     } else {
         // Distribución predeterminada para la Aldea (12 cimientos)
@@ -200,13 +202,14 @@ function generarCimientos(containerId, cantidad) {
             cimientoMesh.position.z = (fila - 1) * distancia;
 
             cimientoMesh.userData = { 
+                index: i, 
                 slotId: i, 
                 estaOcupado: false,
                 tipoEdificio: null 
             };
 
             scene.add(cimientoMesh);
-            cimientos.push(cimientoMesh);
+            listaCimientos3D.push(cimientoMesh);
         }
     }
 }
@@ -245,8 +248,10 @@ if (typeof socket !== 'undefined' && socket) {
         alert(data.mensaje);
         
         // Localizar de forma atómica la malla 3D correspondiente en la escena para redibujarla de forma fija
-        if (cimientos && cimientos.length > 0) {
-            const malla3D = cimientos.find(c => c.userData.slotId === parseInt(data.slotId));
+        if (listaCimientos3D && listaCimientos3D.length > 0) {
+            const slotObjetivo = parseInt(data.slotId !== undefined ? data.slotId : data.cimientoIndex);
+            const malla3D = listaCimientos3D.find(c => c.userData.index === slotObjetivo);
+            
             if (malla3D) {
                 malla3D.userData.estaOcupado = true;
                 malla3D.userData.tipoEdificio = data.subtipo;
