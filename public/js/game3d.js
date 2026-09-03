@@ -17,6 +17,11 @@ window.cacheTerrenoServidor = null;
 // Variables de control para Drag & Drop interno entre cimientos o retorno a la banda inferior
 let edificioSeleccionadoArrastre = null;
 
+// 🌐 Variables globales de control para el arrastre avanzado mediante clon HTML translúcido (pointer/mouse events)
+let arrastreActivoJS = false;
+let datosArrastreActuales = null;
+let elementoClonVisual = null;
+
 /**
  * Inicializa el entorno gráfico 3D dentro de un contenedor HTML específico
  * @param {string} containerId - ID del elemento div contenedor del canvas
@@ -31,6 +36,9 @@ function init3D(containerId, maxCimientos) {
     listaCimientos3D = [];
     window.estadoMotor3D.maxCimientosActivos = maxCimientos;
     edificioSeleccionadoArrastre = null;
+    arrastreActivoJS = false;
+    datosArrastreActuales = null;
+    removerClonVisualDOM();
 
     // 2. Creación y configuración de la Escena
     scene = new THREE.Scene();
@@ -71,8 +79,9 @@ function init3D(containerId, maxCimientos) {
     // 8. Distribución y renderizado de los Cimientos lógicos
     generarCimientos(containerId, maxCimientos);
 
-    // 🚀 9. CONFIGURACIÓN DEL RECEPTOR DRAG & DROP NATIVO PARA EL CANVAS 3D
+    // 🚀 9. CONFIGURACIÓN DEL RECEPTOR DRAG & DROP NATIVO Y PUNTERO AVANZADO PARA EL CANVAS 3D
     configurarDragAndDropCanvas(container);
+    configurarEventosPunteroAvanzados(container);
 
     // 10. Encender el motor e iniciar el ciclo de animación inteligente
     window.estadoMotor3D.activo = true;
@@ -171,6 +180,194 @@ function configurarDragAndDropCanvas(contenedorCanvas) {
             }
         }
     });
+}
+
+/**
+ * 🛠️ Sistema Avanzado de Eventos de Puntero (Pointer/Mouse Events) combinado con Raycaster dinámico
+ * Permite arrastrar estructuras desde los cimientos 3D incluso cuando Three.js bloquea los eventos nativos del DOM.
+ */
+function configurarEventosPunteroAvanzados(contenedorCanvas) {
+    if (!contenedorCanvas) return;
+
+    contenedorCanvas.addEventListener('pointerdown', (e) => {
+        // Solo botón izquierdo del ratón
+        if (e.button !== 0) return;
+
+        const activeCamera = window.cameraGlobalFinca || camera;
+        if (!renderer || !activeCamera) return;
+
+        const rect = contenedorCanvas.getBoundingClientRect();
+        const clientX = e.clientX - rect.left;
+        const clientY = e.clientY - rect.top;
+
+        mouse.x = (clientX / rect.width) * 2 - 1;
+        mouse.y = -(clientY / rect.height) * 2 + 1;
+
+        activeCamera.updateProjectionMatrix();
+        raycaster.setFromCamera(mouse, activeCamera);
+
+        if (listaCimientos3D && listaCimientos3D.length > 0) {
+            const intersecciones = raycaster.intersectObjects(listaCimientos3D, true);
+
+            if (intersecciones.length > 0) {
+                const cimientoGolpeado = intersecciones[0].object;
+
+                // Si el cimiento está ocupado, iniciamos el arrastre interno 3D
+                if (cimientoGolpeado.userData.estaOcupado) {
+                    arrastreActivoJS = true;
+                    datosArrastreActuales = {
+                        edificioUuid: cimientoGolpeado.userData.edificioUuid,
+                        origenSlot: cimientoGolpeado.userData.index,
+                        tipoEdificio: cimientoGolpeado.userData.tipoEdificio
+                    };
+
+                    // Crear e inyectar un clon HTML translúcido temporal en el DOM
+                    crearClonVisualDOM(e.clientX, e.clientY, cimientoGolpeado.userData.tipoEdificio);
+
+                    // Capturar el puntero para mantener la fluidez global
+                    try {
+                        contenedorCanvas.setPointerCapture(e.pointerId);
+                    } catch (err) {
+                        // Ignorar si el navegador no lo soporta
+                    }
+
+                    e.stopPropagation();
+                }
+            }
+        }
+    });
+
+    contenedorCanvas.addEventListener('pointermove', (e) => {
+        if (!arrastreActivoJS) return;
+
+        // Actualizar la posición del clon translúcido flotando con el cursor
+        actualizarClonVisualDOM(e.clientX, e.clientY);
+    });
+
+    contenedorCanvas.addEventListener('pointerup', async (e) => {
+        if (!arrastreActivoJS) return;
+        arrastreActivoJS = false;
+
+        try {
+            contenedorCanvas.releasePointerCapture(e.pointerId);
+        } catch (err) {
+            // Ignorar
+        }
+
+        const datosArrastre = datosArrastreActuales;
+        datosArrastreActuales = null;
+        removerClonVisualDOM();
+
+        if (!datosArrastre) return;
+
+        // Verificar si el cursor se soltó sobre la banda inferior del almacén (zona de retiro)
+        const elementoBandaInferior = document.querySelector('.finca-buildings-drawer');
+        if (elementoBandaInferior) {
+            const rectBanda = elementoBandaInferior.getBoundingClientRect();
+            if (
+                e.clientX >= rectBanda.left &&
+                e.clientX <= rectBanda.right &&
+                e.clientY >= rectBanda.top &&
+                e.clientY <= rectBanda.bottom
+            ) {
+                console.log(`📦 Soltado en banda inferior. Retirando estructura del slot [${datosArrastre.origenSlot}] al almacén...`);
+                if (typeof socket !== 'undefined' && socket && socket.connected) {
+                    socket.emit('finca:retirar-edificio', {
+                        cimientoSlotId: datosArrastre.origenSlot,
+                        edificioUuid: datosArrastre.edificioUuid
+                    });
+                }
+                return;
+            }
+        }
+
+        // De lo contrario, verificar si se soltó sobre otro cimiento 3D mediante Raycaster
+        const activeCamera = window.cameraGlobalFinca || camera;
+        if (!renderer || !activeCamera) return;
+
+        const rect = contenedorCanvas.getBoundingClientRect();
+        const clientX = e.clientX - rect.left;
+        const clientY = e.clientY - rect.top;
+
+        if (clientX < 0 || clientX > rect.width || clientY < 0 || clientY > rect.height) {
+            return; // Soltado fuera del canvas
+        }
+
+        mouse.x = (clientX / rect.width) * 2 - 1;
+        mouse.y = -(clientY / rect.height) * 2 + 1;
+
+        activeCamera.updateProjectionMatrix();
+        raycaster.setFromCamera(mouse, activeCamera);
+
+        const intersecciones = raycaster.intersectObjects(listaCimientos3D, true);
+        if (intersecciones.length > 0) {
+            const cimientoDestino = intersecciones[0].object;
+            const destinoIndex = cimientoDestino.userData.index;
+
+            if (datosArrastre.origenSlot === destinoIndex) return;
+
+            console.log(`🔄 Intercambio avanzado de cimientos: Origen [${datosArrastre.origenSlot}] ➡️ Destino [${destinoIndex}]`);
+
+            if (typeof socket !== 'undefined' && socket && socket.connected) {
+                socket.emit('finca:intercambiar-cimientos', {
+                    origenSlotId: datosArrastre.origenSlot,
+                    destinoSlotId: destinoIndex
+                });
+            } else {
+                alert("❌ Error de red: No hay conexión activa con el servidor del Imperio.");
+            }
+        }
+    });
+}
+
+/**
+ * Crea un elemento HTML flotante translúcido para representar visualmente el arrastre
+ */
+function crearClonVisualDOM(x, y, tipoEdificio) {
+    removerClonVisualDOM();
+
+    elementoClonVisual = document.createElement('div');
+    elementoClonVisual.id = 'drag-clon-visual-temporal';
+    elementoClonVisual.style.position = 'fixed';
+    elementoClonVisual.style.left = `${x - 40}px`;
+    elementoClonVisual.style.top = `${y - 40}px`;
+    elementoClonVisual.style.width = '80px';
+    elementoClonVisual.style.height = '80px';
+    elementoClonVisual.style.background = tipoEdificio === 'casona' ? 'rgba(139, 69, 19, 0.85)' : 'rgba(74, 93, 78, 0.85)';
+    elementoClonVisual.style.border = '2px solid #ffd700';
+    elementoClonVisual.style.borderRadius = '8px';
+    elementoClonVisual.style.zIndex = '999999';
+    elementoClonVisual.style.pointerEvents = 'none';
+    elementoClonVisual.style.display = 'flex';
+    elementoClonVisual.style.alignItems = 'center';
+    elementoClonVisual.style.justifyContent = 'center';
+    elementoClonVisual.style.color = '#ffd700';
+    elementoClonVisual.style.fontFamily = "'Cinzel', serif";
+    elementoClonVisual.style.fontSize = '11px';
+    elementoClonVisual.style.textAlign = 'center';
+    elementoClonVisual.style.boxShadow = '0 0 15px rgba(212, 175, 55, 0.6)';
+    elementoClonVisual.innerText = tipoEdificio ? tipoEdificio.toUpperCase() : 'ESTRUCTURA';
+
+    document.body.appendChild(elementoClonVisual);
+}
+
+/**
+ * Actualiza la posición del clon flotante con el movimiento del ratón
+ */
+function actualizarClonVisualDOM(x, y) {
+    if (!elementoClonVisual) return;
+    elementoClonVisual.style.left = `${x - 40}px`;
+    elementoClonVisual.style.top = `${y - 40}px`;
+}
+
+/**
+ * Remueve el clon visual temporal del DOM
+ */
+function removerClonVisualDOM() {
+    if (elementoClonVisual && elementoClonVisual.parentNode) {
+        elementoClonVisual.parentNode.removeChild(elementoClonVisual);
+    }
+    elementoClonVisual = null;
 }
 
 /**
@@ -295,6 +492,9 @@ window.reanudarAnimacion3D = function() {
 
 /**
  * Función centralizada para actualizar los materiales de las mallas 3D según el estado del terreno
+ * 🛡️ CORRECCIÓN DEFINITIVA DE VISIBILIDAD AL REINGRESAR:
+ * Forzamos la asignación estricta de opacidad y color según el subtipo ('casona' u otros),
+ * evitando que la casona o estructuras adyacentes queden transparentes o invisibles tras recargar vistas SPA.
  */
 function sincronizarTerrenoEnMallas(edificiosConstruidos) {
     if (!edificiosConstruidos || !Array.isArray(edificiosConstruidos)) return;
@@ -306,10 +506,11 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
         malla.userData.edificioUuid = null;
         malla.material.color.setHex(0xd4af37);
         malla.material.opacity = 0.35;
+        malla.material.transparent = true;
         malla.material.needsUpdate = true;
     });
 
-    // Luego aplicamos los edificios activos devueltos por el servidor
+    // Luego aplicamos los edificios activos devueltos por el servidor con blindaje visual absoluto
     edificiosConstruidos.forEach(edificio => {
         const slotId = parseInt(edificio.slotId !== undefined ? edificio.slotId : edificio.cimientoIndex);
         const malla3D = listaCimientos3D.find(c => c.userData.index === slotId);
@@ -321,10 +522,12 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
 
             if (edificio.subtipo === 'casona') {
                 malla3D.material.color.setHex(0x8b4513); // Marrón terráqueo Casona
-                malla3D.material.opacity = 0.95;
+                malla3D.material.opacity = 0.98;         // Opacidad alta para evitar invisibilidad al reingresar
+                malla3D.material.transparent = false;    // Sólido para prevenir fallos de renderizado WebGL Depth
             } else {
                 malla3D.material.color.setHex(0x4a5d4e); // Verde estructurado
-                malla3D.material.opacity = 0.90;
+                malla3D.material.opacity = 0.92;
+                malla3D.material.transparent = true;
             }
 
             // 🚀 DISPARADOR DE GPU: Fuerza al renderizador a refrescar el material inmediatamente
@@ -332,7 +535,7 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
         }
     });
 
-    console.log("🎨 Sincronización visual de la Finca completada en GPU.");
+    console.log("🎨 Sincronización visual y blindaje de la Finca completada en GPU sin fallos de invisibilidad.");
 }
 
 // ==========================================================================
