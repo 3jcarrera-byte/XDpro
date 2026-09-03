@@ -228,8 +228,11 @@
   <!-- 4. MÓDULOS DE GESTIÓN, ECONOMÍA Y SOPORTE                -->
   <!-- ======================================================== -->
   <!-- ALMACÉN -->
-  <div id="pantalla-almacen" class="seccion-juego" style="display: none;">
+  <div id="pantalla-almacen" class="seccion-juego" style="display: none; padding: 20px;">
     <h2>Almacén de Recursos y Cartas</h2>
+    <div id="grid-almacen-recursos" class="market-cards-grid" style="display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0;">
+      <!-- Las cartas del almacén general se inyectarán dinámicamente aquí -->
+    </div>
     <button onclick="cambiarPantalla('pantalla-menu-principal')">🔙 Volver</button>
   </div>
 
@@ -284,6 +287,7 @@
           <span id="carreton-central-capacidad" class="status-indicator-online" style="background: rgba(212, 175, 55, 0.2); color: #ffd700; border: 1px solid #d4af37; padding: 5px 12px; border-radius: 4px;">
             Slots Centrales: 0 / 0
           </span>
+
         </div>
 
         <!-- 3 CONTENEDORES PRINCIPALES ENMARCADOS -->
@@ -320,9 +324,9 @@
   </div>
 
  <!-- ======================================================== -->
-  <!-- 4. PANTALLA: MERCADO MUNDIAL P2P (Sistema Avanzado)      -->
-  <!-- ======================================================== -->
-  <div id="pantalla-mercado" class="seccion-juego" style="display: none; padding: 0 !important;">
+ <!-- 4. PANTALLA: MERCADO MUNDIAL P2P (Sistema Avanzado)      -->
+ <!-- ======================================================== -->
+ <div id="pantalla-mercado" class="seccion-juego" style="display: none; padding: 0 !important;">
     
     <!-- BARRA SUPERIOR IMPERIAL DE FONDOS REGENERADA -->
     <header class="player-top-bar">
@@ -453,17 +457,17 @@
   </div> <!-- Asegúrate de que este div cierre aquí -->
 
  <!-- ======================================================== -->
-<!-- 5. CONTROL SCRIPTS (REPARADO Y COMPLETADO)               -->
-<!-- ======================================================== -->
-<!-- Módulos Core del Motor Gráfico 3D -->
-<script src="https://cloudflare.com"></script>
+ <!-- 5. CONTROL SCRIPTS (REPARADO Y COMPLETADO)                -->
+ <!-- ======================================================== -->
+ <!-- Módulos Core del Motor Gráfico 3D -->
+ <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-<!-- Lógica del Cliente del Imperio (ORDEN DE CARGA SANEADO) -->
-<script src="js/main.js"></script>
-<script src="js/game3d.js"></script>
-<script src="js/almacen.js"></script>
-<script src="js/carreton.js"></script>
-<script src="js/mercado.js"></script>
+ <!-- Lógica del Cliente del Imperio (ORDEN DE CARGA SANEADO) -->
+ <script src="js/main.js"></script>
+ <script src="js/game3d.js"></script>
+ <script src="js/almacen.js"></script>
+ <script src="js/carreton.js"></script>
+ <script src="js/mercado.js"></script>
   
   </body>
 </html>
