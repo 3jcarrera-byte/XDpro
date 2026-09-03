@@ -249,20 +249,16 @@ io.on('connection', (socket) => {
         socket.username = socket.handshake.auth.username;
     }
 
-    // Enviamos el stock de la tienda apenas se conecte, por si el frontend lo pinta de inmediato
     socket.emit('tienda:recibir-stock', stockTiendaSistema);
     
-    // Evento de respaldo por si el frontend solicita el stock manualmente
     socket.on('tienda:solicitar-stock', () => {
         socket.emit('tienda:recibir-stock', stockTiendaSistema);
     });
 
-    // ⚡ DESPACHO AUTORITARIO DE RECURSOS DEL ALMACÉN
     socket.on('almacen:solicitar-recursos', async (data = {}) => {
-        // 🔥 FIX IMPORTANTE: Si socket.username está vacío, lo saca de los datos (data.username)
         const username = socket.username || data.username;
         if (!username) return;
-        socket.username = username; // Guardamos para futuras peticiones
+        socket.username = username;
 
         try {
             let juegoData = await GameDataModel.findOne({ username: username });
@@ -285,16 +281,22 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 🏪 TRANSACCIÓN ECONÓMICA ATÓMICA DE LA TIENDA DEL SISTEMA
+    // 🏪 TRANSACCIÓN ECONÓMICA ATÓMICA DE LA TIENDA (BLINDADA CONTRA NOMBRES VACÍOS)
     socket.on('tienda:comprar-carta', async (datos) => {
         if (!datos) return;
         const { itemId, rubro } = datos;
         
-        // 🔥 FIX IMPORTANTE: Respaldo del username
-        const username = socket.username || datos.username;
+        // 🛡️ BÚSQUEDA EN CASCADA DEL USUARIO: 1. Socket, 2. Datos enviados, 3. Último usuario activo en caché RAM
+        let username = socket.username || datos.username;
+        if (!username) {
+            const llavesCache = Object.keys(cachePartidas);
+            if (llavesCache.length > 0) {
+                username = llavesCache[llavesCache.length - 1]; // Toma el último usuario logueado en la memoria del servidor
+            }
+        }
 
         if (!username) {
-            return socket.emit('tienda:error', 'Sesión de juego no válida. Por favor, re-conecta.');
+            return socket.emit('tienda:error', 'Sesión de juego no válida. Por favor, recarga o re-conecta.');
         }
         socket.username = username;
 
@@ -328,7 +330,7 @@ io.on('connection', (socket) => {
             const maxSlotsCentral = cachePartidas[username]._poseeAldeaNFT ? 24 : 8;
             
             if (cartaTienda.tipo === 'aldeanos' && juegoData.carretonCartas.cartasCentral.length >= maxSlotsCentral) {
-                return socket.emit('tienda:error', 'Tu Carretón Central está lleno. Requierre liberar slots.');
+                return socket.emit('tienda:error', 'Tu Carretón Central está lleno. Requiere liberar slots.');
             }
 
             usuario.balance -= cartaTienda.precio;
@@ -404,8 +406,11 @@ io.on('connection', (socket) => {
         if (!data) return;
         const { cartaId, bloqueDestino, slotDestinoIndex } = data;
         
-        // 🔥 FIX IMPORTANTE
-        const username = socket.username || data.username;
+        let username = socket.username || data.username;
+        if (!username) {
+            const llavesCache = Object.keys(cachePartidas);
+            if (llavesCache.length > 0) username = llavesCache[llavesCache.length - 1];
+        }
 
         if (!username) {
             return socket.emit('carreton:error', 'Sesión de juego no válida o expirada.');
@@ -483,7 +488,6 @@ io.on('connection', (socket) => {
 
             juegoData.markModified('carretonCartas');
             await juegoData.save();
-            console.log(`💾 Movimiento salvado de forma persistente en MongoDB para ${username}.`);
 
             if (typeof forzarEnvioEstadoCarreton === 'function') {
                 await forzarEnvioEstadoCarreton(socket, username, juegoData);
@@ -495,8 +499,11 @@ io.on('connection', (socket) => {
     });
 
     socket.on('carreton:solicitar-datos', async (data = {}) => {
-        // 🔥 FIX IMPORTANTE
-        const username = socket.username || data.username;
+        let username = socket.username || data.username;
+        if (!username) {
+            const llavesCache = Object.keys(cachePartidas);
+            if (llavesCache.length > 0) username = llavesCache[llavesCache.length - 1];
+        }
         if (!username) return;
         socket.username = username;
 
