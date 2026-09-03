@@ -1,4 +1,4 @@
-// public/js/game3d.js (Versión Definitiva con Doble Compatibilidad de Emisión y Actualización de Terreno)
+// public/js/game3d.js (Versión Definitiva con Calibración Geométrica de Raycasting y GPU)
 
 // Configuración global de optimización de GPU conectada con el ruteo SPA de main.js
 window.estadoMotor3D = {
@@ -88,32 +88,38 @@ function configurarDragAndDropCanvas(contenedorCanvas) {
         e.preventDefault();
     });
 
-    // 2. Procesar el drop de la carta e interactuar con el Árbitro en Render
+    // 2. Procesar el drop de la carta con calibración geométrica y compensación de offsets
     contenedorCanvas.addEventListener('drop', async (e) => {
         e.preventDefault();
         e.stopPropagation();
 
-        // Extraer el UUID único de la carta enviado por almacen.js
         const cartaUuid = e.dataTransfer.getData('text/plain');
         if (!cartaUuid) return;
 
         console.log(`🏗️ Carta detectada sobre el terreno 3D. UUID: ${cartaUuid}`);
 
-        if (!renderer || !camera) return;
+        const activeCamera = window.cameraGlobalFinca || camera;
+        if (!renderer || !activeCamera) return;
 
-        // LÓGICA DE RAYCASTING: Detectar sobre cuál cimiento amarillo se soltó la carta
+        // 📐 Compensación milimétrica absoluta de offsets y barras de menú del layout imperial
         const rect = contenedorCanvas.getBoundingClientRect();
-        const mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        const mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        const clientX = e.clientX - rect.left;
+        const clientY = e.clientY - rect.top;
 
-        raycaster.setFromCamera(new THREE.Vector2(mouseX, mouseY), window.cameraGlobalFinca || camera);
+        mouse.x = (clientX / rect.width) * 2 - 1;
+        mouse.y = -(clientY / rect.height) * 2 + 1;
+
+        // 🔄 Actualización obligatoria de la matriz de proyección para evitar desfases de profundidad
+        activeCamera.updateProjectionMatrix();
+        raycaster.setFromCamera(mouse, activeCamera);
 
         if (listaCimientos3D && listaCimientos3D.length > 0) {
-            const intersecciones = raycaster.intersectObjects(listaCimientos3D);
+            // 🎯 Parámetro 'true' incorporado para registrar colisiones exactas en mallas translúcidas
+            const intersecciones = raycaster.intersectObjects(listaCimientos3D, true);
 
             if (intersecciones.length > 0) {
                 const cimientoGolpeado = intersecciones[0].object;
-                const cimientoIndex = cimientoGolpeado.userData.index; // Índice exacto del cimiento (0 a 4)
+                const cimientoIndex = cimientoGolpeado.userData.index;
 
                 if (cimientoGolpeado.userData.estaOcupado) {
                     alert("❌ Este cimiento ya se encuentra ocupado por otra estructura imperial.");
@@ -122,12 +128,11 @@ function configurarDragAndDropCanvas(contenedorCanvas) {
 
                 console.log(`🎯 Cimiento detectado: Slot Index ${cimientoIndex}. Solicitando autorización al servidor...`);
 
-                // 📡 EMISIÓN AUTORITARIA AL BACKEND: Cobertura total de nombres de variables para el Árbitro
                 if (typeof socket !== 'undefined' && socket && socket.connected) {
                     socket.emit('finca:instalar-edificio', {
                         edificioUuid: cartaUuid,
-                        cartaUuid: cartaUuid,       // Cubre la propiedad que lee el backend estricto
-                        edificioId: cartaUuid,      // Cobertura alternativa genérica
+                        cartaUuid: cartaUuid,
+                        edificioId: cartaUuid,
                         cimientoSlotId: cimientoIndex,
                         cimientoIndex: cimientoIndex
                     });
@@ -148,7 +153,6 @@ function generarCimientos(containerId, cantidad) {
     listaCimientos3D = []; 
 
     if (containerId === 'canvas-finca-container') {
-        // Coordenadas milimétricas exactas alineadas con las posiciones de la interfaz visual de la Finca
         const posicionesCimientosFinca = [
             { x: -3.5, z:  0.5 }, // Cimiento 0: Izquierdo
             { x:  0.0, z:  1.5 }, // Cimiento 1: Central izquierdo
@@ -182,7 +186,6 @@ function generarCimientos(containerId, cantidad) {
             listaCimientos3D.push(cimientoMesh);
         });
     } else {
-        // Distribución predeterminada para la Aldea (12 cimientos)
         const columnas = cantidad === 16 ? 4 : 3; 
         const distancia = 4.5; 
 
@@ -250,7 +253,6 @@ if (typeof socket !== 'undefined' && socket) {
     socket.on('finca:construccion-exitosa', (data) => {
         if (data.mensaje) alert(data.mensaje);
         
-        // Localizar de forma atómica la malla 3D correspondiente en la escena para redibujarla
         if (listaCimientos3D && listaCimientos3D.length > 0) {
             const slotObjetivo = parseInt(data.slotId !== undefined ? data.slotId : data.cimientoIndex);
             const malla3D = listaCimientos3D.find(c => c.userData.index === slotObjetivo);
@@ -259,12 +261,11 @@ if (typeof socket !== 'undefined' && socket) {
                 malla3D.userData.estaOcupado = true;
                 malla3D.userData.tipoEdificio = data.subtipo;
                 
-                // Si es la Casona residencial, cambia su color a terracota romano para dar feedback visual y fijarlo
                 if (data.subtipo === 'casona') {
                     malla3D.material.color.setHex(0x8b4513); 
                     malla3D.material.opacity = 0.95;
                 } else {
-                    malla3D.material.color.setHex(0x4a5d4e); // Color piedra base
+                    malla3D.material.color.setHex(0x4a5d4e);
                     malla3D.material.opacity = 0.90;
                 }
 
@@ -273,7 +274,6 @@ if (typeof socket !== 'undefined' && socket) {
             }
         }
 
-        // Actualizar dinámicamente el almacén y el carretón de población
         if (typeof cargarAlmacen === 'function') cargarAlmacen();
         if (typeof cargarCarreton === 'function') cargarCarreton();
     });
