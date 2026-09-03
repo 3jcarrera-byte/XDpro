@@ -152,7 +152,9 @@ app.post('/api/auth/register', async (req, res) => {
     }
 });
 
-// 2. Endpoint de Inicio de Sesión
+// ========================================================
+// 2. Endpoint de Inicio de Sesión (COMPLETAMENTE CORREGIDO)
+// ========================================================
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
     try {
@@ -160,6 +162,7 @@ app.post('/api/auth/login', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Campos incompletos.' });
         }
 
+        // Buscar al gladiador ignorando mayúsculas/minúsculas y espacios
         const usuario = await User.findOne({ 
             username: { $regex: new RegExp(`^${username.trim()}$`, 'i') } 
         });
@@ -192,8 +195,61 @@ app.post('/api/auth/login', async (req, res) => {
             }
         }
 
-        // 💡 NOTA: Asegúrate de tener declarada la función procesarConclusionLogin en alguna parte de tu código.
-        return procesarConclusionLogin(req, res, usuario, password);
+        // 🔑 VERIFICAR CONTRASEÑA ENCRIPTADA ASÍNCRONAMENTE
+        const esContraseñaValida = await usuario.comparePassword(password);
+        if (!esContraseñaValida) {
+            return res.status(401).json({ success: false, message: 'Usuario o contraseña inválidos.' });
+        }
+
+        const usernameReal = usuario.username; // Nombre exacto de la base de datos
+
+        // 🗄️ PERSISTENCIA Y VERIFICACIÓN DE INTEGRIDAD EN MONGODB
+        let juegoData = await GameDataModel.findOne({ username: usernameReal });
+        
+        if (!juegoData) {
+            juegoData = new GameDataModel({ username: usernameReal });
+            juegoData.inicializarEspaciosVacios();
+            
+            // Inyección exclusiva de la Casona Base obligatoria en Nivel 0
+            juegoData.almacenEdificiosDisponibles.push({
+                uuid: crypto.randomUUID(),
+                subtipo: 'casona',
+                nombre: '🏛️ Casona Base',
+                rareza: 'comun',
+                nivel: 0
+            });
+            await juegoData.save();
+        } else {
+            // Validar que el usuario no haya perdido su Casona Base
+            const tieneCasona = juegoData.almacenEdificiosDisponibles && juegoData.almacenEdificiosDisponibles.some(e => e.subtipo === 'casona');
+            const estaConstruidaCasona = juegoData.cimientosFinca && juegoData.cimientosFinca.some(c => c.estaOcupado && c.subtipo === 'casona');
+
+            if (!tieneCasona && !estaConstruidaCasona) {
+                if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
+                juegoData.almacenEdificiosDisponibles.push({
+                    uuid: crypto.randomUUID(),
+                    subtipo: 'casona',
+                    nombre: '🏛️ Casona Base',
+                    rareza: 'comun',
+                    nivel: 0
+                });
+                juegoData.markModified('almacenEdificiosDisponibles');
+                await juegoData.save();
+            }
+        }
+        
+        // Guardar la instancia activa en la caché RAM del Árbitro
+        cachePartidas[usernameReal] = juegoData;
+        cachePartidas[usernameReal]._poseeAldeaNFT = usuario.poseeAldea || false;
+
+        // Responder con éxito enviando los datos financieros y de entorno a la SPA
+        return res.status(200).json({ 
+            success: true, 
+            userId: usuario._id,
+            username: usernameReal,
+            balance: usuario.balance || 0,
+            poseeAldea: usuario.poseeAldea || false 
+        });
         
     } catch (error) {
         console.error('❌ Error crítico en la autenticación:', error);
