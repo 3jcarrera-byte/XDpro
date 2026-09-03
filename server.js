@@ -484,7 +484,7 @@ socket.on('finca:instalar-edificio', async (datos) => {
         const nuevoEdificioConstruido = {
             slotIndex: cimientoIndex,
             cimientoIndex: cimientoIndex,
-            slotId: cimientoIndex, // ⚡ CORRECCIÓN CRÍTICA: Satisface la validación 'required' del esquema GameData.js
+            slotId: cimientoIndex, 
             estaOcupado: true,
             subtipo: planoEdificio.subtipo,
             nombre: planoEdificio.nombre,
@@ -517,7 +517,6 @@ socket.on('finca:instalar-edificio', async (datos) => {
             recursos: juegoData.almacenEdificiosDisponibles || [] 
         });
 
-        // Sincronizar el terreno actualizado a 3D
         socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca || []);
 
         if (typeof forzarEnvioEstadoCarreton === 'function') {
@@ -527,6 +526,76 @@ socket.on('finca:instalar-edificio', async (datos) => {
     } catch (error) {
         console.error("❌ Error procesando obra civil en el servidor:", error);
         socket.emit('finca:error', 'El Árbitro experimentó un fallo interno al cimentar.');
+    }
+});
+
+// ==========================================================================
+// 🏗️ INGENIERÍA DE RETIRO DE OBRA CIVIL (3D -> ALMACÉN)
+// ==========================================================================
+socket.on('finca:retirar-edificio', async (datos) => {
+    if (!datos) return;
+    const cimientoIndex = parseInt(datos.cimientoIndex !== undefined ? datos.cimientoIndex : datos.slotIndex);
+    const username = socket.username;
+
+    if (!username) {
+        return socket.emit('finca:error', 'Sesión de juego no válida.');
+    }
+
+    try {
+        let juegoData = await GameDataModel.findOne({ username: username });
+        if (!juegoData && cachePartidas[username]) {
+            juegoData = cachePartidas[username];
+        }
+        if (!juegoData) {
+            return socket.emit('finca:error', 'Datos imperiales no encontrados.');
+        }
+        cachePartidas[username] = juegoData;
+
+        const cimientoIdx = juegoData.cimientosFinca.findIndex(c => c.slotIndex === cimientoIndex && c.estaOcupado);
+        if (cimientoIdx === -1) {
+            return socket.emit('finca:error', 'No hay ninguna estructura activa en este cimiento.');
+        }
+
+        const edificioRetirado = juegoData.cimientosFinca[cimientoIdx];
+
+        if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
+        juegoData.almacenEdificiosDisponibles.push({
+            uuid: crypto.randomUUID(),
+            id: crypto.randomUUID(),
+            subtipo: edificioRetirado.subtipo,
+            nombre: edificioRetirado.nombre,
+            rareza: edificioRetirado.rareza,
+            nivel: edificioRetirado.nivel || 0
+        });
+
+        juegoData.cimientosFinca[cimientoIdx] = {
+            slotIndex: cimientoIndex,
+            cimientoIndex: cimientoIndex,
+            slotId: cimientoIndex,
+            estaOcupado: false,
+            subtipo: null,
+            nombre: null,
+            rareza: null,
+            nivel: 0,
+            pobladoresAsignados: []
+        };
+
+        juegoData.markModified('cimientosFinca');
+        juegoData.markModified('almacenEdificiosDisponibles');
+        await juegoData.save();
+
+        socket.emit('finca:retiro-exitoso', { slotIndex: cimientoIndex });
+        socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles || [] });
+        socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca || []);
+
+        if (typeof forzarEnvioEstadoCarreton === 'function') {
+            await forzarEnvioEstadoCarreton(socket, username, juegoData);
+        }
+
+        console.log(`♻️ Estructura '${edificioRetirado.nombre}' retirada del cimiento ${cimientoIndex} para ${username}.`);
+    } catch (error) {
+        console.error("❌ Error al procesar retiro de edificio:", error);
+        socket.emit('finca:error', 'Fallo interno al desinstalar la estructura.');
     }
 });
 
@@ -715,7 +784,7 @@ const poseeNFT = usuarioBD ? usuarioBD.poseeAldea : false;
 // ==========================================================================
 // ⏳ MOTOR MAESTRO DE PRODUCCIÓN DE RECURSOS POR TICKS
 // ==========================================================================
-const INTERVALO_PRODUCCION_MS = 10000; // Ejecución cada 10 segundos para fase de pruebas
+const INTERVALO_PRODUCCION_MS = 10000;
 
 setInterval(async () => {
 const usuariosActivos = Object.keys(cachePartidas);
@@ -732,38 +801,31 @@ for (const username of usuariosActivos) {
         let maderaProducida = 0;
         let oroProducido = 0;
 
-        // 1. Recorrer los cimientos ocupados de la Finca para calcular la cosecha en caliente
         juegoData.cimientosFinca.forEach(cimiento => {
             if (cimiento.estaOcupado) {
                 const nivelEdificio = cimiento.nivel || 0;
                 
                 if (cimiento.subtipo === 'aserradero') {
-                    // Producción Base: 2 de madera + 1 por cada nivel del edificio
                     maderaProducida += 2 + nivelEdificio;
                     huboCambios = true;
                 } 
                 else if (cimiento.subtipo === 'granja') {
-                    // Producción Base: 1 de oro (comercio de trigo) + 1 por nivel
                     oroProducido += 1 + nivelEdificio;
                     huboCambios = true;
                 }
             }
         });
 
-        // 2. Si se generaron recursos, actualizar la matriz de inventario en Mongoose
         if (huboCambios) {
             if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
 
             actualizarStackRecurso(juegoData.almacenEdificiosDisponibles, 'madera', '🪵 Madera Imperial', maderaProducida);
             actualizarStackRecurso(juegoData.almacenEdificiosDisponibles, 'oro', '🪙 Oro Acuñado', oroProducido);
 
-            // Forzar a Mongoose a registrar la mutación profunda en subdocumentos de arreglos
             juegoData.markModified('almacenEdificiosDisponibles');
             
-            // Guardado persistente en MongoDB en segundo plano
             await juegoData.save();
 
-            // 📡 EMISIÓN REACTIVA: Notificar en vivo al cliente para actualizar la gaveta del almacén
             const socketsEnPantalla = await io.fetchSockets();
             const socketJugador = socketsEnPantalla.find(s => s.username === username);
             
@@ -779,20 +841,15 @@ for (const username of usuariosActivos) {
 }
 }, INTERVALO_PRODUCCION_MS);
 
-// Helper atómico para buscar recursos existentes o inyectar nuevos respetando stacks
-//
 function actualizarStackRecurso(almacen, subtipo, nombre, cantidadASumar) {
 if (cantidadASumar <= 0) return;
 
-// Buscar si el jugador ya tiene un montón de este recurso en su almacén
 const itemExistente = almacen.find(i => i.subtipo === subtipo);
 
 if (itemExistente) {
-// Asegurar que nivel sea tratado numéricamente de forma segura
 const cantidadActual = Number(itemExistente.nivel) || 0;
 itemExistente.nivel = cantidadActual + cantidadASumar;
 } else {
-// Crear un nuevo slot de recurso si es la primera vez que se genera
 almacen.push({
 id: crypto.randomUUID(),
 uuid: crypto.randomUUID(),
@@ -817,5 +874,5 @@ res.sendFile(path.join(__dirname, 'public', 'index.html'));
 const PORT = process.env.PORT || 5173;
 
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 Árbitro de XDpro corriendo en el puerto ${PORT}`); // ⚡ REPARADO: Comillas invertidas añadidas
+    console.log(`🚀 Árbitro de XDpro corriendo en el puerto ${PORT}`);
 });
