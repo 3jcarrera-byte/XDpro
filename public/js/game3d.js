@@ -64,7 +64,7 @@ function init3D(containerId, maxCimientos) {
     configurarDragAndDropCanvas(container);
 
     // 8. Distribución y renderizado de los Cimientos lógicos
-    generarCimientos(maxCimientos);
+    generarCimientos(containerId, maxCimientos);
 
     // 9. Encender el motor e iniciar el ciclo de animación inteligente
     window.estadoMotor3D.activo = true;
@@ -125,36 +125,74 @@ function configurarDragAndDropCanvas(container) {
 /**
  * Distribuye espacialmente los cimientos geométricos translúcidos en el plano
  */
-function generarCimientos(cantidad) {
+function generarCimientos(containerId, cantidad) {
     cimientos = []; 
-    const columnas = cantidad === 16 ? 4 : 3; 
-    const distancia = 4.5; 
 
-    for (let i = 0; i < cantidad; i++) {
-        const geometry = new THREE.BoxGeometry(2.5, 0.4, 2.5);
-        const material = new THREE.MeshStandardMaterial({ 
-            color: 0xd4af37, // Oro imperial translúcido
-            transparent: true, 
-            opacity: 0.25,
-            roughness: 0.5
+    // Si nos encontramos en la pantalla de finca, utilizamos exactamente las coordenadas de las X rojas de la imagen
+    if (containerId === 'canvas-finca-container') {
+        const posicionesCimientosFinca = [
+            { x: -3, z: -3 }, // X roja superior izquierda aproximada
+            { x:  3, z: -2 }, // X roja superior derecha aproximada
+            { x: -1, z:  0 }, // X roja central izquierda
+            { x:  1, z:  0 }, // X roja central derecha
+            { x: -5, z:  4 }, // X roja inferior izquierda externa
+            { x:  5, z:  4 }  // X roja inferior derecha externa
+        ];
+
+        posicionesCimientosFinca.forEach((pos, i) => {
+            const geometry = new THREE.BoxGeometry(2.5, 0.4, 2.5);
+            const material = new THREE.MeshStandardMaterial({ 
+                color: 0xd4af37, // Oro imperial translúcido
+                transparent: true, 
+                opacity: 0.25,
+                roughness: 0.5
+            });
+            const cimientoMesh = new THREE.Mesh(geometry, material);
+
+            cimientoMesh.position.x = pos.x;
+            cimientoMesh.position.y = 0.2; 
+            cimientoMesh.position.z = pos.z;
+
+            cimientoMesh.userData = { 
+                slotId: i, 
+                estaOcupado: false,
+                tipoEdificio: null 
+            };
+
+            scene.add(cimientoMesh);
+            cimientos.push(cimientoMesh);
         });
-        const cimientoMesh = new THREE.Mesh(geometry, material);
+    } else {
+        // Distribución original predeterminada para la Aldea u otros contenedores
+        const columnas = cantidad === 16 ? 4 : 3; 
+        const distancia = 4.5; 
 
-        const fila = Math.floor(i / columnas);
-        const col = i % columnas;
+        for (let i = 0; i < cantidad; i++) {
+            const geometry = new THREE.BoxGeometry(2.5, 0.4, 2.5);
+            const material = new THREE.MeshStandardMaterial({ 
+                color: 0xd4af37, 
+                transparent: true, 
+                opacity: 0.25,
+                roughness: 0.5
+            });
+            const cimientoMesh = new THREE.Mesh(geometry, material);
 
-        cimientoMesh.position.x = (col - (columnas - 1) / 2) * distancia;
-        cimientoMesh.position.y = 0.2; 
-        cimientoMesh.position.z = (fila - 1) * distancia;
+            const fila = Math.floor(i / columnas);
+            const col = i % columnas;
 
-        cimientoMesh.userData = { 
-            slotId: i, 
-            estaOcupado: false,
-            tipoEdificio: null 
-        };
+            cimientoMesh.position.x = (col - (columnas - 1) / 2) * distancia;
+            cimientoMesh.position.y = 0.2; 
+            cimientoMesh.position.z = (fila - 1) * distancia;
 
-        scene.add(cimientoMesh);
-        cimientos.push(cimientoMesh);
+            cimientoMesh.userData = { 
+                slotId: i, 
+                estaOcupado: false,
+                tipoEdificio: null 
+            };
+
+            scene.add(cimientoMesh);
+            cimientos.push(cimientoMesh);
+        }
     }
 }
 
