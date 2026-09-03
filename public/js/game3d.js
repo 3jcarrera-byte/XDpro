@@ -267,6 +267,9 @@ if (typeof socket !== 'undefined' && socket) {
                     malla3D.material.color.setHex(0x4a5d4e); // Color piedra base
                     malla3D.material.opacity = 0.90;
                 }
+
+                // 🚀 DISPARADOR DE GPU: Fuerza al renderizador a refrescar el material inmediatamente
+                malla3D.material.needsUpdate = true;
             }
         }
 
@@ -294,6 +297,9 @@ if (typeof socket !== 'undefined' && socket) {
                     malla3D.material.color.setHex(0x4a5d4e);
                     malla3D.material.opacity = 0.90;
                 }
+
+                // 🚀 DISPARADOR DE GPU: Garantiza la sincronización visual al iniciar sesión
+                malla3D.material.needsUpdate = true;
             }
         });
     });
