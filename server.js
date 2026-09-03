@@ -290,7 +290,6 @@ io.on('connection', (socket) => {
         if (!datos) return;
         const { itemId, rubro } = datos;
         
-        // 🛡️ BÚSQUEDA DE ÚLTIMA INSTANCIA: Si el socket no tiene usuario, busca en caché o agarra el primer usuario existente en BD
         let username = socket.username || datos.username;
         if (!username) {
             const llavesCache = Object.keys(cachePartidas);
@@ -407,6 +406,92 @@ io.on('connection', (socket) => {
         } catch (error) {
             console.error('❌ Error crítico en el procesamiento de compra:', error);
             socket.emit('tienda:error', 'Error interno al adjudicar activos en base de datos.');
+        }
+    });
+
+    // ==========================================================================
+    // 🏗️ INGENIERÍA DE OBRA CIVIL Y COLOCACIÓN DE EDIFICIOS 3D (NUEVO)
+    // ==========================================================================
+    socket.on('finca:instalar-edificio', async (datos) => {
+        if (!datos) return;
+        const edificioUuid = datos.cartaUuid || datos.edificioUuid || datos.edificioId;
+        const cimientoIndex = parseInt(datos.cimientoIndex !== undefined ? datos.cimientoIndex : datos.cimientoSlotId);
+        const username = socket.username;
+
+        if (!username) {
+            return socket.emit('finca:error', 'Sesión de juego no válida o expirada.');
+        }
+
+        if (isNaN(cimientoIndex) || cimientoIndex < 0 || cimientoIndex > 4) {
+            return socket.emit('finca:error', 'El cimiento seleccionado no pertenece a la Finca.');
+        }
+
+        try {
+            let juegoData = await GameDataModel.findOne({ username: username });
+            if (!juegoData) {
+                if (cachePartidas[username]) juegoData = cachePartidas[username];
+                else return socket.emit('finca:error', 'No se encontraron tus datos imperiales.');
+            }
+            cachePartidas[username] = juegoData;
+
+            const cimientoOcupado = juegoData.cimientosFinca.some(c => c.slotIndex === cimientoIndex && c.estaOcupado);
+            if (cimientoOcupado) {
+                return socket.emit('finca:error', 'Esta parcela ya aloja una estructura civil.');
+            }
+
+            if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
+            const indexEdificio = juegoData.almacenEdificiosDisponibles.findIndex(e => e.uuid === edificioUuid || e.id === edificioUuid);
+            
+            if (indexEdificio === -1) {
+                return socket.emit('finca:error', 'El plano de esta estructura no existe en tu Almacén.');
+            }
+
+            const planoEdificio = juegoData.almacenEdificiosDisponibles[indexEdificio];
+
+            juegoData.almacenEdificiosDisponibles.splice(indexEdificio, 1);
+
+            const nuevoEdificioConstruido = {
+                slotIndex: cimientoIndex,
+                cimientoIndex: cimientoIndex,
+                estaOcupado: true,
+                subtipo: planoEdificio.subtipo,
+                nombre: planoEdificio.nombre,
+                rareza: planoEdificio.rareza,
+                nivel: planoEdificio.nivel || 0,
+                pobladoresAsignados: []
+            };
+
+            const idxCimientoExistente = juegoData.cimientosFinca.findIndex(c => c.slotIndex === cimientoIndex);
+            if (idxCimientoExistente !== -1) {
+                juegoData.cimientosFinca[idxCimientoExistente] = nuevoEdificioConstruido;
+            } else {
+                juegoData.cimientosFinca.push(nuevoEdificioConstruido);
+            }
+
+            juegoData.markModified('almacenEdificiosDisponibles');
+            juegoData.markModified('cimientosFinca');
+            await juegoData.save();
+
+            console.log(`✅ Estructura '${planoEdificio.nombre}' instalada en slot ${cimientoIndex} para ${username}.`);
+
+            socket.emit('finca:construccion-exitosa', {
+                mensaje: `🏛️ ¡Tu ${planoEdificio.nombre} ha sido erigida con éxito en la Finca!`,
+                slotId: cimientoIndex,
+                cimientoIndex: cimientoIndex,
+                subtipo: planoEdificio.subtipo
+            });
+
+            socket.emit('almacen:actualizar-estado', { 
+                recursos: juegoData.almacenEdificiosDisponibles || [] 
+            });
+
+            if (typeof forzarEnvioEstadoCarreton === 'function') {
+                await forzarEnvioEstadoCarreton(socket, username, juegoData);
+            }
+
+        } catch (error) {
+            console.error("❌ Error procesando obra civil en el servidor:", error);
+            socket.emit('finca:error', 'El Árbitro experimentó un fallo interno al cimentar.');
         }
     });
 
