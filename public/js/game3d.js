@@ -210,7 +210,6 @@ function generarCimientos(containerId, cantidad) {
                 edificioUuid: null 
             };
 
-            // Habilitar interactividad de arrastre si el cimiento está ocupado
             configurarInteraccionCimientoMesh(cimientoMesh);
 
             scene.add(cimientoMesh);
@@ -257,8 +256,6 @@ function generarCimientos(containerId, cantidad) {
  * Permite que un cimiento 3D ocupado actúe como fuente de arrastre (Drag Source) para reordenar o retirar
  */
 function configurarInteraccionCimientoMesh(malla) {
-    // Agregamos atributos interactivos del DOM simulados o eventos mediante canvas selector si fuera necesario,
-    // pero como Three.js renderiza en un canvas HTML estándar, manejamos el evento mousedown / dragstart interactivo.
     malla.addEventListener && malla.addEventListener('dragstart', (e) => {
         if (!malla.userData.estaOcupado) {
             e.preventDefault();
