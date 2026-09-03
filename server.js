@@ -575,7 +575,7 @@ io.on('connection', (socket) => {
             });
 
             // 🛠️ CORRECCIÓN: Asignamos explícitamente TODOS los identificadores para evitar "undefined"
-            juegoData.cimientosFinca[imientoIdx] = {
+            juegoData.cimientosFinca[cimientoIndex] = {
                 slotIndex: cimientoIndex,
                 cimientoIndex: cimientoIndex,
                 slotId: cimientoIndex,
