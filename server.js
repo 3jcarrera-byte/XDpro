@@ -491,7 +491,7 @@ io.on('connection', (socket) => {
                 rareza: planoEdificio.rareza,
                 nivel: planoEdificio.nivel || 0,
                 pobladoresAsignados: []
-            }
+            };
 
             const idxCimientoExistente = juegoData.cimientosFinca.findIndex(c => (c.slotIndex ?? c.cimientoIndex ?? c.slotId) === cimientoIndex);
             if (idxCimientoExistente !== -1) {
@@ -528,7 +528,15 @@ io.on('connection', (socket) => {
             socket.emit('finca:error', 'El Árbitro experimentó un fallo interno al cimentar.');
         }
     });
+});
 
+// ========================================================
+// INICIO DEL SERVIDOR HTTP
+// ========================================================
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
+});
         // ==========================================================================
     // 🏗️ INGENIERÍA DE RETIRO DE OBRA CIVIL (3D -> ALMACÉN) - CORREGIDO
     // ==========================================================================
