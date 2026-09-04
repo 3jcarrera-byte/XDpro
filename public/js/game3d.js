@@ -1,4 +1,6 @@
-// // public/js/game3d.js (Versión Definitiva Optimizada y Corregida SPA)
+// ==========================================================================
+// 🎮 public/js/game3d.js (Versión Definitiva Optimizada y Corregida SPA)
+// ==========================================================================
 
 // Configuración global de optimización de GPU conectada con el ruteo SPA de main.js
 window.estadoMotor3D = {
@@ -406,7 +408,7 @@ function generarCimientos(containerId, cantidad) {
 
             const idNumericoEstricto = parseInt(i, 10);
             cimientoMesh.userData = { 
-                id: null,              
+                id: null,               
                 index: idNumericoEstricto, 
                 slotIndex: idNumericoEstricto, 
                 slotId: idNumericoEstricto, 
@@ -444,7 +446,7 @@ function generarCimientos(containerId, cantidad) {
 
             const idNumericoEstricto = parseInt(i, 10);
             cimientoMesh.userData = { 
-                id: null,              
+                id: null,               
                 index: idNumericoEstricto, 
                 slotIndex: idNumericoEstricto, 
                 slotId: idNumericoEstricto, 
@@ -483,6 +485,7 @@ window.reanudarAnimacion3D = function() {
 
 /**
  * Función centralizada para actualizar los materiales de las mallas 3D según el estado del terreno
+ * 🛠️ Corrección integrada: Validación estricta de 'estaOcupado' para evitar pintar slots vacíos
  */
 function sincronizarTerrenoEnMallas(edificiosConstruidos) {
     if (!edificiosConstruidos || !Array.isArray(edificiosConstruidos)) return;
@@ -506,18 +509,30 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
         const malla3D = listaCimientos3D.find(c => parseInt(c.userData.slotId, 10) === slotIdDestino);
 
         if (malla3D) {
-            malla3D.userData.estaOcupado = true;
-            malla3D.userData.tipoEdificio = edificio.subtipo;
-            malla3D.userData.edificioUuid = edificio.uuid || edificio._id || edificio.edificioUuid;
-            malla3D.userData.id = edificio._id || edificio.id || edificio.uuid || null;
+            // Validación estricta: Si el cimiento no está realmente ocupado en los datos, lo dejamos intacto (dorado/vacío)
+            if (edificio.estaOcupado) {
+                malla3D.userData.estaOcupado = true;
+                malla3D.userData.tipoEdificio = edificio.subtipo;
+                malla3D.userData.edificioUuid = edificio.uuid || edificio._id || edificio.edificioUuid;
+                malla3D.userData.id = edificio._id || edificio.id || edificio.uuid || null;
 
-            if (edificio.subtipo === 'casona') {
-                malla3D.material.color.setHex(0x8b4513); 
-                malla3D.material.opacity = 0.98;             
-                malla3D.material.transparent = false;    
+                if (edificio.subtipo === 'casona') {
+                    malla3D.material.color.setHex(0x8b4513); 
+                    malla3D.material.opacity = 0.98;             
+                    malla3D.material.transparent = false;    
+                } else {
+                    malla3D.material.color.setHex(0x4a5d4e); 
+                    malla3D.material.opacity = 0.92;
+                    malla3D.material.transparent = true;
+                }
             } else {
-                malla3D.material.color.setHex(0x4a5d4e); 
-                malla3D.material.opacity = 0.92;
+                // Si estaOcupado es falso explícitamente, aseguramos estado vacío
+                malla3D.userData.estaOcupado = false;
+                malla3D.userData.tipoEdificio = null;
+                malla3D.userData.edificioUuid = null;
+                malla3D.userData.id = null;
+                malla3D.material.color.setHex(0xd4af37);
+                malla3D.material.opacity = 0.35;
                 malla3D.material.transparent = true;
             }
 
