@@ -529,8 +529,8 @@ io.on('connection', (socket) => {
         }
     });
 
-       // ==========================================================================
-    // 🏗️ INGENIERÍA DE RETIRO DE OBRA CIVIL (3D -> ALMACÉN) - PERFECTO
+        // ==========================================================================
+    // 🏗️ INGENIERÍA DE RETIRO DE OBRA CIVIL (3D -> ALMACÉN) - CORREGIDO
     // ==========================================================================
     socket.on('finca:retirar-edificio', async (datos) => {
         if (!datos) return;
@@ -556,9 +556,9 @@ io.on('connection', (socket) => {
             }
             cachePartidas[username] = juegoData;
 
-            // Buscamos el cimiento ocupado en la base de datos
+            // BUSQUEDA ESTRICTA: Validamos usando la propiedad real del Schema: slotId
             const cimientoIdx = juegoData.cimientosFinca.findIndex(c => 
-                parseInt(c.slotId ?? c.slotIndex ?? c.cimientoIndex) === cimientoIndex && c.estaOcupado
+                parseInt(c.slotId) === cimientoIndex && c.estaOcupado
             );
             
             if (cimientoIdx === -1) {
@@ -572,62 +572,30 @@ io.on('connection', (socket) => {
             // Devolvemos la carta al almacén
             juegoData.almacenEdificiosDisponibles.push({
                 uuid: crypto.randomUUID(),
-                id: crypto.randomUUID(),
                 subtipo: edificioRetirado.subtipo,
                 nombre: edificioRetirado.nombre,
                 rareza: edificioRetirado.rareza,
                 nivel: edificioRetirado.nivel || 0
             });
 
-            // Vaciamos el cimiento de forma que Mongoose registre la mutación limpiamente
-            juegoData.cimientosFinca[cimientoIdx].estaOcupado = false;
-            juegoData.cimientosFinca[cimientoIdx].subtipo = null;
-            juegoData.cimientosFinca[cimientoIdx].nombre = null;
-            juegoData.cimientosFinca[cimientoIdx].rareza = null;
-            juegoData.cimientosFinca[cimientoIdx].nivel = 0;
-            juegoData.cimientosFinca[cimientoIdx].pobladoresAsignados = [];
+            // 🛡️ SOLUCIÓN MONGOOSE: Usamos .set() en el subdocumento para forzar la mutación limpia
+            juegoData.cimientosFinca[cimientoIdx].set({
+                estaOcupado: false,
+                edificioUuid: null,
+                subtipo: null,
+                nombre: null,
+                rareza: null,
+                nivel: 0,
+                durabilidadActual: 100,
+                produccionGenerada: 0,
+                pobladoresAsignados: []
+            });
 
             juegoData.markModified('cimientosFinca');
             juegoData.markModified('almacenEdificiosDisponibles');
             await juegoData.save();
 
-            // 🚀 EMISIÓN INTEGRADA PERFECTA: Envía la confirmación del slot junto al terreno limpio
-            socket.emit('finca:retiro-exitoso', { 
-                slotIndex: cimientoIndex, 
-                slotId: cimientoIndex,
-                terreno: juegoData.cimientosFinca 
-            });
-            
-            socket.emit('almacen:actualizar-estado', { 
-                recursos: juegoData.almacenEdificiosDisponibles || [] 
-            });
-
-            if (typeof forzarEnvioEstadoCarreton === 'function') {
-                await forzarEnvioEstadoCarreton(socket, username, juegoData);
-            }
-
-            console.log(`♻️ Estructura '${edificioRetirado.nombre}' retirada del cimiento ${cimientoIndex} para ${username}.`);
-        } catch (error) {
-            console.error("❌ Error al procesar retiro de edificio:", error);
-            socket.emit('finca:error', 'Fallo interno al desinstalar la estructura.');
-        }
-    });
-
-          // ======  ======
-
-         // Vaciamos el cimiento de forma que Mongoose registre la mutación limpiamente
-            juegoData.cimientosFinca[cimientoIdx].estaOcupado = false;
-            juegoData.cimientosFinca[cimientoIdx].subtipo = null;
-            juegoData.cimientosFinca[cimientoIdx].nombre = null;
-            juegoData.cimientosFinca[cimientoIdx].rareza = null;
-            juegoData.cimientosFinca[cimientoIdx].nivel = 0;
-            juegoData.cimientosFinca[cimientoIdx].pobladoresAsignados = [];
-
-            juegoData.markModified('cimientosFinca');
-            juegoData.markModified('almacenEdificiosDisponibles');
-            await juegoData.save();
-
-            // 🚀 EMISIÓN INTEGRADA PERFECTA: Envía la confirmación del slot junto al terreno limpio
+            // 🚀 EMISIÓN AL FRONTEND
             socket.emit('finca:retiro-exitoso', { 
                 slotIndex: cimientoIndex, 
                 slotId: cimientoIndex,
