@@ -1,4 +1,4 @@
-// public/js/game3d.js (Versión Definitiva con Caché Local de Sincronización y Drag & Drop Avanzado / Intercambio)
+// public/js/game3d.js (Versión Definitiva Optimizada y Corregida SPA)
 
 // Configuración global de optimización de GPU conectada con el ruteo SPA de main.js
 window.estadoMotor3D = {
@@ -30,6 +30,11 @@ let elementoClonVisual = null;
 function init3D(containerId, maxCimientos) {
     const container = document.getElementById(containerId);
     if (!container) return;
+
+    // Liberar renderer anterior si existe para evitar fugas de memoria en entornos SPA
+    if (renderer) {
+        renderer.dispose();
+    }
 
     // 1. Limpieza preventiva total del contenedor para mitigar canvas duplicados
     container.innerHTML = '';
@@ -167,7 +172,6 @@ function configurarDragAndDropCanvas(contenedorCanvas) {
                 // CASO B: INSTALACIÓN NUEVA DESDE CARTA EXTERNA
                 if (!cartaUuid) return;
 
-                // 🔍 INSPECCIÓN PROFUNDA PARA DEPURACIÓN DEL BLOQUEO DE CIMIENTO
                 console.log("🔍 INSPECCIONANDO CIMIENTO:", {
                     index: cimientoIndex,
                     dbId: cimientoDbId,
@@ -204,7 +208,6 @@ function configurarDragAndDropCanvas(contenedorCanvas) {
 
 /**
  * 🛠️ Sistema Avanzado de Eventos de Puntero (Pointer/Mouse Events) combinado con Raycaster dinámico
- * Permite arrastrar estructuras desde los cimientos 3D incluso cuando Three.js bloquea los eventos nativos del DOM.
  */
 function configurarEventosPunteroAvanzados(contenedorCanvas) {
     if (!contenedorCanvas) return;
@@ -244,10 +247,8 @@ function configurarEventosPunteroAvanzados(contenedorCanvas) {
                         tipoEdificio: cimientoGolpeado.userData.tipoEdificio
                     };
 
-                    // Crear e inyectar un clon HTML translúcido temporal en el DOM
                     crearClonVisualDOM(e.clientX, e.clientY, cimientoGolpeado.userData.tipoEdificio);
 
-                    // Capturar el puntero para mantener la fluidez global
                     try {
                         contenedorCanvas.setPointerCapture(e.pointerId);
                     } catch (err) {
@@ -262,8 +263,6 @@ function configurarEventosPunteroAvanzados(contenedorCanvas) {
 
     contenedorCanvas.addEventListener('pointermove', (e) => {
         if (!arrastreActivoJS) return;
-
-        // Actualizar la posición del clon translúcido flotando con el cursor
         actualizarClonVisualDOM(e.clientX, e.clientY);
     });
 
@@ -289,7 +288,6 @@ function configurarEventosPunteroAvanzados(contenedorCanvas) {
             return;
         }
 
-        // Verificar si el cursor se soltó sobre la banda inferior del almacén (zona de retiro)
         const elementoBandaInferior = document.querySelector('.finca-buildings-drawer');
         if (elementoBandaInferior) {
             const rectBanda = elementoBandaInferior.getBoundingClientRect();
@@ -309,7 +307,6 @@ function configurarEventosPunteroAvanzados(contenedorCanvas) {
             }
         }
 
-        // De lo contrario, verificar si se soltó sobre otro cimiento 3D mediante Raycaster
         const activeCamera = window.cameraGlobalFinca || camera;
         if (!renderer || !activeCamera) return;
 
@@ -318,7 +315,7 @@ function configurarEventosPunteroAvanzados(contenedorCanvas) {
         const clientY = e.clientY - rect.top;
 
         if (clientX < 0 || clientX > rect.width || clientY < 0 || clientY > rect.height) {
-            return; // Soltado fuera del canvas
+            return;
         }
 
         mouse.x = (clientX / rect.width) * 2 - 1;
@@ -400,7 +397,7 @@ function removerClonVisualDOM() {
 }
 
 /**
- * Distribuye espacialmente los cimientos geométricos translúcidos en el plano e incorpora eventos de ratón para drag interno
+ * Distribuye espacialmente los cimientos geométricos translúcidos en el plano
  */
 function generarCimientos(containerId, cantidad) {
     listaCimientos3D = []; 
@@ -428,20 +425,17 @@ function generarCimientos(containerId, cantidad) {
             cimientoMesh.position.y = 0.2; 
             cimientoMesh.position.z = pos.z;
 
-            // 🛡️ CORRECCIÓN CLAVE: Forzar identificador numérico estricto en Base 10
             const idNumericoEstricto = parseInt(i, 10);
 
             cimientoMesh.userData = { 
-                id: null,              // ID de MongoDB sincronizado dinámicamente
+                id: null,              
                 index: idNumericoEstricto, 
-                slotIndex: idNumericoEstricto, // Compatibilidad estricta con ranuras
+                slotIndex: idNumericoEstricto, 
                 slotId: idNumericoEstricto, 
                 estaOcupado: false,
                 tipoEdificio: null,
                 edificioUuid: null 
             };
-
-            configurarInteraccionCimientoMesh(cimientoMesh);
 
             scene.add(cimientoMesh);
             listaCimientos3D.push(cimientoMesh);
@@ -467,45 +461,23 @@ function generarCimientos(containerId, cantidad) {
             cimientoMesh.position.y = 0.2; 
             cimientoMesh.position.z = (fila - 1) * distancia;
 
-            // 🛡️ CORRECCIÓN CLAVE: Forzar identificador numérico estricto en Base 10 para la Aldea también
             const idNumericoEstricto = parseInt(i, 10);
 
             cimientoMesh.userData = { 
-                id: null,              // ID de MongoDB sincronizado dinámicamente
+                id: null,              
                 index: idNumericoEstricto, 
-                slotIndex: idNumericoEstricto, // Compatibilidad estricta con ranuras
+                slotIndex: idNumericoEstricto, 
                 slotId: idNumericoEstricto, 
                 estaOcupado: false,
                 tipoEdificio: null,
                 edificioUuid: null 
             };
 
-            configurarInteraccionCimientoMesh(cimientoMesh);
-
             scene.add(cimientoMesh);
             listaCimientos3D.push(cimientoMesh);
         }
     }
 }
-
-/**
- * Permite que un cimiento 3D ocupado actúe como fuente de arrastre (Drag Source) para reordenar o retirar
- */
-function configurarInteraccionCimientoMesh(malla) {
-    malla.addEventListener && malla.addEventListener('dragstart', (e) => {
-        if (!malla.userData.estaOcupado) {
-            e.preventDefault();
-            return;
-        }
-        e.dataTransfer.setData('text/plain', malla.userData.edificioUuid || '');
-        e.dataTransfer.setData('text/origen-slot', malla.userData.index);
-    });
-}
-
-// Escucha global de ratón en el DOM del canvas para permitir iniciar arrastre desde una estructura 3D ocupada
-document.addEventListener('DOMContentLoaded', () => {
-    // Se vincula dinámicamente cuando el contenedor esté disponible
-});
 
 /**
  * Bucle infinito inteligente controlado por bandera de optimización de GPU
@@ -531,14 +503,10 @@ window.reanudarAnimacion3D = function() {
 
 /**
  * Función centralizada para actualizar los materiales de las mallas 3D según el estado del terreno
- * 🛡️ CORRECCIÓN DEFINITIVA DE VISIBILIDAD AL REINGRESAR:
- * Forzamos la asignación estricta de opacidad y color según el subtipo ('casona' u otros),
- * evitando que la casona o estructuras adyacentes queden transparentes o invisibles tras recargar vistas SPA.
  */
 function sincronizarTerrenoEnMallas(edificiosConstruidos) {
     if (!edificiosConstruidos || !Array.isArray(edificiosConstruidos)) return;
 
-    // Primero reiniciamos todos los cimientos a su estado libre por defecto
     listaCimientos3D.forEach(malla => {
         malla.userData.estaOcupado = false;
         malla.userData.tipoEdificio = null;
@@ -550,13 +518,11 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
         malla.material.needsUpdate = true;
     });
 
-    // Luego aplicamos los edificios activos devueltos por el servidor con blindaje visual absoluto
     edificiosConstruidos.forEach(edificio => {
         const rawSlot = edificio.slotId !== undefined ? edificio.slotId : (edificio.cimientoIndex !== undefined ? edificio.cimientoIndex : edificio.slotIndex);
         const slotIdDestino = parseInt(rawSlot, 10);
         if (isNaN(slotIdDestino)) return;
 
-        // 🛡️ CORRECCIÓN CLAVE: Buscar la malla tridimensional utilizando estrictamente slotId en Base 10
         const malla3D = listaCimientos3D.find(c => parseInt(c.userData.slotId, 10) === slotIdDestino);
 
         if (malla3D) {
@@ -567,7 +533,7 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
 
             if (edificio.subtipo === 'casona') {
                 malla3D.material.color.setHex(0x8b4513); // Marrón terráqueo Casona
-                malla3D.material.opacity = 0.98;         // Opacidad alta para evitar invisibilidad al reingresar
+                malla3D.material.opacity = 0.98;           // Opacidad alta para evitar invisibilidad al reingresar
                 malla3D.material.transparent = false;    // Sólido para prevenir fallos de renderizado WebGL Depth
             } else {
                 malla3D.material.color.setHex(0x4a5d4e); // Verde estructurado
@@ -575,7 +541,6 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
                 malla3D.material.transparent = true;
             }
 
-            // 🚀 DISPARADOR DE GPU: Fuerza al renderizador a refrescar el material inmediatamente
             malla3D.material.needsUpdate = true;
         }
     });
@@ -619,7 +584,6 @@ if (typeof socket !== 'undefined' && socket) {
         if (typeof cargarCarreton === 'function') cargarCarreton();
     });
 
-    // 🚀 RECEPTOR PARA LIBERAR LA GPU AL RETIRAR
     socket.on('finca:retiro-exitoso', (data) => {
         const targetSlot = data.slotId !== undefined ? data.slotId : data.slotIndex;
         console.log(`♻️ Árbitro confirma retiro en slot ${targetSlot}. Purgando malla 3D local...`);
