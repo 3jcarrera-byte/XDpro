@@ -947,7 +947,6 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
         console.error("❌ Error en forzarEnvioEstadoCarreton:", err);
     }
 }
-
 // ==========================================================================
 // ⏳ MOTOR MAESTRO DE PRODUCCIÓN DE RECURSOS POR TICKS
 // ==========================================================================
@@ -990,7 +989,6 @@ setInterval(async () => {
                 actualizarStackRecurso(juegoData.almacenEdificiosDisponibles, 'oro', '🪙 Oro Acuñado', oroProducido);
 
                 juegoData.markModified('almacenEdificiosDisponibles');
-                
                 await juegoData.save();
 
                 const socketsEnPantalla = await io.fetchSockets();
@@ -998,8 +996,9 @@ setInterval(async () => {
                 
                 if (socketJugador) {
                     socketJugador.emit('almacen:actualizar-estado', {
-                                         recursos: juegoData.almacenEdificiosDisponibles || []
-                });
+                        recursos: juegoData.almacenEdificiosDisponibles || []
+                    });
+                }
             }
         } catch (error) {
             console.error(`❌ Error en el tick de producción para el usuario ${username}:`, error);
