@@ -531,139 +531,140 @@ io.on('connection', (socket) => {
     });
 
     // ==========================================================================
-    // 🚚 MOVIMIENTO DE CARTAS EN EL CARRETÓN (CÓDIGO CORREGIDO Y UNIFICADO)
-    // ==========================================================================
-    socket.on('carreton:mover-carta', async (datos) => {
-        if (!datos) return;
-        const { cartaId, bloqueDestino, slotDestinoIndex } = datos;
-        
-        let username = socket.username;
-        if (!username) {
-            return socket.emit('carreton:error', 'Sesión no válida o expirada.');
+// 🚚 MOVIMIENTO DE CARTAS EN EL CARRETÓN (CÓDIGO CORREGIDO Y UNIFICADO)
+// ==========================================================================
+socket.on('carreton:mover-carta', async (datos) => {
+    if (!datos) return;
+    const { cartaId, bloqueDestino, slotDestinoIndex } = datos;
+    
+    let username = socket.username;
+    if (!username) {
+        return socket.emit('carreton:error', 'Sesión no válida o expirada.');
+    }
+
+    try {
+        let juegoData = await GameDataModel.findOne({ username: username });
+        if (!juegoData && cachePartidas[username]) {
+            juegoData = cachePartidas[username];
+        }
+        if (!juegoData) {
+            return socket.emit('carreton:error', 'No se encontraron tus datos imperiales.');
         }
 
-        try {
-            let juegoData = await GameDataModel.findOne({ username: username });
-            if (!juegoData && cachePartidas[username]) {
-                juegoData = cachePartidas[username];
-            }
-            if (!juegoData) {
-                return socket.emit('carreton:error', 'No se encontraron tus datos imperiales.');
-            }
-
-            let listaOrigen = null;
-            let cartaEncontrada = null;
+        let listaOrigen = null;
+        let cartaEncontrada = null;
+        
+        const bloques = ['cartasAldea', 'cartasFinca', 'cartasCentral'];
+        for (const bloque of bloques) {
+            const idx = juegoData.carretonCartas[bloque].findIndex(c => {
+                return c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId);
+            });
             
-            const bloques = ['cartasAldea', 'cartasFinca', 'cartasCentral'];
-            for (const bloque of bloques) {
-                const idx = juegoData.carretonCartas[bloque].findIndex(c => {
-                    return c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId);
-                });
-                
-                if (idx !== -1) {
-                    cartaEncontrada = juegoData.carretonCartas[bloque][idx];
-                    listaOrigen = juegoData.carretonCartas[bloque];
-                    break;
+            if (idx !== -1) {
+                cartaEncontrada = juegoData.carretonCartas[bloque][idx];
+                listaOrigen = juegoData.carretonCartas[bloque];
+                break;
+            }
+        }
+
+        if (!cartaEncontrada) {
+            return socket.emit('carreton:error', 'La carta especificada no existe en tu carretón.');
+        }
+        
+        if (bloqueDestino === 'finca' || bloqueDestino === 'aldea') {
+            let slotsHabilitadosPorEdificios = 0;
+            
+            if (bloqueDestino === 'finca') {
+                if (juegoData.cimientosFinca && juegoData.cimientosFinca.length > 0) {
+                    juegoData.cimientosFinca.forEach(c => {
+                        if (c.estaOcupado && c.subtipo === 'casona') slotsHabilitadosPorEdificios += 2;
+                        if (c.estaOcupado && c.subtipo === 'granja') slotsHabilitadosPorEdificios += 1;
+                    });
+                }
+                if (juegoData.carretonCartas.cartasFinca.length >= slotsHabilitadosPorEdificios && !juegoData.carretonCartas.cartasFinca.some(c => (c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId)))) {
+                    return socket.emit('carreton:error', `🔒 Espacio insuficiente en Finca. Población máxima activa: ${slotsHabilitadosPorEdificios}. ¡Instala y activa una Casona en el terreno 3D!`);
                 }
             }
 
-            if (!cartaEncontrada) {
-                return socket.emit('carreton:error', 'La carta especificada no existe en tu carretón.');
-            }
-            
-            if (bloqueDestino === 'finca' || bloqueDestino === 'aldea') {
-                let slotsHabilitadosPorEdificios = 0;
-                
-                if (bloqueDestino === 'finca') {
-                    if (juegoData.cimientosFinca && juegoData.cimientosFinca.length > 0) {
-                        juegoData.cimientosFinca.forEach(c => {
-                            if (c.estaOcupado && c.subtipo === 'casona') slotsHabilitadosPorEdificios += 2;
-                            if (c.estaOcupado && c.subtipo === 'granja') slotsHabilitadosPorEdificios += 1;
-                        });
-                    }
-                    if (juegoData.carretonCartas.cartasFinca.length >= slotsHabilitadosPorEdificios && !juegoData.carretonCartas.cartasFinca.some(c => (c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId)))) {
-                        return socket.emit('carreton:error', `🔒 Espacio insuficiente en Finca. Población máxima activa: ${slotsHabilitadosPorEdificios}. ¡Instala y activa una Casona en el terreno 3D!`);
-                    }
+            if (bloqueDestino === 'aldea') {
+                if (juegoData.cimientosAldea && juegoData.cimientosAldea.length > 0) {
+                    juegoData.cimientosAldea.forEach(c => {
+                        if (c.estaOcupado && c.subtipo === 'barracon') slotsHabilitadosPorEdificios += 4;
+                    });
                 }
-
-                if (bloqueDestino === 'aldea') {
-                    if (juegoData.cimientosAldea && juegoData.cimientosAldea.length > 0) {
-                        juegoData.cimientosAldea.forEach(c => {
-                            if (c.estaOcupado && c.subtipo === 'barracon') slotsHabilitadosPorEdificios += 4;
-                        });
-                    }
-                    if (juegoData.carretonCartas.cartasAldea.length >= slotsHabilitadosPorEdificios && !juegoData.carretonCartas.cartasAldea.some(c => (c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId)))) {
-                        return socket.emit('carreton:error', `🔒 Espacio insuficiente en la Aldea. Población máxima activa: ${slotsHabilitadosPorEdificios}. ¡Instala un Barracón!`);
-                    }
+                if (juegoData.carretonCartas.cartasAldea.length >= slotsHabilitadosPorEdificios && !juegoData.carretonCartas.cartasAldea.some(c => (c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId)))) {
+                    return socket.emit('carreton:error', `🔒 Espacio insuficiente en la Aldea. Población máxima activa: ${slotsHabilitadosPorEdificios}. ¡Instala un Barracón!`);
                 }
             }
-
-            const indexRemover = listaOrigen.findIndex(c => c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId));
-            if (indexRemover !== -1) listaOrigen.splice(indexRemover, 1);
-
-            const targetSlotIndex = parseInt(slotDestinoIndex);
-            cartaEncontrada.slotIndex = isNaN(targetSlotIndex) ? 0 : targetSlotIndex;
-
-            if (bloqueDestino === 'aldea') juegoData.carretonCartas.cartasAldea.push(cartaEncontrada);
-            else if (bloqueDestino === 'finca') juegoData.carretonCartas.cartasFinca.push(cartaEncontrada);
-            else juegoData.carretonCartas.cartasCentral.push(cartaEncontrada);
-
-            juegoData.markModified('carretonCartas');
-            await juegoData.save();
-
-            if (typeof forzarEnvioEstadoCarreton === 'function') {
-                await forzarEnvioEstadoCarreton(socket, username, juegoData);
-            }
-        } catch (err) {
-            console.error("❌ Error al salvar coordenadas del carretón:", err);
-            return socket.emit('carreton:error', 'Fallo al sincronizar coordenadas en base de datos.');
         }
-    });
 
-    socket.on('carreton:solicitar-datos', async (data = {}) => {
-        let username = socket.username || data.username;
+        const indexRemover = listaOrigen.findIndex(c => c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId));
+        if (indexRemover !== -1) listaOrigen.splice(indexRemover, 1);
+
+        const targetSlotIndex = parseInt(slotDestinoIndex);
+        cartaEncontrada.slotIndex = isNaN(targetSlotIndex) ? 0 : targetSlotIndex;
+
+        if (bloqueDestino === 'aldea') juegoData.carretonCartas.cartasAldea.push(cartaEncontrada);
+        else if (bloqueDestino === 'finca') juegoData.carretonCartas.cartasFinca.push(cartaEncontrada);
+        else juegoData.carretonCartas.cartasCentral.push(cartaEncontrada);
+
+        juegoData.markModified('carretonCartas');
+        await juegoData.save();
+
+        if (typeof forzarEnvioEstadoCarreton === 'function') {
+            await forzarEnvioEstadoCarreton(socket, username, juegoData);
+        }
+    } catch (err) {
+        console.error("❌ Error al salvar coordenadas del carretón:", err);
+        return socket.emit('carreton:error', 'Fallo al sincronizar coordenadas en base de datos.');
+    }
+});
+
+socket.on('carreton:solicitar-datos', async (data = {}) => {
+    let username = socket.username || data.username;
+    
+    if (!username) {
+        return socket.emit('carreton:error', 'Sesión no autenticada.');
+    }
+    
+    socket.username = username;
+
+    try {
+        let juegoData = await GameDataModel.findOne({ username: username });
+        if (!juegoData && cachePartidas[username]) {
+            juegoData = cachePartidas[username];
+        }
+        if (!juegoData) return;
         
-        // 🛠️ CORRECCIÓN: Eliminado fallback inseguro
-        if (!username) {
-            return socket.emit('carreton:error', 'Sesión no autenticada.');
+        cachePartidas[username] = juegoData;
+        if (typeof forzarEnvioEstadoCarreton === 'function') {
+            await forzarEnvioEstadoCarreton(socket, username, juegoData);
         }
-        
-        socket.username = username;
+    } catch (err) {
+        console.error("❌ Error requesting cart data:", err);
+    }
+});
 
-        try {
-            let juegoData = await GameDataModel.findOne({ username: username });
-            if (!juegoData && cachePartidas[username]) {
-                juegoData = cachePartidas[username];
-            }
-            if (!juegoData) return;
-            
-            cachePartidas[username] = juegoData;
-            if (typeof forzarEnvioEstadoCarreton === 'function') {
-                await forzarEnvioEstadoCarreton(socket, username, juegoData);
-            }
-        } catch (err) {
-            console.error("❌ Error requesting cart data:", err);
-        }
-    });
-
-    socket.on('disconnect', () => {
-        console.log(`❌ Player disconnected: ${socket.id}`);
-        // 🛠️ CORRECCIÓN: Limpiar caché para evitar fuga de memoria y granjeo infinito
-        if (socket.username && cachePartidas[socket.username]) {
-            console.log(`🧹 Limpiando caché de la sesión de: ${socket.username}`);
-            delete cachePartidas[socket.username];
-        }
-    });
-
+socket.on('disconnect', () => {
+    console.log(`❌ Player disconnected: ${socket.id}`);
+    if (socket.username && cachePartidas[socket.username]) {
+        console.log(`🧹 Limpiando caché de la sesión de: ${socket.username}`);
+        delete cachePartidas[socket.username];
+    }
 });
 
 async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
     try {
-        const usuarioBD = await User.findOne({ username: username });
-        const poseeNFT = usuarioBD ? usuarioBD.poseeAldea : false;
-
-        if (cachePartidas[username]) {
-            cachePartidas[username]._poseeAldeaNFT = poseeNFT;
+        // Optimización: Usamos la caché o una consulta rápida sin bloquear
+        let poseeNFT = false;
+        if (cachePartidas[username] && cachePartidas[username]._poseeAldeaNFT !== undefined) {
+            poseeNFT = cachePartidas[username]._poseeAldeaNFT;
+        } else {
+            const usuarioBD = await User.findOne({ username: username }).lean();
+            poseeNFT = usuarioBD ? usuarioBD.poseeAldea : false;
+            if (cachePartidas[username]) {
+                cachePartidas[username]._poseeAldeaNFT = poseeNFT;
+            }
         }
 
         let capacidadFincaMax = 0;
@@ -702,6 +703,7 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
         console.error("❌ Error en forzarEnvioEstadoCarreton:", err);
     }
 }
+
 // ==========================================================================
 // ⏳ MOTOR MAESTRO DE PRODUCCIÓN DE RECURSOS POR TICKS
 // ==========================================================================
@@ -738,20 +740,23 @@ setInterval(async () => {
             });
 
             if (huboCambios) {
-                if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
+                // Aseguramos que los recursos económicos tengan su propio contenedor o balance dedicado
+                if (!juegoData.recursosImperiales) {
+                    juegoData.recursosImperiales = { madera: 0, oro: 0 };
+                }
 
-                actualizarStackRecurso(juegoData.almacenEdificiosDisponibles, 'madera', '🪵 Madera Imperial', maderaProducida);
-                actualizarStackRecurso(juegoData.almacenEdificiosDisponibles, 'oro', '🪙 Oro Acuñado', oroProducido);
+                juegoData.recursosImperiales.madera = (juegoData.recursosImperiales.madera || 0) + maderaProducida;
+                juegoData.recursosImperiales.oro = (juegoData.recursosImperiales.oro || 0) + oroProducido;
 
-                juegoData.markModified('almacenEdificiosDisponibles');
+                juegoData.markModified('recursosImperiales');
                 await juegoData.save();
 
                 const socketsEnPantalla = await io.fetchSockets();
                 const socketJugador = socketsEnPantalla.find(s => s.username === username);
                 
                 if (socketJugador) {
-                    socketJugador.emit('almacen:actualizar-estado', {
-                        recursos: juegoData.almacenEdificiosDisponibles || []
+                    socketJugador.emit('recursos:actualizar-estado', {
+                        recursos: juegoData.recursosImperiales
                     });
                 }
             }
@@ -760,26 +765,6 @@ setInterval(async () => {
         }
     }
 }, INTERVALO_PRODUCCION_MS);
-
-function actualizarStackRecurso(almacen, subtipo, nombre, cantidadASumar) {
-    if (cantidadASumar <= 0) return;
-
-    const itemExistente = almacen.find(i => i.subtipo === subtipo);
-
-    if (itemExistente) {
-        const cantidadActual = Number(itemExistente.nivel) || 0;
-        itemExistente.nivel = cantidadActual + cantidadASumar;
-    } else {
-        almacen.push({
-            id: crypto.randomUUID(),
-            uuid: crypto.randomUUID(),
-            subtipo: subtipo,
-            nombre: nombre,
-            rareza: 'comun',
-            nivel: cantidadASumar
-        });
-    }
-}
 
 // ========================================================
 // RUTA COMODÍN PARA SPA
