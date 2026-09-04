@@ -501,7 +501,7 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
         const malla3D = listaCimientos3D.find(c => parseInt(c.userData.slotId, 10) === slotIdDestino);
 
         if (malla3D) {
-            const estaRealmenteOcupado = Boolean(edificio.estaOcupado && edificio.subtipo);
+            const estaRealmenteOcupado = Boolean(edificio.estaOcupado === true && edificio.subtipo);
 
             if (estaRealmenteOcupado) {
                 malla3D.userData.estaOcupado = true;
