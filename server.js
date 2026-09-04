@@ -615,26 +615,28 @@ io.on('connection', (socket) => {
 
           // ======  ======
 
-juegoData.cimientosFinca[cimientoIdx] = {
-    slotIndex: cimientoIndex,
-    cimientoIndex: cimientoIndex,
-    slotId: cimientoIndex,
-    estaOcupado: false,
-    subtipo: null,
-    nombre: null,
-    rareza: null,
-    nivel: 0,
-    pobladoresAsignados: []
-};
+         // Vaciamos el cimiento de forma que Mongoose registre la mutación limpiamente
+            juegoData.cimientosFinca[cimientoIdx].estaOcupado = false;
+            juegoData.cimientosFinca[cimientoIdx].subtipo = null;
+            juegoData.cimientosFinca[cimientoIdx].nombre = null;
+            juegoData.cimientosFinca[cimientoIdx].rareza = null;
+            juegoData.cimientosFinca[cimientoIdx].nivel = 0;
+            juegoData.cimientosFinca[cimientoIdx].pobladoresAsignados = [];
 
+            juegoData.markModified('cimientosFinca');
+            juegoData.markModified('almacenEdificiosDisponibles');
+            await juegoData.save();
 
-juegoData.markModified('cimientosFinca');
-juegoData.markModified('almacenEdificiosDisponibles');
-await juegoData.save();
-
-            socket.emit('finca:retiro-exitoso', { slotIndex: cimientoIndex, slotId: cimientoIndex });
-            socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles || [] });
-            socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca || []);
+            // 🚀 EMISIÓN INTEGRADA PERFECTA: Envía la confirmación del slot junto al terreno limpio
+            socket.emit('finca:retiro-exitoso', { 
+                slotIndex: cimientoIndex, 
+                slotId: cimientoIndex,
+                terreno: juegoData.cimientosFinca 
+            });
+            
+            socket.emit('almacen:actualizar-estado', { 
+                recursos: juegoData.almacenEdificiosDisponibles || [] 
+            });
 
             if (typeof forzarEnvioEstadoCarreton === 'function') {
                 await forzarEnvioEstadoCarreton(socket, username, juegoData);
@@ -675,6 +677,7 @@ await juegoData.save();
             cachePartidas[username] = juegoData;
 
             const cimientos = juegoData.cimientosFinca;
+            
             // 🛠️ CORRECCIÓN: Garantizamos que validará contra slotId, slotIndex o cimientoIndex
             const indexOrigen = cimientos.findIndex(c => 
     parseInt(c.slotId ?? c.slotIndex ?? c.cimientoIndex) === parseInt(origenSlotId)
