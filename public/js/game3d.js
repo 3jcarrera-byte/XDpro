@@ -574,8 +574,6 @@ if (typeof socket !== 'undefined' && socket) {
     
     socket.on('finca:construccion-exitosa', (data) => {
         if (data.mensaje) console.log(data.mensaje);
-        
-        // Si el servidor emite el terreno completo actualizado, lo sincronizamos
         if (data.terreno) {
             window.cacheTerrenoServidor = data.terreno;
             sincronizarTerrenoEnMallas(data.terreno);
@@ -583,15 +581,12 @@ if (typeof socket !== 'undefined' && socket) {
             window.cacheTerrenoServidor = data.edificios;
             sincronizarTerrenoEnMallas(data.edificios);
         }
-
         if (typeof cargarAlmacen === 'function') cargarAlmacen();
         if (typeof cargarCarreton === 'function') cargarCarreton();
     });
 
     socket.on('finca:actualizar-terreno', (edificiosConstruidos) => {
-        // 🛡️ Almacenamiento preventivo en caché para solucionar la carrera asíncrona de carga inicial
         window.cacheTerrenoServidor = edificiosConstruidos;
-
         if (listaCimientos3D && listaCimientos3D.length > 0) {
             sincronizarTerrenoEnMallas(edificiosConstruidos);
         } else {
@@ -608,31 +603,45 @@ if (typeof socket !== 'undefined' && socket) {
         if (typeof cargarCarreton === 'function') cargarCarreton();
     });
 
+    // 🚀 RECEPTOR PARA LIBERAR LA GPU AL RETIRAR
+    socket.on('finca:retiro-exitoso', (data) => {
+        const targetSlot = data.slotId !== undefined ? data.slotId : data.slotIndex;
+        console.log(`♻️ Árbitro confirma retiro en slot ${targetSlot}. Purgando malla 3D local...`);
+        
+        if (listaCimientos3D && listaCimientos3D.length > 0) {
+            const malla3D = listaCimientos3D.find(c => c.userData.index === parseInt(targetSlot, 10));
+            if (malla3D) {
+                malla3D.userData.estaOcupado = false;
+                malla3D.userData.tipoEdificio = null;
+                malla3D.userData.edificioUuid = null;
+                malla3D.userData.id = null;
+
+                malla3D.material.color.setHex(0xd4af37);
+                malla3D.material.opacity = 0.35;
+                malla3D.material.transparent = true;
+                malla3D.material.needsUpdate = true;
+            }
+        }
+        if (typeof cargarAlmacen === 'function') cargarAlmacen();
+        if (typeof cargarCarreton === 'function') cargarCarreton();
+    });
+
     socket.on('finca:error', (msgError) => {
         alert(`❌ Obra civil rechazada: ${msgError}`);
     });
 }
 
-/**
- * 🧹 Manejador opcional para soltar un edificio desde el terreno 3D de regreso al contenedor inferior (Inventario / Retiro)
- */
 window.manejarDropInversoAlmacen = function(e) {
     e.preventDefault();
     const origenSlotStr = e.dataTransfer.getData('text/origen-slot');
-
     if (origenSlotStr !== "" && origenSlotStr !== undefined) {
         const slotIdNumerico = parseInt(origenSlotStr, 10);
         if (isNaN(slotIdNumerico)) {
             console.error('El slot de origen inverso no es válido.');
             return;
         }
-
-        console.log(`📦 Retirando estructura del slot 3D [${slotIdNumerico}] de regreso al almacén...`);
-
         if (typeof socket !== 'undefined' && socket && socket.connected) {
-            socket.emit('finca:retirar-edificio', {
-                slotId: slotIdNumerico
-            });
+            socket.emit('finca:retirar-edificio', { slotId: slotIdNumerico });
         }
     }
 };
