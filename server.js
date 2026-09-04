@@ -322,6 +322,10 @@ io.on('connection', (socket) => {
                 
                 socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca || []);
                 
+                socket.emit('almacen:actualizar-estado', {
+                    recursos: juegoData.almacenEdificiosDisponibles || []
+                });
+                
                 if (typeof forzarEnvioEstadoCarreton === 'function') {
                     await forzarEnvioEstadoCarreton(socket, usernameLimpio, juegoData);
                 }
@@ -580,6 +584,7 @@ io.on('connection', (socket) => {
             socket.emit('finca:error', 'El Árbitro experimentó un fallo interno al cimentar.');
         }
     });
+
 
     // ==========================================================================
     // 🚚 MOVIMIENTO DE CARTAS EN EL CARRETÓN
