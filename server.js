@@ -894,7 +894,7 @@ server.listen(PORT, () => {
     socket.on('disconnect', () => {
         console.log(`❌ Player disconnected: ${socket.id}`);
     });
-});
+
 
 async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
     try {
