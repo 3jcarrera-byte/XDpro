@@ -1,5 +1,5 @@
 // ==========================================================================
-// 🎮 public/js/game3d.js (Versión Definitiva Optimizada, Corregida y Blindada SPA)
+// 🎮 public/js/game3d.js (Versión Definitiva con Re-intento Atómico de Sockets)
 // ==========================================================================
 
 // Configuración global de optimización de GPU conectada con el ruteo SPA de main.js
@@ -553,11 +553,13 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
 }
 
 // ==========================================================================
-// CONFIGURACIÓN GLOBAL DINÁMICA DE RECEPTORES DE SOCKET.IO
+// CONFIGURACIÓN GLOBAL DINÁMICA DE RECEPTORES DE SOCKET.IO (CON RE-INTENTO ATÓMICO)
 // ==========================================================================
 window.configurarSocketsFinca = function() {
+    // 🛡️ RE-INTENTO ATÓMICO: Si el script base no ha declarado la red, esperar 100ms y re-enganchar
     if (typeof socket === 'undefined' || !socket) {
-        console.warn("⚠️ socket aún no está disponible globalmente para configurarSocketsFinca.");
+        console.log("⏳ Esperando inicialización del canal Socket.io en main.js...");
+        setTimeout(window.configurarSocketsFinca, 100);
         return;
     }
 
