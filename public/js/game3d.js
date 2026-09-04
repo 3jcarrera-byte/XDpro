@@ -1,4 +1,4 @@
-// public/js/game3d.js (Versión Definitiva Optimizada y Corregida SPA)
+// // public/js/game3d.js (Versión Definitiva Optimizada y Corregida SPA)
 
 // Configuración global de optimización de GPU conectada con el ruteo SPA de main.js
 window.estadoMotor3D = {
@@ -442,8 +442,11 @@ function generarCimientos(containerId, cantidad) {
             listaCimientos3D.push(cimientoMesh);
         });
     } else {
-        const columnas = cantidad === 16 ? 4 : 3; 
-        const distancia = 4.5; 
+        // Configuración para la Aldea: exactamente 12 cimientos distribuidos en cuadrícula de 4 columnas x 3 filas
+        const columnas = 4; 
+        const filas = 3;
+        const distanciaX = 4.0;
+        const distanciaZ = 4.0;
 
         for (let i = 0; i < cantidad; i++) {
             const geometry = new THREE.BoxGeometry(2.5, 0.4, 2.5);
@@ -459,9 +462,9 @@ function generarCimientos(containerId, cantidad) {
             const fila = Math.floor(i / columnas);
             const col = i % columnas;
 
-            cimientoMesh.position.x = (col - (columnas - 1) / 2) * distancia;
+            cimientoMesh.position.x = (col - (columnas - 1) / 2) * distanciaX;
             cimientoMesh.position.y = 0.2; 
-            cimientoMesh.position.z = (fila - 1) * distancia;
+            cimientoMesh.position.z = (fila - (filas - 1) / 2) * distanciaZ;
 
             const idNumericoEstricto = parseInt(i, 10);
 
@@ -535,7 +538,7 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
 
             if (edificio.subtipo === 'casona') {
                 malla3D.material.color.setHex(0x8b4513); // Marrón terráqueo Casona
-                malla3D.material.opacity = 0.98;            // Opacidad alta para evitar invisibilidad al reingresar
+                malla3D.material.opacity = 0.98;             // Opacidad alta para evitar invisibilidad al reingresar
                 malla3D.material.transparent = false;    // Sólido para prevenir fallos de renderizado WebGL Depth
             } else {
                 malla3D.material.color.setHex(0x4a5d4e); // Verde estructurado
