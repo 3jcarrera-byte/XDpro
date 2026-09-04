@@ -42,6 +42,34 @@ mongoose.connect(MONGO_URI)
     .catch(err => console.error('❌ Error conectando a MongoDB:', err));
 
 // ========================================================
+// 🏗️ FUNCIÓN AUXILIAR DE INICIALIZACIÓN LIMPIA (EVITA FANTASMAS)
+// ========================================================
+function inicializarCimientosPorDefecto() {
+    const cimientosFincaIniciales = [
+        { slotId: 0, estaOcupado: false, subtipo: null, nivel: 0 },
+        { slotId: 1, estaOcupado: false, subtipo: null, nivel: 0 },
+        { slotId: 2, estaOcupado: false, subtipo: null, nivel: 0 },
+        { slotId: 3, estaOcupado: false, subtipo: null, nivel: 0 },
+        { slotId: 4, estaOcupado: false, subtipo: null, nivel: 0 }
+    ];
+
+    const cimientosAldeaIniciales = [];
+    for (let i = 0; i < 12; i++) {
+        cimientosAldeaIniciales.push({
+            slotId: i,
+            estaOcupado: false,
+            subtipo: null,
+            nivel: 0
+        });
+    }
+
+    return {
+        cimientosFinca: cimientosFincaIniciales,
+        cimientosAldea: cimientosAldeaIniciales
+    };
+}
+
+// ========================================================
 // CACHÉ EN MEMORIA DEL ÁRBITRO Y CATÁLOGO DE LA TIENDA
 // ========================================================
 const cachePartidas = {};
@@ -125,8 +153,15 @@ app.post('/api/auth/register', async (req, res) => {
         
         await nuevoUsuario.save();
 
-        const juegoData = new GameDataModel({ username: usernameLimpio });
-        juegoData.inicializarEspaciosVacios();
+        // 🛡️ Creación limpia aplicando la estructura base para evitar fantasmas
+        const juegoData = new GameDataModel({ 
+            username: usernameLimpio,
+            ...inicializarCimientosPorDefecto()
+        });
+        
+        if (typeof juegoData.inicializarEspaciosVacios === 'function') {
+            juegoData.inicializarEspaciosVacios();
+        }
 
         juegoData.almacenEdificiosDisponibles.push({
             uuid: crypto.randomUUID(),
@@ -192,8 +227,13 @@ app.post('/api/auth/login', async (req, res) => {
         let juegoData = await GameDataModel.findOne({ username: usernameReal });
         
         if (!juegoData) {
-            juegoData = new GameDataModel({ username: usernameReal });
-            juegoData.inicializarEspaciosVacios();
+            juegoData = new GameDataModel({ 
+                username: usernameReal,
+                ...inicializarCimientosPorDefecto()
+            });
+            if (typeof juegoData.inicializarEspaciosVacios === 'function') {
+                juegoData.inicializarEspaciosVacios();
+            }
             
             juegoData.almacenEdificiosDisponibles.push({
                 uuid: crypto.randomUUID(),
@@ -204,6 +244,13 @@ app.post('/api/auth/login', async (req, res) => {
             });
             await juegoData.save();
         } else {
+            // Asegurarnos de que los arrays existan y no tengan elementos vacíos corruptos
+            if (!juegoData.cimientosFinca || juegoData.cimientosFinca.length === 0) {
+                juegoData.cimientosFinca = inicializarCimientosPorDefecto().cimientosFinca;
+                juegoData.markModified('cimientosFinca');
+                await juegoData.save();
+            }
+
             const tieneCasona = juegoData.almacenEdificiosDisponibles && juegoData.almacenEdificiosDisponibles.some(e => e.subtipo === 'casona');
             const estaConstruidaCasona = juegoData.cimientosFinca && juegoData.cimientosFinca.some(c => c.estaOcupado && c.subtipo === 'casona');
 
@@ -289,7 +336,6 @@ io.on('connection', (socket) => {
     socket.on('almacen:solicitar-recursos', async (data = {}) => {
         let username = socket.username || data.username;
         
-        // 🛠️ CORRECCIÓN: Eliminado fallback inseguro
         if (!username) {
             return socket.emit('almacen:error', 'Sesión no autenticada.');
         }
@@ -324,7 +370,6 @@ io.on('connection', (socket) => {
         
         let username = socket.username || datos.username;
         
-        // 🛠️ CORRECCIÓN: Eliminado fallback inseguro
         if (!username) {
             return socket.emit('tienda:error', 'Sesión de juego no válida. Por favor, recarga o re-conecta.');
         }
@@ -353,8 +398,13 @@ io.on('connection', (socket) => {
                 if (cachePartidas[username]) {
                     juegoData = cachePartidas[username];
                 } else {
-                    juegoData = new GameDataModel({ username: username });
-                    juegoData.inicializarEspaciosVacios();
+                    juegoData = new GameDataModel({ 
+                        username: username,
+                        ...inicializarCimientosPorDefecto()
+                    });
+                    if (typeof juegoData.inicializarEspaciosVacios === 'function') {
+                        juegoData.inicializarEspaciosVacios();
+                    }
                 }
             }
             cachePartidas[username] = juegoData;
@@ -437,11 +487,10 @@ io.on('connection', (socket) => {
     // ==========================================================================
     // 🏗️ INGENIERÍA DE OBRA CIVIL Y COLOCACIÓN DE EDIFICIOS 3D
     // ==========================================================================
-       socket.on('finca:instalar-edificio', async (datos) => {
+    socket.on('finca:instalar-edificio', async (datos) => {
         if (!datos) return;
         const edificioUuid = datos.cartaUuid || datos.edificioUuid || datos.edificioId;
         
-        // 🛡️ CORRECCIÓN 1: Forzar Base 10 de inmediato para que sea un número estricto
         const cimientoIndex = parseInt(datos.cimientoIndex ?? datos.cimientoSlotId ?? datos.slotId ?? datos.slotIndex, 10);
         const username = socket.username;
 
@@ -461,7 +510,6 @@ io.on('connection', (socket) => {
             }
             cachePartidas[username] = juegoData;
 
-            // 🛡️ CORRECCIÓN 2: Validar estrictamente contra slotId (el campo real de tu Schema de Mongoose) y comparar como números
             const cimientoOcupado = juegoData.cimientosFinca.some(c => parseInt(c.slotId, 10) === cimientoIndex && c.estaOcupado);
             if (cimientoOcupado) {
                 return socket.emit('finca:error', 'Esta parcela ya aloja una estructura civil.');
@@ -478,7 +526,6 @@ io.on('connection', (socket) => {
 
             juegoData.almacenEdificiosDisponibles.splice(indexEdificio, 1);
 
-            // 🛡️ CORRECCIÓN 3: Saneamiento del objeto con las propiedades reales de tu subdocumento
             const nuevoEdificioConstruido = {
                 slotId: cimientoIndex, 
                 estaOcupado: true,
@@ -491,10 +538,8 @@ io.on('connection', (socket) => {
                 pobladoresAsignados: []
             };
 
-            // 🛡️ CORRECCIÓN 4: Búsqueda unificada en la base de datos usando únicamente slotId numérico
             const idxCimientoExistente = juegoData.cimientosFinca.findIndex(c => parseInt(c.slotId, 10) === cimientoIndex);
             if (idxCimientoExistente !== -1) {
-                // Usamos .set() de Mongoose para asegurar una mutación limpia sin conflictos de subdocumentos
                 juegoData.cimientosFinca[idxCimientoExistente].set(nuevoEdificioConstruido);
             } else {
                 juegoData.cimientosFinca.push(nuevoEdificioConstruido);
@@ -529,8 +574,9 @@ io.on('connection', (socket) => {
             socket.emit('finca:error', 'El Árbitro experimentó un fallo interno al cimentar.');
         }
     });
+});
 
-    // ==========================================================================
+// ==========================================================================
 // 🚚 MOVIMIENTO DE CARTAS EN EL CARRETÓN (CÓDIGO CORREGIDO Y UNIFICADO)
 // ==========================================================================
 socket.on('carreton:mover-carta', async (datos) => {
@@ -655,7 +701,6 @@ socket.on('disconnect', () => {
 
 async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
     try {
-        // Optimización: Usamos la caché o una consulta rápida sin bloquear
         let poseeNFT = false;
         if (cachePartidas[username] && cachePartidas[username]._poseeAldeaNFT !== undefined) {
             poseeNFT = cachePartidas[username]._poseeAldeaNFT;
@@ -740,7 +785,6 @@ setInterval(async () => {
             });
 
             if (huboCambios) {
-                // Aseguramos que los recursos económicos tengan su propio contenedor o balance dedicado
                 if (!juegoData.recursosImperiales) {
                     juegoData.recursosImperiales = { madera: 0, oro: 0 };
                 }
