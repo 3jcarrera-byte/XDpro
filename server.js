@@ -998,9 +998,8 @@ setInterval(async () => {
                 
                 if (socketJugador) {
                     socketJugador.emit('almacen:actualizar-estado', {
-                        recursos: juegoData.almacenEdificiosDisponibles || []
-                    });
-                }
+                                         recursos: juegoData.almacenEdificiosDisponibles || []
+                });
             }
         } catch (error) {
             console.error(`❌ Error en el tick de producción para el usuario ${username}:`, error);
