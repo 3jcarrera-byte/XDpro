@@ -288,11 +288,12 @@ io.on('connection', (socket) => {
 
     socket.on('almacen:solicitar-recursos', async (data = {}) => {
         let username = socket.username || data.username;
+        
+        // 🛠️ CORRECCIÓN: Eliminado fallback inseguro
         if (!username) {
-            const primerUsuario = await User.findOne({});
-            if (primerUsuario) username = primerUsuario.username;
+            return socket.emit('almacen:error', 'Sesión no autenticada.');
         }
-        if (!username) return;
+        
         socket.username = username;
 
         try {
@@ -322,19 +323,12 @@ io.on('connection', (socket) => {
         const { itemId, rubro } = datos;
         
         let username = socket.username || datos.username;
-        if (!username) {
-            const llavesCache = Object.keys(cachePartidas);
-            if (llavesCache.length > 0) {
-                username = llavesCache[llavesCache.length - 1];
-            } else {
-                const usuarioFallback = await User.findOne({});
-                if (usuarioFallback) username = usuarioFallback.username;
-            }
-        }
-
+        
+        // 🛠️ CORRECCIÓN: Eliminado fallback inseguro
         if (!username) {
             return socket.emit('tienda:error', 'Sesión de juego no válida. Por favor, recarga o re-conecta.');
         }
+        
         socket.username = username;
 
         if (!stockTiendaSistema[rubro]) {
@@ -536,28 +530,16 @@ io.on('connection', (socket) => {
         }
     });
 
-// ========================================================
-// INICIO DEL SERVIDOR HTTP
-// ========================================================
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
-});
-        // ==========================================================================
-    // 🏗️ INGENIERÍA DE RETIRO DE OBRA CIVIL (3D -> ALMACÉN) - CORREGIDO
     // ==========================================================================
-         socket.on('finca:retirar-edificio', async (datos) => {
+    // 🚚 MOVIMIENTO DE CARTAS EN EL CARRETÓN (CÓDIGO CORREGIDO Y UNIFICADO)
+    // ==========================================================================
+    socket.on('carreton:mover-carta', async (datos) => {
         if (!datos) return;
+        const { cartaId, bloqueDestino, slotDestinoIndex } = datos;
         
-        const cimientoIndex = parseInt(datos.slotId ?? datos.cimientoIndex ?? datos.slotIndex, 10);
-        const username = socket.username;
-
+        let username = socket.username;
         if (!username) {
-            return socket.emit('finca:error', 'Sesión de juego no válida.');
-        }
-        
-        if (isNaN(cimientoIndex) || cimientoIndex < 0 || cimientoIndex > 4) {
-             return socket.emit('finca:error', 'No se ha podido identificar un cimiento válido para retirar.');
+            return socket.emit('carreton:error', 'Sesión no válida o expirada.');
         }
 
         try {
@@ -566,231 +548,8 @@ server.listen(PORT, () => {
                 juegoData = cachePartidas[username];
             }
             if (!juegoData) {
-                return socket.emit('finca:error', 'Datos imperiales no encontrados.');
+                return socket.emit('carreton:error', 'No se encontraron tus datos imperiales.');
             }
-            cachePartidas[username] = juegoData;
-
-            const cimientoIdx = juegoData.cimientosFinca.findIndex(c => 
-                parseInt(c.slotId, 10) === cimientoIndex && c.estaOcupado
-            );
-            
-            if (cimientoIdx === -1) {
-                return socket.emit('finca:error', 'No hay ninguna estructura activa en este cimiento.');
-            }
-
-            const edificioRetirado = juegoData.cimientosFinca[cimientoIdx];
-
-            if (edificioRetirado.pobladoresAsignados && edificioRetirado.pobladoresAsignados.length > 0) {
-                edificioRetirado.pobladoresAsignados.forEach(aldeano => {
-                    let slotLibre = 0;
-                    while (juegoData.carretonCartas.cartasCentral.some(c => c.slotIndex === slotLibre)) {
-                        slotLibre++;
-                    }
-                    aldeano.slotIndex = slotLibre;
-                    juegoData.carretonCartas.cartasCentral.push(aldeano);
-                });
-            }
-
-            if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
-            
-            juegoData.almacenEdificiosDisponibles.push({
-                uuid: crypto.randomUUID(),
-                subtipo: edificioRetirado.subtipo,
-                nombre: edificioRetirado.nombre,
-                rareza: edificioRetirado.rareza,
-                nivel: edificioRetirado.nivel || 0
-            });
-
-            juegoData.cimientosFinca[cimientoIdx].set({
-                slotId: cimientoIndex,
-                estaOcupado: false,
-                edificioUuid: null,
-                subtipo: null,
-                nombre: null,
-                rareza: null,
-                nivel: 0,
-                durabilidadActual: 100,
-                produccionGenerada: 0,
-                pobladoresAsignados: []
-            });
-
-            juegoData.markModified('carretonCartas');
-            juegoData.markModified('cimientosFinca');
-            juegoData.markModified('almacenEdificiosDisponibles');
-            await juegoData.save();
-
-            socket.emit('finca:retiro-exitoso', { 
-                slotIndex: cimientoIndex, 
-                slotId: cimientoIndex,
-                terreno: juegoData.cimientosFinca 
-            });
-            
-            socket.emit('almacen:actualizar-estado', { 
-                recursos: juegoData.almacenEdificiosDisponibles || [] 
-            });
-
-            socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca || []);
-
-            if (typeof forzarEnvioEstadoCarreton === 'function') {
-                await forzarEnvioEstadoCarreton(socket, username, juegoData);
-            }
-
-            console.log(`♻️ Estructura '${edificioRetirado.nombre}' retirada del cimiento ${cimientoIndex} para ${username}.`);
-        } catch (error) {
-            console.error("❌ Error al procesar retiro de edificio:", error);
-            socket.emit('finca:error', 'Fallo interno al desinstalar la estructura.');
-        }
-    });
-
-    // ==========================================================================
-    // 🏗️ INGENIERÍA DE INTERCAMBIO Y MOVIMIENTO DE EDIFICIOS (3D <-> 3D)
-    // ==========================================================================
-       socket.on('finca:intercambiar-cimientos', async (datos) => {
-        try {
-            const username = socket.username;
-            if (!username) {
-                return socket.emit('finca:error', 'Sesión de usuario no autenticada.');
-            }
-
-            if (!datos || datos.origenSlotId === undefined || datos.destinoSlotId === undefined) {
-                return socket.emit('finca:error', 'Parámetros de intercambio incompletos.');
-            }
-
-            // 1. Forzar parsing numérico de inmediato en Base 10
-            const origenIndex = parseInt(datos.origenSlotId, 10);
-            const destinoIndex = parseInt(datos.destinoSlotId, 10);
-
-            if (isNaN(origenIndex) || isNaN(destinoIndex)) {
-                return socket.emit('finca:error', 'Los identificadores de cimientos deben ser numéricos.');
-            }
-
-            let juegoData = await GameDataModel.findOne({ username: username });
-            if (!juegoData && cachePartidas[username]) {
-                juegoData = cachePartidas[username];
-            }
-            if (!juegoData || !juegoData.cimientosFinca) {
-                return socket.emit('finca:error', 'No se encontró información de la finca del usuario.');
-            }
-            cachePartidas[username] = juegoData;
-
-            const cimientos = juegoData.cimientosFinca;
-            
-            // 2. BUSQUEDA ESTRICTA UNIFICADA: Validamos usando únicamente la propiedad real del Schema: slotId
-            const indexOrigen = cimientos.findIndex(c => parseInt(c.slotId, 10) === origenIndex);
-            const indexDestino = cimientos.findIndex(c => parseInt(c.slotId, 10) === destinoIndex);
-
-            if (indexOrigen === -1) {
-                return socket.emit('finca:error', 'No se encontró el cimiento de origen en la Finca.');
-            }
-
-            const origenData = cimientos[indexOrigen];
-
-            // Si el cimiento destino no existe físicamente en el array del documento, lo instanciamos vacío
-            if (indexDestino === -1) {
-                cimientos.push({
-                    slotId: destinoIndex,
-                    estaOcupado: false,
-                    edificioUuid: null,
-                    subtipo: null,
-                    nombre: null,
-                    rareza: null,
-                    nivel: 0,
-                    durabilidadActual: 100,
-                    produccionGenerada: 0,
-                    pobladoresAsignados: []
-                });
-            }
-
-            // Volvemos a capturar el índice del destino de forma segura dentro del array
-            const idxDestinoFinal = cimientos.findIndex(c => parseInt(c.slotId, 10) === destinoIndex);
-            const destinoData = cimientos[idxDestinoFinal];
-
-            // 3. AISLAMIENTO DE DATOS LOGICOS (Clonación limpia)
-            const clonOrigen = {
-                estaOcupado: origenData.estaOcupado,
-                edificioUuid: origenData.edificioUuid,
-                subtipo: origenData.subtipo,
-                nombre: origenData.nombre,
-                rareza: origenData.rareza,
-                nivel: origenData.nivel,
-                durabilidadActual: origenData.durabilidadActual,
-                produccionGenerada: origenData.produccionGenerada,
-                pobladoresAsignados: origenData.pobladoresAsignados || []
-            };
-
-            const clonDestino = {
-                estaOcupado: destinoData.estaOcupado,
-                edificioUuid: destinoData.edificioUuid,
-                subtipo: destinoData.subtipo,
-                nombre: destinoData.nombre,
-                rareza: destinoData.rareza,
-                nivel: destinoData.nivel,
-                durabilidadActual: destinoData.durabilidadActual,
-                produccionGenerada: destinoData.produccionGenerada,
-                pobladoresAsignados: destinoData.pobladoresAsignados || []
-            };
-
-            // 4. TRANSACCIÓN ATÓMICA: Intercambiamos contenidos usando .set() sin mover los IDs físicos del mapa
-            cimientos[indexOrigen].set({
-                slotId: origenIndex,
-                ...clonDestino
-            });
-
-            cimientos[idxDestinoFinal].set({
-                slotId: destinoIndex,
-                ...clonOrigen
-            });
-
-            juegoData.markModified('cimientosFinca');
-            await juegoData.save();
-
-            // 5. EMISIONES SINCRONIZADAS AL FRONTEND
-            socket.emit('finca:intercambio-exitoso', {
-                mensaje: '¡Estructuras imperiales reorganizadas con éxito!',
-                terreno: juegoData.cimientosFinca
-            });
-
-            socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca);
-
-        } catch (error) {
-            console.error('❌ Error al procesar el intercambio en el servidor:', error);
-            socket.emit('finca:error', 'Error interno al procesar el intercambio de cimientos.');
-        }
-    });
-
-    // ==========================================================================
-    // ==========================================================================
-    
-    socket.on('carreton:guardar-posicion', async (data = {}) => {
-        if (!data) return;
-        const { cartaId, bloqueDestino, slotDestinoIndex } = data;
-        
-        let username = socket.username || data.username;
-        if (!username) {
-            const llavesCache = Object.keys(cachePartidas);
-            if (llavesCache.length > 0) {
-                username = llavesCache[llavesCache.length - 1];
-            } else {
-                const usuarioFallback = await User.findOne({});
-                if (usuarioFallback) username = usuarioFallback.username;
-            }
-        }
-
-        if (!username) {
-            return socket.emit('carreton:error', 'Sesión de juego no válida o expirada.');
-        }
-        socket.username = username;
-        
-        try {
-            let juegoData = await GameDataModel.findOne({ username: username });
-            if (!juegoData) {
-                if (cachePartidas[username]) {
-                    juegoData = cachePartidas[username];
-                } else {
-                    return socket.emit('carreton:error', 'No se encontraron los datos de tu partida en el Imperio.');
-                }
-            }
-            cachePartidas[username] = juegoData;
 
             let listaOrigen = null;
             let cartaEncontrada = null;
@@ -863,16 +622,12 @@ server.listen(PORT, () => {
 
     socket.on('carreton:solicitar-datos', async (data = {}) => {
         let username = socket.username || data.username;
+        
+        // 🛠️ CORRECCIÓN: Eliminado fallback inseguro
         if (!username) {
-            const llavesCache = Object.keys(cachePartidas);
-            if (llavesCache.length > 0) {
-                username = llavesCache[llavesCache.length - 1];
-            } else {
-                const usuarioFallback = await User.findOne({});
-                if (usuarioFallback) username = usuarioFallback.username;
-            }
+            return socket.emit('carreton:error', 'Sesión no autenticada.');
         }
-        if (!username) return;
+        
         socket.username = username;
 
         try {
@@ -893,8 +648,14 @@ server.listen(PORT, () => {
 
     socket.on('disconnect', () => {
         console.log(`❌ Player disconnected: ${socket.id}`);
+        // 🛠️ CORRECCIÓN: Limpiar caché para evitar fuga de memoria y granjeo infinito
+        if (socket.username && cachePartidas[socket.username]) {
+            console.log(`🧹 Limpiando caché de la sesión de: ${socket.username}`);
+            delete cachePartidas[socket.username];
+        }
     });
 
+});
 
 async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
     try {
