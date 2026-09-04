@@ -1,5 +1,5 @@
 // ========================================================
-// server.js - Configuración e Inicialización Completa
+// server.js - Configuración e Inicialización Completa (Bloque 1 Corregido)
 // ========================================================
 
 const express = require('express');
@@ -133,7 +133,7 @@ app.post('/api/auth/register', async (req, res) => {
             delete cachePartidas[usernameLimpio];
         }
 
-        const usuarioExistente = await User.findOne({ username: usernameLimpio });
+        const usuarioExistente = await User.findOne({ username: new RegExp(`^${usernameLimpio}$`, 'i') });
         if (usuarioExistente) {
             return res.status(400).json({ success: false, message: 'El Nick ya está ocupado por otro gladiador.' });
         }
@@ -161,6 +161,10 @@ app.post('/api/auth/register', async (req, res) => {
         
         if (typeof juegoData.inicializarEspaciosVacios === 'function') {
             juegoData.inicializarEspaciosVacios();
+        }
+
+        if (!juegoData.almacenEdificiosDisponibles) {
+            juegoData.almacenEdificiosDisponibles = [];
         }
 
         juegoData.almacenEdificiosDisponibles.push({
@@ -235,6 +239,10 @@ app.post('/api/auth/login', async (req, res) => {
                 juegoData.inicializarEspaciosVacios();
             }
             
+            if (!juegoData.almacenEdificiosDisponibles) {
+                juegoData.almacenEdificiosDisponibles = [];
+            }
+
             juegoData.almacenEdificiosDisponibles.push({
                 uuid: crypto.randomUUID(),
                 subtipo: 'casona',
@@ -244,7 +252,6 @@ app.post('/api/auth/login', async (req, res) => {
             });
             await juegoData.save();
         } else {
-            // Asegurarnos de que los arrays existan y no tengan elementos vacíos corruptos
             if (!juegoData.cimientosFinca || juegoData.cimientosFinca.length === 0) {
                 juegoData.cimientosFinca = inicializarCimientosPorDefecto().cimientosFinca;
                 juegoData.markModified('cimientosFinca');
@@ -292,7 +299,7 @@ app.post('/api/auth/login', async (req, res) => {
 io.on('connection', (socket) => {
     console.log(`🔌 Nuevo cliente conectado: ${socket.id}`); 
 
-    if (socket.handshake.auth && socket.handshake.auth.username) {
+    if (socket.handshake?.auth?.username) {
         socket.username = socket.handshake.auth.username;
     }
 
@@ -317,7 +324,6 @@ io.on('connection', (socket) => {
                 // 📡 RESPUESTA REACTIVA: Enviar al canvas 3D los edificios ya construidos
                 socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca || []);
                 
-                // Forzar el envío del estado actual del carretón y población habilitada
                 if (typeof forzarEnvioEstadoCarreton === 'function') {
                     await forzarEnvioEstadoCarreton(socket, usernameLimpio, juegoData);
                 }
@@ -411,7 +417,7 @@ io.on('connection', (socket) => {
 
             const maxSlotsCentral = cachePartidas[username]._poseeAldeaNFT ? 24 : 8;
             
-            if (cartaTienda.tipo === 'aldeanos' && juegoData.carretonCartas.cartasCentral.length >= maxSlotsCentral) {
+            if (cartaTienda.tipo === 'aldeanos' && juegoData.carretonCartas?.cartasCentral?.length >= maxSlotsCentral) {
                 return socket.emit('tienda:error', 'Tu Carretón Central está lleno. Requiere liberar slots.');
             }
 
@@ -421,6 +427,9 @@ io.on('connection', (socket) => {
             const nuevoIdActivo = crypto.randomUUID();
             
             if (cartaTienda.tipo === 'aldeanos') {
+                if (!juegoData.carretonCartas) juegoData.carretonCartas = { cartasCentral: [] };
+                if (!juegoData.carretonCartas.cartasCentral) juegoData.carretonCartas.cartasCentral = [];
+
                 let slotLibre = 0;
                 while (juegoData.carretonCartas.cartasCentral.some(c => c.slotIndex === slotLibre)) {
                     slotLibre++;
@@ -523,7 +532,6 @@ io.on('connection', (socket) => {
             }
 
             const planoEdificio = juegoData.almacenEdificiosDisponibles[indexEdificio];
-
             juegoData.almacenEdificiosDisponibles.splice(indexEdificio, 1);
 
             const nuevoEdificioConstruido = {
@@ -540,7 +548,7 @@ io.on('connection', (socket) => {
 
             const idxCimientoExistente = juegoData.cimientosFinca.findIndex(c => parseInt(c.slotId, 10) === cimientoIndex);
             if (idxCimientoExistente !== -1) {
-                juegoData.cimientosFinca[idxCimientoExistente].set(nuevoEdificioConstruido);
+                juegoData.cimientosFinca[idxCimientoExistente] = Object.assign(juegoData.cimientosFinca[idxCimientoExistente], nuevoEdificioConstruido);
             } else {
                 juegoData.cimientosFinca.push(nuevoEdificioConstruido);
             }
@@ -626,7 +634,8 @@ socket.on('carreton:mover-carta', async (datos) => {
                         if (c.estaOcupado && c.subtipo === 'granja') slotsHabilitadosPorEdificios += 1;
                     });
                 }
-                if (juegoData.carretonCartas.cartasFinca.length >= slotsHabilitadosPorEdificios && !juegoData.carretonCartas.cartasFinca.some(c => (c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId)))) {
+                const yaEstaAdentro = juegoData.carretonCartas.cartasFinca.some(c => c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId));
+                if (juegoData.carretonCartas.cartasFinca.length >= slotsHabilitadosPorEdificios && !yaEstaAdentro) {
                     return socket.emit('carreton:error', `🔒 Espacio insuficiente en Finca. Población máxima activa: ${slotsHabilitadosPorEdificios}. ¡Instala y activa una Casona en el terreno 3D!`);
                 }
             }
@@ -637,7 +646,8 @@ socket.on('carreton:mover-carta', async (datos) => {
                         if (c.estaOcupado && c.subtipo === 'barracon') slotsHabilitadosPorEdificios += 4;
                     });
                 }
-                if (juegoData.carretonCartas.cartasAldea.length >= slotsHabilitadosPorEdificios && !juegoData.carretonCartas.cartasAldea.some(c => (c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId)))) {
+                const yaEstaAdentro = juegoData.carretonCartas.cartasAldea.some(c => c.id === cartaId || c.uuid === cartaId || (c._id && c._id.toString() === cartaId));
+                if (juegoData.carretonCartas.cartasAldea.length >= slotsHabilitadosPorEdificios && !yaEstaAdentro) {
                     return socket.emit('carreton:error', `🔒 Espacio insuficiente en la Aldea. Población máxima activa: ${slotsHabilitadosPorEdificios}. ¡Instala un Barracón!`);
                 }
             }
@@ -655,6 +665,9 @@ socket.on('carreton:mover-carta', async (datos) => {
 
         juegoData.markModified('carretonCartas');
         await juegoData.save();
+
+        // Actualizar caché en memoria si existe
+        cachePartidas[username] = juegoData;
 
         if (typeof forzarEnvioEstadoCarreton === 'function') {
             await forzarEnvioEstadoCarreton(socket, username, juegoData);
@@ -794,8 +807,8 @@ setInterval(async () => {
                 juegoData.markModified('recursosImperiales');
                 await juegoData.save();
 
-                const socketsEnPantalla = await io.fetchSockets();
-                const socketJugador = socketsEnPantalla.find(s => s.username === username);
+                // Búsqueda optimizada del socket del jugador sin barrer todo el array global innecesariamente
+                const socketJugador = Array.from(io.sockets.sockets.values()).find(s => s.username === username);
                 
                 if (socketJugador) {
                     socketJugador.emit('recursos:actualizar-estado', {
