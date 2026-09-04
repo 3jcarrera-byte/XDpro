@@ -408,7 +408,7 @@ function generarCimientos(containerId, cantidad) {
 
             const idNumericoEstricto = parseInt(i, 10);
             cimientoMesh.userData = { 
-                id: null,               
+                id: null,                
                 index: idNumericoEstricto, 
                 slotIndex: idNumericoEstricto, 
                 slotId: idNumericoEstricto, 
@@ -421,9 +421,8 @@ function generarCimientos(containerId, cantidad) {
             listaCimientos3D.push(cimientoMesh);
         });
     } else {
-        // 🚀 CORRECCIÓN DINÁMICA: Aldea Imperial genera los 12 cimientos (o el valor recibido en 'cantidad')
         const columnas = 4; 
-        const filas = Math.ceil(cantidad / columnas); // Cálculo exacto y dinámico de filas necesarias
+        const filas = Math.ceil(cantidad / columnas);
         const distanciaX = 4.0;
         const distanciaZ = 4.0;
 
@@ -446,7 +445,7 @@ function generarCimientos(containerId, cantidad) {
 
             const idNumericoEstricto = parseInt(i, 10);
             cimientoMesh.userData = { 
-                id: null,               
+                id: null,                
                 index: idNumericoEstricto, 
                 slotIndex: idNumericoEstricto, 
                 slotId: idNumericoEstricto, 
@@ -485,11 +484,12 @@ window.reanudarAnimacion3D = function() {
 
 /**
  * Función centralizada para actualizar los materiales de las mallas 3D según el estado del terreno
- * 🛠️ Corrección integrada: Validación estricta de 'estaOcupado' para evitar pintar slots vacíos
+ * 🛠️ Corrección integrada: Validación estricta combinada de 'estaOcupado' y 'subtipo'
  */
 function sincronizarTerrenoEnMallas(edificiosConstruidos) {
     if (!edificiosConstruidos || !Array.isArray(edificiosConstruidos)) return;
 
+    // 1. Limpieza general previa de todas las mallas para resetear estados fantasmas
     listaCimientos3D.forEach(malla => {
         malla.userData.estaOcupado = false;
         malla.userData.tipoEdificio = null;
@@ -501,6 +501,7 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
         malla.material.needsUpdate = true;
     });
 
+    // 2. Aplicación iterativa de datos reales provenientes del servidor/caché
     edificiosConstruidos.forEach(edificio => {
         const rawSlot = edificio.slotId !== undefined ? edificio.slotId : (edificio.cimientoIndex !== undefined ? edificio.cimientoIndex : edificio.slotIndex);
         const slotIdDestino = parseInt(rawSlot, 10);
@@ -509,8 +510,10 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
         const malla3D = listaCimientos3D.find(c => parseInt(c.userData.slotId, 10) === slotIdDestino);
 
         if (malla3D) {
-            // Validación estricta: Si el cimiento no está realmente ocupado en los datos, lo dejamos intacto (dorado/vacío)
-            if (edificio.estaOcupado) {
+            // 🛡️ Blindaje estricto: Una parcela solo se pinta como ocupada si el flag es true Y cuenta con un subtipo válido
+            const estaRealmenteOcupado = Boolean(edificio.estaOcupado && edificio.subtipo);
+
+            if (estaRealmenteOcupado) {
                 malla3D.userData.estaOcupado = true;
                 malla3D.userData.tipoEdificio = edificio.subtipo;
                 malla3D.userData.edificioUuid = edificio.uuid || edificio._id || edificio.edificioUuid;
@@ -518,7 +521,7 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
 
                 if (edificio.subtipo === 'casona') {
                     malla3D.material.color.setHex(0x8b4513); 
-                    malla3D.material.opacity = 0.98;             
+                    malla3D.material.opacity = 0.98;               
                     malla3D.material.transparent = false;    
                 } else {
                     malla3D.material.color.setHex(0x4a5d4e); 
@@ -526,7 +529,7 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
                     malla3D.material.transparent = true;
                 }
             } else {
-                // Si estaOcupado es falso explícitamente, aseguramos estado vacío
+                // Forzar estado vacío explícito (color dorado translúcido)
                 malla3D.userData.estaOcupado = false;
                 malla3D.userData.tipoEdificio = null;
                 malla3D.userData.edificioUuid = null;
