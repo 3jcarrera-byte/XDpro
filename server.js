@@ -645,18 +645,23 @@ server.listen(PORT, () => {
     // ==========================================================================
     // 🏗️ INGENIERÍA DE INTERCAMBIO Y MOVIMIENTO DE EDIFICIOS (3D <-> 3D)
     // ==========================================================================
-     este es el tercer bloque a modificar?:  socket.on('finca:intercambiar-cimientos', async (datos) => {
+       socket.on('finca:intercambiar-cimientos', async (datos) => {
         try {
             const username = socket.username;
             if (!username) {
-                socket.emit('finca:error', 'Sesión de usuario no autenticada.');
-                return;
+                return socket.emit('finca:error', 'Sesión de usuario no autenticada.');
             }
 
-            const { origenSlotId, destinoSlotId } = datos;
-            if (origenSlotId === undefined || destinoSlotId === undefined) {
-                socket.emit('finca:error', 'Parámetros de intercambio incompletos.');
-                return;
+            if (!datos || datos.origenSlotId === undefined || datos.destinoSlotId === undefined) {
+                return socket.emit('finca:error', 'Parámetros de intercambio incompletos.');
+            }
+
+            // 1. Forzar parsing numérico de inmediato en Base 10
+            const origenIndex = parseInt(datos.origenSlotId, 10);
+            const destinoIndex = parseInt(datos.destinoSlotId, 10);
+
+            if (isNaN(origenIndex) || isNaN(destinoIndex)) {
+                return socket.emit('finca:error', 'Los identificadores de cimientos deben ser numéricos.');
             }
 
             let juegoData = await GameDataModel.findOne({ username: username });
@@ -664,78 +669,91 @@ server.listen(PORT, () => {
                 juegoData = cachePartidas[username];
             }
             if (!juegoData || !juegoData.cimientosFinca) {
-                socket.emit('finca:error', 'No se encontró información de la finca del usuario.');
-                return;
+                return socket.emit('finca:error', 'No se encontró información de la finca del usuario.');
             }
             cachePartidas[username] = juegoData;
 
             const cimientos = juegoData.cimientosFinca;
             
-            // 🛠️ CORRECCIÓN: Garantizamos que validará contra slotId, slotIndex o cimientoIndex
-            const indexOrigen = cimientos.findIndex(c => 
-    parseInt(c.slotId ?? c.slotIndex ?? c.cimientoIndex) === parseInt(origenSlotId)
-);
-           const indexDestino = cimientos.findIndex(c => 
-    parseInt(c.slotId ?? c.slotIndex ?? c.cimientoIndex) === parseInt(destinoSlotId)
-);
+            // 2. BUSQUEDA ESTRICTA UNIFICADA: Validamos usando únicamente la propiedad real del Schema: slotId
+            const indexOrigen = cimientos.findIndex(c => parseInt(c.slotId, 10) === origenIndex);
+            const indexDestino = cimientos.findIndex(c => parseInt(c.slotId, 10) === destinoIndex);
+
             if (indexOrigen === -1) {
-                socket.emit('finca:error', 'No se encontró un edificio en el cimiento de origen.');
-                return;
+                return socket.emit('finca:error', 'No se encontró el cimiento de origen en la Finca.');
             }
 
             const origenData = cimientos[indexOrigen];
-            let destinoData = indexDestino !== -1 ? cimientos[indexDestino] : null;
 
-            if (!destinoData) {
-                // 🛠️ CORRECCIÓN: Estructura por defecto con todos los IDs poblados para evitar problemas futuros
-                destinoData = {
-                    slotIndex: parseInt(destinoSlotId),
-                    cimientoIndex: parseInt(destinoSlotId),
-                    slotId: parseInt(destinoSlotId),
+            // Si el cimiento destino no existe físicamente en el array del documento, lo instanciamos vacío
+            if (indexDestino === -1) {
+                cimientos.push({
+                    slotId: destinoIndex,
                     estaOcupado: false,
+                    edificioUuid: null,
                     subtipo: null,
                     nombre: null,
                     rareza: null,
                     nivel: 0,
+                    durabilidadActual: 100,
+                    produccionGenerada: 0,
                     pobladoresAsignados: []
-                };
-                cimientos.push(destinoData);
+                });
             }
 
-            // Intercambiar los datos de contenido entre origen y destino
-            const tempSubtipo = origenData.subtipo;
-            const tempNombre = origenData.nombre;
-            const tempRareza = origenData.rareza;
-            const tempNivel = origenData.nivel;
-            const tempOcupado = origenData.estaOcupado;
-            const tempPobladores = origenData.pobladoresAsignados;
+            // Volvemos a capturar el índice del destino de forma segura dentro del array
+            const idxDestinoFinal = cimientos.findIndex(c => parseInt(c.slotId, 10) === destinoIndex);
+            const destinoData = cimientos[idxDestinoFinal];
 
-            origenData.subtipo = destinoData.subtipo;
-            origenData.nombre = destinoData.nombre;
-            origenData.rareza = destinoData.rareza;
-            origenData.nivel = destinoData.nivel;
-            origenData.estaOcupado = destinoData.estaOcupado;
-            origenData.pobladoresAsignados = destinoData.pobladoresAsignados;
+            // 3. AISLAMIENTO DE DATOS LOGICOS (Clonación limpia)
+            const clonOrigen = {
+                estaOcupado: origenData.estaOcupado,
+                edificioUuid: origenData.edificioUuid,
+                subtipo: origenData.subtipo,
+                nombre: origenData.nombre,
+                rareza: origenData.rareza,
+                nivel: origenData.nivel,
+                durabilidadActual: origenData.durabilidadActual,
+                produccionGenerada: origenData.produccionGenerada,
+                pobladoresAsignados: origenData.pobladoresAsignados || []
+            };
 
-            destinoData.subtipo = tempSubtipo;
-            destinoData.nombre = tempNombre;
-            destinoData.rareza = tempRareza;
-            destinoData.nivel = tempNivel;
-            destinoData.estaOcupado = tempOcupado;
-            destinoData.pobladoresAsignados = tempPobladores;
+            const clonDestino = {
+                estaOcupado: destinoData.estaOcupado,
+                edificioUuid: destinoData.edificioUuid,
+                subtipo: destinoData.subtipo,
+                nombre: destinoData.nombre,
+                rareza: destinoData.rareza,
+                nivel: destinoData.nivel,
+                durabilidadActual: destinoData.durabilidadActual,
+                produccionGenerada: destinoData.produccionGenerada,
+                pobladoresAsignados: destinoData.pobladoresAsignados || []
+            };
+
+            // 4. TRANSACCIÓN ATÓMICA: Intercambiamos contenidos usando .set() sin mover los IDs físicos del mapa
+            cimientos[indexOrigen].set({
+                slotId: origenIndex,
+                ...clonDestino
+            });
+
+            cimientos[idxDestinoFinal].set({
+                slotId: destinoIndex,
+                ...clonOrigen
+            });
 
             juegoData.markModified('cimientosFinca');
             await juegoData.save();
 
+            // 5. EMISIONES SINCRONIZADAS AL FRONTEND
             socket.emit('finca:intercambio-exitoso', {
-                mensaje: 'Intercambio de parcelas realizado con éxito.',
+                mensaje: '¡Estructuras imperiales reorganizadas con éxito!',
                 terreno: juegoData.cimientosFinca
             });
 
             socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca);
 
         } catch (error) {
-            console.error('Error al procesar el intercambio en el servidor:', error);
+            console.error('❌ Error al procesar el intercambio en el servidor:', error);
             socket.emit('finca:error', 'Error interno al procesar el intercambio de cimientos.');
         }
     });
