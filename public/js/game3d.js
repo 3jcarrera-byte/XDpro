@@ -167,6 +167,15 @@ function configurarDragAndDropCanvas(contenedorCanvas) {
                 // CASO B: INSTALACIÓN NUEVA DESDE CARTA EXTERNA
                 if (!cartaUuid) return;
 
+                // 🔍 INSPECCIÓN PROFUNDA PARA DEPURACIÓN DEL BLOQUEO DE CIMIENTO
+                console.log("🔍 INSPECCIONANDO CIMIENTO:", {
+                    index: cimientoIndex,
+                    dbId: cimientoDbId,
+                    ocupadoReal: cimientoGolpeado.userData.estaOcupado,
+                    tipo: cimientoGolpeado.userData.tipoEdificio,
+                    uuidAsignado: cimientoGolpeado.userData.edificioUuid
+                });
+
                 if (cimientoGolpeado.userData.estaOcupado) {
                     alert("❌ Este cimiento ya se encuentra ocupado por otra estructura imperial.");
                     return;
