@@ -413,8 +413,9 @@ function generarCimientos(containerId, cantidad) {
 
         posicionesCimientosFinca.forEach((pos, i) => {
             const geometry = new THREE.BoxGeometry(2.5, 0.4, 2.5);
+            // 🛡️ Blindaje unificado: Color amarillo oro y opacidad estándar de vacío (0.35)
             const material = new THREE.MeshStandardMaterial({ 
-                color: 0xd4af37, // Oro imperial translúcido
+                color: 0xd4af37, 
                 transparent: true, 
                 opacity: 0.35,
                 roughness: 0.4
@@ -432,7 +433,7 @@ function generarCimientos(containerId, cantidad) {
                 index: idNumericoEstricto, 
                 slotIndex: idNumericoEstricto, 
                 slotId: idNumericoEstricto, 
-                estaOcupado: false,
+                estaOcupado: false, 
                 tipoEdificio: null,
                 edificioUuid: null 
             };
@@ -446,10 +447,11 @@ function generarCimientos(containerId, cantidad) {
 
         for (let i = 0; i < cantidad; i++) {
             const geometry = new THREE.BoxGeometry(2.5, 0.4, 2.5);
+            // 🛡️ Blindaje unificado: Aldea nace estrictamente vacía en amarillo oro (0.35)
             const material = new THREE.MeshStandardMaterial({ 
                 color: 0xd4af37, 
                 transparent: true, 
-                opacity: 0.25,
+                opacity: 0.35, 
                 roughness: 0.5
             });
             const cimientoMesh = new THREE.Mesh(geometry, material);
@@ -468,7 +470,7 @@ function generarCimientos(containerId, cantidad) {
                 index: idNumericoEstricto, 
                 slotIndex: idNumericoEstricto, 
                 slotId: idNumericoEstricto, 
-                estaOcupado: false,
+                estaOcupado: false, 
                 tipoEdificio: null,
                 edificioUuid: null 
             };
@@ -533,7 +535,7 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
 
             if (edificio.subtipo === 'casona') {
                 malla3D.material.color.setHex(0x8b4513); // Marrón terráqueo Casona
-                malla3D.material.opacity = 0.98;           // Opacidad alta para evitar invisibilidad al reingresar
+                malla3D.material.opacity = 0.98;            // Opacidad alta para evitar invisibilidad al reingresar
                 malla3D.material.transparent = false;    // Sólido para prevenir fallos de renderizado WebGL Depth
             } else {
                 malla3D.material.color.setHex(0x4a5d4e); // Verde estructurado
@@ -545,7 +547,7 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
         }
     });
 
-    console.log("🎨 Sincronización visual y blindaje de la Finca completada en GPU sin fallos de invisibilidad.");
+    console.log("🎨 Sincronización visual y blindaje completados en GPU sin fallos de invisibilidad.");
 }
 
 // ==========================================================================
