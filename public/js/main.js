@@ -1,7 +1,7 @@
-// public/js/main.js (Bloque 1 de 3 - SPA y Control de Vistas)
+// public/js/main.js (Versión Definitiva Unificada - SPA, Autenticación y Control 3D)
 
 // ========================================================
-// 1. INICIALIZACIÓN SEGURO DE SOCKETS (Evita caídas en Render)
+// 1. INICIALIZACIÓN SEGURA DE SOCKETS (Evita caídas en Render)
 // ========================================================
 const socket = window.io ? window.io({ transports: ['websocket'], upgrade: false }) : null;
 
@@ -16,14 +16,13 @@ const btnFloatingMenu = document.getElementById('btnFloatingMenu');
 
 // Intercambiador Dinámico entre Login y Registro
 if (btnToggleAuth && loginForm && registerForm) {
-    // Asegurar estado inicial para que el primer click no falle
     registerForm.style.display = 'none';
     loginForm.style.display = 'block';
 
     btnToggleAuth.addEventListener('click', () => {
         if (registerForm.style.display === 'none') {
             loginForm.style.display = 'none';
-            registerForm.style.display = 'flex'; // Flex mapea con el diseño CSS implementado
+            registerForm.style.display = 'flex';
             btnToggleAuth.textContent = 'Volver al Login';
         } else {
             registerForm.style.display = 'none';
@@ -38,18 +37,16 @@ if (btnToggleAuth && loginForm && registerForm) {
  * @param {string} pantallaId - ID del contenedor HTML a visibilizar
  */
 window.cambiarPantalla = function(pantallaId) {
-    // Ocultar todas las pantallas de juego
     const secciones = document.querySelectorAll('.seccion-juego');
     secciones.forEach(seccion => {
         seccion.style.display = 'none';
     });
     
-    // Visibilizar la pantalla seleccionada
     const destino = document.getElementById(pantallaId);
     if (destino) {
         destino.style.display = 'block';
         
-        // 🚀 CONTROL DE OPTIMIZACIÓN GPU PARA THREE.JS (MENÚ PRINCIPAL)
+        // CONTROL DE OPTIMIZACIÓN GPU PARA THREE.JS (MENÚ PRINCIPAL)
         if (typeof window.estadoMotor3D !== 'undefined') {
             if (pantallaId === 'pantalla-menu-principal') {
                 window.estadoMotor3D.activo = true;
@@ -59,23 +56,20 @@ window.cambiarPantalla = function(pantallaId) {
             }
         }
 
-        // 🚀 DISPARADOR AUTOMÁTICO MOTOR 3D: FINCA PERSONAL (5 CIMIENTOS)
+        // DISPARADOR AUTOMÁTICO MOTOR 3D: FINCA PERSONAL (5 CIMIENTOS)
         if (pantallaId === 'pantalla-finca') {
             if (typeof init3D === 'function') {
                 console.log("🏗️ Inicializando terreno 3D de la Finca...");
-                // Sincronizado exactamente con el contenedor de tu HTML
                 init3D('canvas-finca-container', 5);
             }
             
-            // CORRECCIÓN ATÓMICA: Pequeño delay de 50ms para asegurar que el DOM de la Finca 
-            // esté activo antes de inyectar las mallas de la Casona y Pobladores.
             setTimeout(() => {
                 if (typeof cargarCarreton === 'function') cargarCarreton();
                 if (typeof cargarAlmacen === 'function') cargarAlmacen();
             }, 50);
         }
 
-        // 🚀 DISPARADOR AUTOMÁTICO MOTOR 3D: ALDEA IMPERIAL (12 CIMIENTOS)
+        // DISPARADOR AUTOMÁTICO MOTOR 3D: ALDEA IMPERIAL (12 CIMIENTOS)
         if (pantallaId === 'pantalla-aldea') {
             if (typeof init3D === 'function') {
                 console.log("🏛️ Inicializando terreno 3D de la Aldea (12 Cimientos)...");
@@ -86,7 +80,7 @@ window.cambiarPantalla = function(pantallaId) {
             }, 50);
         }
 
-        // 🚀 HERENCIA CONTINUA DE FONDOS REALES AL ENTRAR AL MERCADO
+        // HERENCIA CONTINUA DE FONDOS REALES AL ENTRAR AL MERCADO
         if (pantallaId === 'pantalla-mercado') {
             const nickReal = document.getElementById('menu-player-nick')?.textContent;
             const balanceReal = document.getElementById('menu-player-balance')?.textContent;
@@ -94,7 +88,6 @@ window.cambiarPantalla = function(pantallaId) {
             const nickMercado = document.getElementById('mercado-player-nick');
             const balanceMercado = document.getElementById('mercado-player-balance');
             
-            // Forzar copia exacta de los datos del gladiador activo en la UI del mercado
             if (nickMercado && nickReal) nickMercado.textContent = nickReal;
             if (balanceMercado && balanceReal) balanceMercado.textContent = balanceReal;
 
@@ -104,7 +97,7 @@ window.cambiarPantalla = function(pantallaId) {
             }
         }
 
-        // 🚀 SOLICITUD DE DATOS DE INVENTARIO LOGÍSTICO (CARRETÓN)
+        // SOLICITUD DE DATOS DE INVENTARIO LOGÍSTICO (CARRETÓN)
         if (pantallaId === 'pantalla-carreton') {
             if (typeof cargarCarreton === 'function') {
                 console.log("📦 Solicitando datos actualizados del Carretón al Árbitro...");
@@ -124,9 +117,6 @@ window.cambiarPantalla = function(pantallaId) {
         console.warn(`La vista con ID '${pantallaId}' no existe en el DOM.`);
     }
 };
-
-
-// public/js/main.js (Bloque 2 de 3 - Lógica de Registro Extendido)
 
 // ========================================================
 // 3. LÓGICA DE REGISTRO EXTENDIDO (ESTILO VUE REACTIVO)
@@ -168,7 +158,6 @@ function verificarFormularioValido() {
     btnEnviarRegistro.disabled = !esValido;
 }
 
-// Inyectar escuchadores reactivos en cascada
 camposRegistro.forEach(elemento => {
     elemento.addEventListener('input', verificarFormularioValido);
     elemento.addEventListener('change', verificarFormularioValido);
@@ -178,7 +167,6 @@ if (registerForm) {
     registerForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        // Blindaje básico de seguridad local
         if (regPassword.value !== regRepetirPassword.value) {
             alert('Las contraseñas no coinciden.');
             return;
@@ -188,7 +176,6 @@ if (registerForm) {
         const password = regPassword.value;
         const textoOriginalBtn = btnEnviarRegistro.innerHTML;
         
-        // Bloqueo UI preventivo contra clicks dobles
         btnEnviarRegistro.disabled = true;
         btnEnviarRegistro.innerHTML = '⚙️ Registrando Gladiador...';
 
@@ -225,7 +212,6 @@ if (registerForm) {
         }
     });
 }
-// public/js/main.js (Bloque 3 de 3 - Lógica de Inicio de Sesión y Autenticación)
 
 // ========================================================
 // 4. LÓGICA DE INICIO DE SESIÓN (AUTENTICACIÓN PERSISTENTE)
@@ -252,11 +238,9 @@ if (loginForm) {
             if (response.ok && data.success) {
                 if (authScreen) authScreen.style.display = 'none';
                 
-                // Guardado preventivo en SessionStorage para mitigar reconexiones y recargas rápidas
                 sessionStorage.setItem('gladiador_nick', data.username);
                 sessionStorage.setItem('gladiador_poseeAldea', data.poseeAldea);
                 
-                // SINCRO GENERAL DE LOGUEO: Nick y Balance actualizados en todas las interfaces (Incluido Finca y Mercado)
                 const idsNicks = ['menu-player-nick', 'carreton-player-nick', 'mercado-player-nick', 'finca-player-nick'];
                 const idsBalances = ['menu-player-balance', 'carreton-player-balance', 'mercado-player-balance', 'finca-player-balance', 'finanzas-saldo-txt'];
                 
@@ -268,7 +252,6 @@ if (loginForm) {
                 idsBalances.forEach(id => {
                     const el = document.getElementById(id);
                     if (el) {
-                        // Si es el input/texto financiero, inyectamos el símbolo monetario de forma limpia
                         if (id === 'finanzas-saldo-txt') {
                             el.textContent = `$${parseFloat(data.balance || 0).toFixed(2)}`;
                         } else {
@@ -277,26 +260,21 @@ if (loginForm) {
                     }
                 });
                 
-                // Actualizar la memoria volátil del módulo financiero si estuviera cargado
                 if (typeof datosFinanzas !== 'undefined') {
                     datosFinanzas.saldoDisponible = parseFloat(data.balance || 0);
                 }
                 
-                // 1. Saltamos a la pantalla del menú principal
                 cambiarPantalla('pantalla-menu-principal');
                 
-                // 2. DISPARADOR 3D: Inicialización segura del motor gráfico del Menú Principal
                 if (typeof inicializarMundo3D === 'function') {
                     setTimeout(inicializarMundo3D, 50);
                 }
                 
-                // 3. VINCULACIÓN AUTORITARIA DE RED EN TIEMPO REAL
                 if (socket) {
                     if (socket.connected) {
                         socket.emit('jugador:autenticado', { username: data.username });
                     }
                     
-                    // Escudo protector: si el túnel cae, re-autenticar automáticamente al levantar
                     socket.on('connect', () => {
                         const nickActivo = sessionStorage.getItem('gladiador_nick');
                         if (nickActivo) {
