@@ -428,14 +428,14 @@ function generarCimientos(containerId, cantidad) {
             cimientoMesh.position.y = 0.2; 
             cimientoMesh.position.z = pos.z;
 
-            // 🛡️ CORRECCIÓN: Forzar Base 10 en todas las variantes de ID para evitar conflictos de tipo String/Number
+            // 🛡️ CORRECCIÓN CLAVE: Forzar identificador numérico estricto en Base 10
             const idNumericoEstricto = parseInt(i, 10);
 
             cimientoMesh.userData = { 
-                id: null, // ID de MongoDB sincronizado dinámicamente
+                id: null,              // ID de MongoDB sincronizado dinámicamente
                 index: idNumericoEstricto, 
-                slotIndex: idNumericoEstricto, // Compatibilidad con lógicas antiguas
-                slotId: idNumericoEstricto,    // Campo unificado con el Schema
+                slotIndex: idNumericoEstricto, // Compatibilidad estricta con ranuras
+                slotId: idNumericoEstricto, 
                 estaOcupado: false,
                 tipoEdificio: null,
                 edificioUuid: null 
@@ -467,13 +467,13 @@ function generarCimientos(containerId, cantidad) {
             cimientoMesh.position.y = 0.2; 
             cimientoMesh.position.z = (fila - 1) * distancia;
 
-            // 🛡️ CORRECCIÓN: Forzar Base 10 en la Aldea también
+            // 🛡️ CORRECCIÓN CLAVE: Forzar identificador numérico estricto en Base 10 para la Aldea también
             const idNumericoEstricto = parseInt(i, 10);
 
             cimientoMesh.userData = { 
-                id: null, 
+                id: null,              // ID de MongoDB sincronizado dinámicamente
                 index: idNumericoEstricto, 
-                slotIndex: idNumericoEstricto, 
+                slotIndex: idNumericoEstricto, // Compatibilidad estricta con ranuras
                 slotId: idNumericoEstricto, 
                 estaOcupado: false,
                 tipoEdificio: null,
@@ -538,26 +538,25 @@ window.reanudarAnimacion3D = function() {
 function sincronizarTerrenoEnMallas(edificiosConstruidos) {
     if (!edificiosConstruidos || !Array.isArray(edificiosConstruidos)) return;
 
-    // 1. Reiniciar de forma limpia y transparente todos los cimientos lógicos en la GPU
+    // Primero reiniciamos todos los cimientos a su estado libre por defecto
     listaCimientos3D.forEach(malla => {
         malla.userData.estaOcupado = false;
         malla.userData.tipoEdificio = null;
         malla.userData.edificioUuid = null;
         malla.userData.id = null;
-        malla.material.color.setHex(0xd4af37); // Oro imperial translúcido por defecto
+        malla.material.color.setHex(0xd4af37);
         malla.material.opacity = 0.35;
         malla.material.transparent = true;
         malla.material.needsUpdate = true;
     });
 
-    // 2. Mapear de forma limpia las estructuras tridimensionales activas devueltas por el Árbitro
+    // Luego aplicamos los edificios activos devueltos por el servidor con blindaje visual absoluto
     edificiosConstruidos.forEach(edificio => {
-        // Extraer de forma segura el ID unificado de la ranura (slotId)
         const rawSlot = edificio.slotId !== undefined ? edificio.slotId : (edificio.cimientoIndex !== undefined ? edificio.cimientoIndex : edificio.slotIndex);
         const slotIdDestino = parseInt(rawSlot, 10);
         if (isNaN(slotIdDestino)) return;
 
-        // CORRECCIÓN CLAVE: Buscar la malla tridimensional utilizando estrictamente slotId en Base 10
+        // 🛡️ CORRECCIÓN CLAVE: Buscar la malla tridimensional utilizando estrictamente slotId en Base 10
         const malla3D = listaCimientos3D.find(c => parseInt(c.userData.slotId, 10) === slotIdDestino);
 
         if (malla3D) {
@@ -566,25 +565,23 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
             malla3D.userData.edificioUuid = edificio.uuid || edificio._id || edificio.edificioUuid;
             malla3D.userData.id = edificio._id || edificio.id || edificio.uuid || null;
 
-            // 3. BLINDAJE VISUAL: Asignación de colores sólidos y opacidades para mitigar fallos de oclusión en Three.js
             if (edificio.subtipo === 'casona') {
                 malla3D.material.color.setHex(0x8b4513); // Marrón terráqueo Casona
                 malla3D.material.opacity = 0.98;         // Opacidad alta para evitar invisibilidad al reingresar
                 malla3D.material.transparent = false;    // Sólido para prevenir fallos de renderizado WebGL Depth
             } else {
-                malla3D.material.color.setHex(0x4a5d4e); // Verde estructurado (Aserradero / Granja)
+                malla3D.material.color.setHex(0x4a5d4e); // Verde estructurado
                 malla3D.material.opacity = 0.92;
                 malla3D.material.transparent = true;
             }
 
-            // 🚀 DISPARADOR DE GPU: Fuerza al renderizador de Render/Vercel a refrescar el material inmediatamente
+            // 🚀 DISPARADOR DE GPU: Fuerza al renderizador a refrescar el material inmediatamente
             malla3D.material.needsUpdate = true;
         }
     });
 
     console.log("🎨 Sincronización visual y blindaje de la Finca completada en GPU sin fallos de invisibilidad.");
 }
-
 
 // ==========================================================================
 // RECEPTORES DE RED DE SOCKET.IO PARA LA INGENIERÍA DE CONSTRUCCIÓN
