@@ -529,12 +529,12 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ==========================================================================
-    // 🏗️ INGENIERÍA DE RETIRO DE OBRA CIVIL (3D -> ALMACÉN)
+       // ==========================================================================
+    // 🏗️ INGENIERÍA DE RETIRO DE OBRA CIVIL (3D -> ALMACÉN) - PERFECTO
     // ==========================================================================
     socket.on('finca:retirar-edificio', async (datos) => {
         if (!datos) return;
-        // 🛠️ CORRECCIÓN: Manejo robusto de índices asegurando que se capture el slot
+        
         const cimientoIndex = parseInt(datos.slotId ?? datos.cimientoIndex ?? datos.slotIndex);
         const username = socket.username;
 
@@ -556,8 +556,11 @@ io.on('connection', (socket) => {
             }
             cachePartidas[username] = juegoData;
 
-            // Buscamos con un fallback de identificadores
-            const cimientoIdx = juegoData.cimientosFinca.findIndex(c => (c.slotId ?? c.slotIndex ?? c.cimientoIndex) === cimientoIndex && c.estaOcupado);
+            // Buscamos el cimiento ocupado en la base de datos
+            const cimientoIdx = juegoData.cimientosFinca.findIndex(c => 
+                parseInt(c.slotId ?? c.slotIndex ?? c.cimientoIndex) === cimientoIndex && c.estaOcupado
+            );
+            
             if (cimientoIdx === -1) {
                 return socket.emit('finca:error', 'No hay ninguna estructura activa en este cimiento.');
             }
@@ -565,6 +568,8 @@ io.on('connection', (socket) => {
             const edificioRetirado = juegoData.cimientosFinca[cimientoIdx];
 
             if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
+            
+            // Devolvemos la carta al almacén
             juegoData.almacenEdificiosDisponibles.push({
                 uuid: crypto.randomUUID(),
                 id: crypto.randomUUID(),
@@ -574,7 +579,41 @@ io.on('connection', (socket) => {
                 nivel: edificioRetirado.nivel || 0
             });
 
-          // ====== REEMPLAZAR TOTALMENTE LÍNEAS 451 A 461 EN SERVER.JS ======
+            // Vaciamos el cimiento de forma que Mongoose registre la mutación limpiamente
+            juegoData.cimientosFinca[cimientoIdx].estaOcupado = false;
+            juegoData.cimientosFinca[cimientoIdx].subtipo = null;
+            juegoData.cimientosFinca[cimientoIdx].nombre = null;
+            juegoData.cimientosFinca[cimientoIdx].rareza = null;
+            juegoData.cimientosFinca[cimientoIdx].nivel = 0;
+            juegoData.cimientosFinca[cimientoIdx].pobladoresAsignados = [];
+
+            juegoData.markModified('cimientosFinca');
+            juegoData.markModified('almacenEdificiosDisponibles');
+            await juegoData.save();
+
+            // 🚀 EMISIÓN INTEGRADA PERFECTA: Envía la confirmación del slot junto al terreno limpio
+            socket.emit('finca:retiro-exitoso', { 
+                slotIndex: cimientoIndex, 
+                slotId: cimientoIndex,
+                terreno: juegoData.cimientosFinca 
+            });
+            
+            socket.emit('almacen:actualizar-estado', { 
+                recursos: juegoData.almacenEdificiosDisponibles || [] 
+            });
+
+            if (typeof forzarEnvioEstadoCarreton === 'function') {
+                await forzarEnvioEstadoCarreton(socket, username, juegoData);
+            }
+
+            console.log(`♻️ Estructura '${edificioRetirado.nombre}' retirada del cimiento ${cimientoIndex} para ${username}.`);
+        } catch (error) {
+            console.error("❌ Error al procesar retiro de edificio:", error);
+            socket.emit('finca:error', 'Fallo interno al desinstalar la estructura.');
+        }
+    });
+
+          // ======  ======
 
 juegoData.cimientosFinca[cimientoIdx] = {
     slotIndex: cimientoIndex,
