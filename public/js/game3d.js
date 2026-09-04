@@ -511,7 +511,7 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
 
                 if (edificio.subtipo === 'casona') {
                     malla3D.material.color.setHex(0x8b4513); 
-                    malla3D.material.opacity = 0.98;               
+                    malla3D.material.opacity = 0.98;            
                     malla3D.material.transparent = false;    
                 } else {
                     malla3D.material.color.setHex(0x4a5d4e); 
