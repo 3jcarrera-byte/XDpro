@@ -1,5 +1,5 @@
 // ==========================================================================
-// 🎮 public/js/game3d.js (Versión Definitiva Optimizada y Corregida SPA)
+// 🎮 public/js/game3d.js (Versión Definitiva Optimizada, Corregida y Blindada SPA)
 // ==========================================================================
 
 // Configuración global de optimización de GPU conectada con el ruteo SPA de main.js
@@ -19,7 +19,7 @@ window.cacheTerrenoServidor = null;
 // Variables de control para Drag & Drop interno entre cimientos o retorno a la banda inferior
 let edificioSeleccionadoArrastre = null;
 
-// 🌐 Variables globales de control para el arrastre avanzado mediante clon HTML translúcido (pointer/mouse events)
+// 🌐 Variables globales de control para el arrastre avanzado mediante clon HTML translúcido
 let arrastreActivoJS = false;
 let datosArrastreActuales = null;
 let elementoClonVisual = null;
@@ -121,7 +121,7 @@ function configurarDragAndDropCanvas(contenedorCanvas) {
         e.stopPropagation();
 
         const cartaUuid = e.dataTransfer.getData('text/plain');
-        const origenSlotStr = e.dataTransfer.getData('text/origen-slot'); // Detecta si proviene de otro cimiento 3D
+        const origenSlotStr = e.dataTransfer.getData('text/origen-slot');
 
         const activeCamera = window.cameraGlobalFinca || camera;
         if (!renderer || !activeCamera) return;
@@ -142,7 +142,6 @@ function configurarDragAndDropCanvas(contenedorCanvas) {
             if (intersecciones.length > 0) {
                 const cimientoGolpeado = intersecciones[0].object;
                 const cimientoIndex = parseInt(cimientoGolpeado.userData.index, 10);
-                const cimientoDbId = cimientoGolpeado.userData.id;
 
                 if (isNaN(cimientoIndex)) {
                     console.error('El índice del cimiento golpeado no es válido.');
@@ -152,11 +151,7 @@ function configurarDragAndDropCanvas(contenedorCanvas) {
                 // CASO A: REORDENAMIENTO / INTERCAMBIO ENTRE CIMIENTOS 3D
                 if (origenSlotStr !== "" && origenSlotStr !== undefined) {
                     const origenSlotIdNum = parseInt(origenSlotStr, 10);
-                    if (isNaN(origenSlotIdNum)) {
-                        console.error('El slot de origen no es un número válido:', origenSlotStr);
-                        return;
-                    }
-                    if (origenSlotIdNum === cimientoIndex) return; // Mismo slot, no hay acción
+                    if (isNaN(origenSlotIdNum) || origenSlotIdNum === cimientoIndex) return;
 
                     console.log(`🔄 Intercambio de cimientos detectado: Origen [${origenSlotIdNum}] ➡️ Destino [${cimientoIndex}]`);
 
@@ -193,15 +188,13 @@ function configurarDragAndDropCanvas(contenedorCanvas) {
                 } else {
                     alert("❌ Error de red: No hay conexión activa con el servidor del Imperio.");
                 }
-            } else {
-                console.warn("⚠️ La carta se soltó fuera de los cimientos dorados habilitados.");
             }
         }
     });
 }
 
 /**
- * 🛠️ Sistema Avanzado de Eventos de Puntero (Pointer/Mouse Events) combinado con Raycaster dinámico
+ * 🛠️ Sistema Avanzado de Eventos de Puntero combinado con Raycaster dinámico
  */
 function configurarEventosPunteroAvanzados(contenedorCanvas) {
     if (!contenedorCanvas) return;
@@ -244,7 +237,7 @@ function configurarEventosPunteroAvanzados(contenedorCanvas) {
                     try {
                         contenedorCanvas.setPointerCapture(e.pointerId);
                     } catch (err) {
-                        // Ignorar
+                        // Ignorar si el navegador rechaza la captura
                     }
 
                     e.stopPropagation();
@@ -316,8 +309,7 @@ function configurarEventosPunteroAvanzados(contenedorCanvas) {
             const cimientoDestino = intersecciones[0].object;
             const destinoIndexNum = parseInt(cimientoDestino.userData.index, 10);
 
-            if (isNaN(destinoIndexNum)) return;
-            if (slotIdNumerico === destinoIndexNum) return;
+            if (isNaN(destinoIndexNum) || slotIdNumerico === destinoIndexNum) return;
 
             console.log(`🔄 Intercambio avanzado de cimientos: Origen [${slotIdNumerico}] ➡️ Destino [${destinoIndexNum}]`);
 
@@ -378,7 +370,7 @@ function removerClonVisualDOM() {
 }
 
 /**
- * Distribuye espacialmente los cimientos geométricos de forma dinámica según el tipo de terreno (Finca o Aldea)
+ * Distribuye espacialmente los cimientos geométricos de forma dinámica según el tipo de terreno
  */
 function generarCimientos(containerId, cantidad) {
     listaCimientos3D = []; 
@@ -408,7 +400,7 @@ function generarCimientos(containerId, cantidad) {
 
             const idNumericoEstricto = parseInt(i, 10);
             cimientoMesh.userData = { 
-                id: null,                
+                id: null,                    
                 index: idNumericoEstricto, 
                 slotIndex: idNumericoEstricto, 
                 slotId: idNumericoEstricto, 
@@ -445,7 +437,7 @@ function generarCimientos(containerId, cantidad) {
 
             const idNumericoEstricto = parseInt(i, 10);
             cimientoMesh.userData = { 
-                id: null,                
+                id: null,                    
                 index: idNumericoEstricto, 
                 slotIndex: idNumericoEstricto, 
                 slotId: idNumericoEstricto, 
@@ -461,7 +453,7 @@ function generarCimientos(containerId, cantidad) {
 }
 
 /**
- * Bucle infinito inteligente controlado por bandera de optimización de GPU
+ * Bucle de animación inteligente controlado por bandera de optimización de GPU
  */
 function animate() {
     if (!window.estadoMotor3D.activo) {
@@ -484,7 +476,6 @@ window.reanudarAnimacion3D = function() {
 
 /**
  * Función centralizada para actualizar los materiales de las mallas 3D según el estado del terreno
- * 🛠️ Corrección integrada: Validación estricta combinada de 'estaOcupado' y 'subtipo'
  */
 function sincronizarTerrenoEnMallas(edificiosConstruidos) {
     if (!edificiosConstruidos || !Array.isArray(edificiosConstruidos)) return;
@@ -510,7 +501,6 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
         const malla3D = listaCimientos3D.find(c => parseInt(c.userData.slotId, 10) === slotIdDestino);
 
         if (malla3D) {
-            // 🛡️ Blindaje estricto: Una parcela solo se pinta como ocupada si el flag es true Y cuenta con un subtipo válido
             const estaRealmenteOcupado = Boolean(edificio.estaOcupado && edificio.subtipo);
 
             if (estaRealmenteOcupado) {
@@ -529,7 +519,6 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
                     malla3D.material.transparent = true;
                 }
             } else {
-                // Forzar estado vacío explícito (color dorado translúcido)
                 malla3D.userData.estaOcupado = false;
                 malla3D.userData.tipoEdificio = null;
                 malla3D.userData.edificioUuid = null;
@@ -543,14 +532,15 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
         }
     });
 
-    console.log("🎨 Sincronización visual y blindaje completados en GPU sin fallos de invisibilidad.");
+    console.log("🎨 Sincronización visual y blindaje completados en GPU.");
 }
 
 // ==========================================================================
-// RECEPTORES DE RED DE SOCKET.IO PARA LA INGENIERÍA DE CONSTRUCCIÓN
+// CONFIGURACIÓN ÚNICA DE RECEPTORES DE SOCKET.IO
 // ==========================================================================
-if (typeof socket !== 'undefined' && socket) {
-    
+if (typeof socket !== 'undefined' && socket && !window._socketsGame3DConfigurados) {
+    window._socketsGame3DConfigurados = true;
+
     socket.on('finca:construccion-exitosa', (data) => {
         if (data.mensaje) console.log(data.mensaje);
         if (data.terreno) {
