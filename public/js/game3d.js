@@ -81,7 +81,7 @@ function init3D(containerId, maxCimientos) {
     raycaster = new THREE.Raycaster();
     mouse = new THREE.Vector2();
 
-    // 8. Distribución y renderizado de los Cimientos lógicos
+    // 8. Distribución y renderizado dinámico de los Cimientos lógicos
     generarCimientos(containerId, maxCimientos);
 
     // 🚀 9. CONFIGURACIÓN DEL RECEPTOR DRAG & DROP NATIVO Y PUNTERO AVANZADO PARA EL CANVAS 3D
@@ -172,20 +172,12 @@ function configurarDragAndDropCanvas(contenedorCanvas) {
                 // CASO B: INSTALACIÓN NUEVA DESDE CARTA EXTERNA
                 if (!cartaUuid) return;
 
-                console.log("🔍 INSPECCIONANDO CIMIENTO:", {
-                    index: cimientoIndex,
-                    dbId: cimientoDbId,
-                    ocupadoReal: cimientoGolpeado.userData.estaOcupado,
-                    tipo: cimientoGolpeado.userData.tipoEdificio,
-                    uuidAsignado: cimientoGolpeado.userData.edificioUuid
-                });
-
                 if (cimientoGolpeado.userData.estaOcupado) {
                     alert("❌ Este cimiento ya se encuentra ocupado por otra estructura imperial.");
                     return;
                 }
 
-                console.log(`🎯 Instalando edificio nuevo en Slot Index ${cimientoIndex} (ID: ${cimientoDbId}). UUID: ${cartaUuid}`);
+                console.log(`🎯 Instalando edificio nuevo en Slot Index ${cimientoIndex}. UUID: ${cartaUuid}`);
 
                 if (typeof socket !== 'undefined' && socket && socket.connected) {
                     socket.emit('finca:instalar-edificio', {
@@ -213,8 +205,7 @@ function configurarEventosPunteroAvanzados(contenedorCanvas) {
     if (!contenedorCanvas) return;
 
     contenedorCanvas.addEventListener('pointerdown', (e) => {
-        // Solo botón izquierdo del ratón
-        if (e.button !== 0) return;
+        if (e.button !== 0) return; // Solo botón izquierdo
 
         const activeCamera = window.cameraGlobalFinca || camera;
         if (!renderer || !activeCamera) return;
@@ -235,7 +226,6 @@ function configurarEventosPunteroAvanzados(contenedorCanvas) {
             if (intersecciones.length > 0) {
                 const cimientoGolpeado = intersecciones[0].object;
 
-                // Si el cimiento está ocupado, iniciamos el arrastre interno 3D
                 if (cimientoGolpeado.userData.estaOcupado) {
                     const cimientoIndexNum = parseInt(cimientoGolpeado.userData.index, 10);
                     if (isNaN(cimientoIndexNum)) return;
@@ -252,7 +242,7 @@ function configurarEventosPunteroAvanzados(contenedorCanvas) {
                     try {
                         contenedorCanvas.setPointerCapture(e.pointerId);
                     } catch (err) {
-                        // Ignorar si el navegador no lo soporta
+                        // Ignorar
                     }
 
                     e.stopPropagation();
@@ -283,10 +273,7 @@ function configurarEventosPunteroAvanzados(contenedorCanvas) {
         if (!datosArrastre) return;
 
         const slotIdNumerico = parseInt(datosArrastre.origenSlot, 10);
-        if (isNaN(slotIdNumerico)) {
-            console.error('El slot de origen extraído no es válido.');
-            return;
-        }
+        if (isNaN(slotIdNumerico)) return;
 
         const elementoBandaInferior = document.querySelector('.finca-buildings-drawer');
         if (elementoBandaInferior) {
@@ -297,11 +284,9 @@ function configurarEventosPunteroAvanzados(contenedorCanvas) {
                 e.clientY >= rectBanda.top &&
                 e.clientY <= rectBanda.bottom
             ) {
-                console.log(`📦 Soltado en banda inferior. Retirando estructura del slot [${slotIdNumerico}] al almacén...`);
+                console.log(`📦 Soltado en banda inferior. Retirando estructura del slot [${slotIdNumerico}]...`);
                 if (typeof socket !== 'undefined' && socket && socket.connected) {
-                    socket.emit('finca:retirar-edificio', {
-                        slotId: slotIdNumerico
-                    });
+                    socket.emit('finca:retirar-edificio', { slotId: slotIdNumerico });
                 }
                 return;
             }
@@ -377,18 +362,12 @@ function crearClonVisualDOM(x, y, tipoEdificio) {
     document.body.appendChild(elementoClonVisual);
 }
 
-/**
- * Actualiza la posición del clon flotante con el movimiento del ratón
- */
 function actualizarClonVisualDOM(x, y) {
     if (!elementoClonVisual) return;
     elementoClonVisual.style.left = `${x - 40}px`;
     elementoClonVisual.style.top = `${y - 40}px`;
 }
 
-/**
- * Remueve el clon visual temporal del DOM
- */
 function removerClonVisualDOM() {
     if (elementoClonVisual && elementoClonVisual.parentNode) {
         elementoClonVisual.parentNode.removeChild(elementoClonVisual);
@@ -397,23 +376,22 @@ function removerClonVisualDOM() {
 }
 
 /**
- * Distribuye espacialmente los cimientos geométricos translúcidos en el plano
+ * Distribuye espacialmente los cimientos geométricos de forma dinámica según el tipo de terreno (Finca o Aldea)
  */
 function generarCimientos(containerId, cantidad) {
     listaCimientos3D = []; 
 
     if (containerId === 'canvas-finca-container') {
         const posicionesCimientosFinca = [
-            { x: -9.0, z:  6.0 }, // Cimiento 0: Izquierdo
-            { x: -6.0, z:  0.0 }, // Cimiento 1: Central izquierdo
-            { x:  6.0, z:  0.0 }, // Cimiento 2: Central derecho
-            { x:  0.0, z: -2.0 }, // Cimiento 3: Superior
-            { x:  9.0, z:  6.0 }  // Cimiento 4: Inferior derecho externo
+            { x: -9.0, z:  6.0 }, 
+            { x: -6.0, z:  0.0 }, 
+            { x:  6.0, z:  0.0 }, 
+            { x:  0.0, z: -2.0 }, 
+            { x:  9.0, z:  6.0 }  
         ];
 
         posicionesCimientosFinca.forEach((pos, i) => {
             const geometry = new THREE.BoxGeometry(2.5, 0.4, 2.5);
-            // 🛡️ Blindaje unificado: Color amarillo oro y opacidad estándar de vacío (0.35)
             const material = new THREE.MeshStandardMaterial({ 
                 color: 0xd4af37, 
                 transparent: true, 
@@ -427,7 +405,6 @@ function generarCimientos(containerId, cantidad) {
             cimientoMesh.position.z = pos.z;
 
             const idNumericoEstricto = parseInt(i, 10);
-
             cimientoMesh.userData = { 
                 id: null,              
                 index: idNumericoEstricto, 
@@ -442,15 +419,14 @@ function generarCimientos(containerId, cantidad) {
             listaCimientos3D.push(cimientoMesh);
         });
     } else {
-        // Configuración para la Aldea: exactamente 12 cimientos distribuidos en cuadrícula de 4 columnas x 3 filas
+        // 🚀 CORRECCIÓN DINÁMICA: Aldea Imperial genera los 12 cimientos (o el valor recibido en 'cantidad')
         const columnas = 4; 
-        const filas = 3;
+        const filas = Math.ceil(cantidad / columnas); // Cálculo exacto y dinámico de filas necesarias
         const distanciaX = 4.0;
         const distanciaZ = 4.0;
 
         for (let i = 0; i < cantidad; i++) {
             const geometry = new THREE.BoxGeometry(2.5, 0.4, 2.5);
-            // 🛡️ Blindaje unificado: Aldea nace estrictamente vacía en amarillo oro (0.35)
             const material = new THREE.MeshStandardMaterial({ 
                 color: 0xd4af37, 
                 transparent: true, 
@@ -467,7 +443,6 @@ function generarCimientos(containerId, cantidad) {
             cimientoMesh.position.z = (fila - (filas - 1) / 2) * distanciaZ;
 
             const idNumericoEstricto = parseInt(i, 10);
-
             cimientoMesh.userData = { 
                 id: null,              
                 index: idNumericoEstricto, 
@@ -537,11 +512,11 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
             malla3D.userData.id = edificio._id || edificio.id || edificio.uuid || null;
 
             if (edificio.subtipo === 'casona') {
-                malla3D.material.color.setHex(0x8b4513); // Marrón terráqueo Casona
-                malla3D.material.opacity = 0.98;             // Opacidad alta para evitar invisibilidad al reingresar
-                malla3D.material.transparent = false;    // Sólido para prevenir fallos de renderizado WebGL Depth
+                malla3D.material.color.setHex(0x8b4513); 
+                malla3D.material.opacity = 0.98;             
+                malla3D.material.transparent = false;    
             } else {
-                malla3D.material.color.setHex(0x4a5d4e); // Verde estructurado
+                malla3D.material.color.setHex(0x4a5d4e); 
                 malla3D.material.opacity = 0.92;
                 malla3D.material.transparent = true;
             }
