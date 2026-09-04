@@ -443,11 +443,11 @@ io.on('connection', (socket) => {
     // ==========================================================================
     // 🏗️ INGENIERÍA DE OBRA CIVIL Y COLOCACIÓN DE EDIFICIOS 3D
     // ==========================================================================
-    socket.on('finca:instalar-edificio', async (datos) => {
+       socket.on('finca:instalar-edificio', async (datos) => {
         if (!datos) return;
         const edificioUuid = datos.cartaUuid || datos.edificioUuid || datos.edificioId;
         
-        // 1. Forzar parsing numérico estricto en Base 10 inmediatamente
+        // 🛡️ CORRECCIÓN 1: Forzar Base 10 de inmediato para que sea un número estricto
         const cimientoIndex = parseInt(datos.cimientoIndex ?? datos.cimientoSlotId ?? datos.slotId ?? datos.slotIndex, 10);
         const username = socket.username;
 
@@ -467,7 +467,7 @@ io.on('connection', (socket) => {
             }
             cachePartidas[username] = juegoData;
 
-            // 2. CORRECCIÓN CLAVE: Validar estrictamente contra slotId (la propiedad real del Schema)
+            // 🛡️ CORRECCIÓN 2: Validar estrictamente contra slotId (el campo real de tu Schema de Mongoose) y comparar como números
             const cimientoOcupado = juegoData.cimientosFinca.some(c => parseInt(c.slotId, 10) === cimientoIndex && c.estaOcupado);
             if (cimientoOcupado) {
                 return socket.emit('finca:error', 'Esta parcela ya aloja una estructura civil.');
@@ -481,9 +481,10 @@ io.on('connection', (socket) => {
             }
 
             const planoEdificio = juegoData.almacenEdificiosDisponibles[indexEdificio];
+
             juegoData.almacenEdificiosDisponibles.splice(indexEdificio, 1);
 
-            // 3. ESTRUCTURA SANEADA: Mapeo exacto con los nombres del Schema de Mongoose
+            // 🛡️ CORRECCIÓN 3: Saneamiento del objeto con las propiedades reales de tu subdocumento
             const nuevoEdificioConstruido = {
                 slotId: cimientoIndex, 
                 estaOcupado: true,
@@ -496,11 +497,10 @@ io.on('connection', (socket) => {
                 pobladoresAsignados: []
             };
 
-            // 4. CORRECCIÓN CLAVE: Buscar y actualizar usando únicamente slotId parseado
+            // 🛡️ CORRECCIÓN 4: Búsqueda unificada en la base de datos usando únicamente slotId numérico
             const idxCimientoExistente = juegoData.cimientosFinca.findIndex(c => parseInt(c.slotId, 10) === cimientoIndex);
-            
             if (idxCimientoExistente !== -1) {
-                // Utilizar .set() de Mongoose para asegurar una mutación limpia del subdocumento
+                // Usamos .set() de Mongoose para asegurar una mutación limpia sin conflictos de subdocumentos
                 juegoData.cimientosFinca[idxCimientoExistente].set(nuevoEdificioConstruido);
             } else {
                 juegoData.cimientosFinca.push(nuevoEdificioConstruido);
@@ -536,7 +536,6 @@ io.on('connection', (socket) => {
         }
     });
 
-
 // ========================================================
 // INICIO DEL SERVIDOR HTTP
 // ========================================================
@@ -547,10 +546,9 @@ server.listen(PORT, () => {
         // ==========================================================================
     // 🏗️ INGENIERÍA DE RETIRO DE OBRA CIVIL (3D -> ALMACÉN) - CORREGIDO
     // ==========================================================================
-       socket.on('finca:retirar-edificio', async (datos) => {
+         socket.on('finca:retirar-edificio', async (datos) => {
         if (!datos) return;
         
-        // 1. Forzar parsing numérico estricto en Base 10 inmediatamente
         const cimientoIndex = parseInt(datos.slotId ?? datos.cimientoIndex ?? datos.slotIndex, 10);
         const username = socket.username;
 
@@ -572,7 +570,6 @@ server.listen(PORT, () => {
             }
             cachePartidas[username] = juegoData;
 
-            // 2. BUSQUEDA ESTRICTA: Validamos usando la propiedad real slotId parseada
             const cimientoIdx = juegoData.cimientosFinca.findIndex(c => 
                 parseInt(c.slotId, 10) === cimientoIndex && c.estaOcupado
             );
@@ -583,11 +580,9 @@ server.listen(PORT, () => {
 
             const edificioRetirado = juegoData.cimientosFinca[cimientoIdx];
 
-            // 3. REGLA DE ORO DE TU REQUISITO (IDEA): Evacuar pobladores al Carretón Central al quitar la obra civil
             if (edificioRetirado.pobladoresAsignados && edificioRetirado.pobladoresAsignados.length > 0) {
                 edificioRetirado.pobladoresAsignados.forEach(aldeano => {
                     let slotLibre = 0;
-                    // Buscar el slot index secuencial disponible en el bloque central para evitar sobreescritura
                     while (juegoData.carretonCartas.cartasCentral.some(c => c.slotIndex === slotLibre)) {
                         slotLibre++;
                     }
@@ -598,7 +593,6 @@ server.listen(PORT, () => {
 
             if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
             
-            // Devolvemos la carta al almacén con un nuevo identificador de movimiento seguro
             juegoData.almacenEdificiosDisponibles.push({
                 uuid: crypto.randomUUID(),
                 subtipo: edificioRetirado.subtipo,
@@ -607,9 +601,8 @@ server.listen(PORT, () => {
                 nivel: edificioRetirado.nivel || 0
             });
 
-            // 🛡️ SOLUCIÓN MONGOOSE: Usamos .set() forzando la limpieza absoluta del subdocumento
             juegoData.cimientosFinca[cimientoIdx].set({
-                slotId: cimientoIndex, // Conservamos el ID de la parcela física intacto
+                slotId: cimientoIndex,
                 estaOcupado: false,
                 edificioUuid: null,
                 subtipo: null,
@@ -621,12 +614,11 @@ server.listen(PORT, () => {
                 pobladoresAsignados: []
             });
 
-            juegoData.markModified('carretonCartas'); // Forzar persistencia si se movieron aldeanos
+            juegoData.markModified('carretonCartas');
             juegoData.markModified('cimientosFinca');
             juegoData.markModified('almacenEdificiosDisponibles');
             await juegoData.save();
 
-            // 🚀 EMISIÓN REACTIVA EN TIEMPO REAL AL FRONTEND
             socket.emit('finca:retiro-exitoso', { 
                 slotIndex: cimientoIndex, 
                 slotId: cimientoIndex,
@@ -637,14 +629,13 @@ server.listen(PORT, () => {
                 recursos: juegoData.almacenEdificiosDisponibles || [] 
             });
 
-            // Sincronizar el Canvas de la Finca 3D inmediatamente
             socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca || []);
 
             if (typeof forzarEnvioEstadoCarreton === 'function') {
                 await forzarEnvioEstadoCarreton(socket, username, juegoData);
             }
 
-            console.log(`♻️ Estructura '${edificioRetirado.nombre}' retirada del cimiento ${imientoIndex} para ${username}.`);
+            console.log(`♻️ Estructura '${edificioRetirado.nombre}' retirada del cimiento ${cimientoIndex} para ${username}.`);
         } catch (error) {
             console.error("❌ Error al procesar retiro de edificio:", error);
             socket.emit('finca:error', 'Fallo interno al desinstalar la estructura.');
@@ -654,19 +645,18 @@ server.listen(PORT, () => {
     // ==========================================================================
     // 🏗️ INGENIERÍA DE INTERCAMBIO Y MOVIMIENTO DE EDIFICIOS (3D <-> 3D)
     // ==========================================================================
-      socket.on('finca:intercambiar-cimientos', async (datos) => {
+     este es el tercer bloque a modificar?:  socket.on('finca:intercambiar-cimientos', async (datos) => {
         try {
             const username = socket.username;
             if (!username) {
-                return socket.emit('finca:error', 'Sesión de usuario no autenticada.');
+                socket.emit('finca:error', 'Sesión de usuario no autenticada.');
+                return;
             }
 
-            // 1. Desestructuración segura y conversión inmediata a Base 10
-            const origenIndex = parseInt(datos.origenSlotId, 10);
-            const destinoIndex = parseInt(datos.destinoSlotId, 10);
-
-            if (isNaN(origenIndex) || isNaN(destinoIndex)) {
-                return socket.emit('finca:error', 'Parámetros de intercambio inválidos o incompletos.');
+            const { origenSlotId, destinoSlotId } = datos;
+            if (origenSlotId === undefined || destinoSlotId === undefined) {
+                socket.emit('finca:error', 'Parámetros de intercambio incompletos.');
+                return;
             }
 
             let juegoData = await GameDataModel.findOne({ username: username });
@@ -674,92 +664,78 @@ server.listen(PORT, () => {
                 juegoData = cachePartidas[username];
             }
             if (!juegoData || !juegoData.cimientosFinca) {
-                return socket.emit('finca:error', 'No se encontró información de la finca del usuario.');
+                socket.emit('finca:error', 'No se encontró información de la finca del usuario.');
+                return;
             }
             cachePartidas[username] = juegoData;
 
             const cimientos = juegoData.cimientosFinca;
             
-            // 2. BUSQUEDA ESTRICTA UNIFICADA: Buscamos únicamente por slotId (el campo real del Schema)
-            const indexOrigen = cimientos.findIndex(c => parseInt(c.slotId, 10) === origenIndex);
-            const indexDestino = cimientos.findIndex(c => parseInt(c.slotId, 10) === destinoIndex);
-
+            // 🛠️ CORRECCIÓN: Garantizamos que validará contra slotId, slotIndex o cimientoIndex
+            const indexOrigen = cimientos.findIndex(c => 
+    parseInt(c.slotId ?? c.slotIndex ?? c.cimientoIndex) === parseInt(origenSlotId)
+);
+           const indexDestino = cimientos.findIndex(c => 
+    parseInt(c.slotId ?? c.slotIndex ?? c.cimientoIndex) === parseInt(destinoSlotId)
+);
             if (indexOrigen === -1) {
-                return socket.emit('finca:error', 'No se encontró el cimiento de origen en la Finca.');
+                socket.emit('finca:error', 'No se encontró un edificio en el cimiento de origen.');
+                return;
             }
 
-            // 3. EXTRACCIÓN Y RESPALDO COMPLETO DE DATOS LÓGICOS
             const origenData = cimientos[indexOrigen];
-            
-            // Si el destino no existe en el array de la BD, lo forzamos con una estructura limpia
-            if (indexDestino === -1) {
-                cimientos.push({
-                    slotId: destinoIndex,
+            let destinoData = indexDestino !== -1 ? cimientos[indexDestino] : null;
+
+            if (!destinoData) {
+                // 🛠️ CORRECCIÓN: Estructura por defecto con todos los IDs poblados para evitar problemas futuros
+                destinoData = {
+                    slotIndex: parseInt(destinoSlotId),
+                    cimientoIndex: parseInt(destinoSlotId),
+                    slotId: parseInt(destinoSlotId),
                     estaOcupado: false,
-                    edificioUuid: null,
                     subtipo: null,
                     nombre: null,
                     rareza: null,
                     nivel: 0,
-                    durabilidadActual: 100,
-                    produccionGenerada: 0,
                     pobladoresAsignados: []
-                });
+                };
+                cimientos.push(destinoData);
             }
-            
-            // Volvemos a buscar el índice del destino de forma limpia para asegurar su posición en el array
-            const idxDestinoFinal = cimientos.findIndex(c => parseInt(c.slotId, 10) === destinoIndex);
-            const destinoData = cimientos[idxDestinoFinal];
 
-            // Clonamos los estados lógicos de ambos cimientos aislando sus metadatos de Mongoose
-            const clonOrigen = {
-                estaOcupado: origenData.estaOcupado,
-                edificioUuid: origenData.edificioUuid,
-                subtipo: origenData.subtipo,
-                nombre: origenData.nombre,
-                rareza: origenData.rareza,
-                nivel: origenData.nivel,
-                durabilidadActual: origenData.durabilidadActual,
-                produccionGenerada: origenData.produccionGenerada,
-                pobladoresAsignados: origenData.pobladoresAsignados || []
-            };
+            // Intercambiar los datos de contenido entre origen y destino
+            const tempSubtipo = origenData.subtipo;
+            const tempNombre = origenData.nombre;
+            const tempRareza = origenData.rareza;
+            const tempNivel = origenData.nivel;
+            const tempOcupado = origenData.estaOcupado;
+            const tempPobladores = origenData.pobladoresAsignados;
 
-            const clonDestino = {
-                estaOcupado: destinoData.estaOcupado,
-                edificioUuid: destinoData.edificioUuid,
-                subtipo: destinoData.subtipo,
-                nombre: destinoData.nombre,
-                rareza: destinoData.rareza,
-                nivel: destinoData.nivel,
-                durabilidadActual: destinoData.durabilidadActual,
-                produccionGenerada: destinoData.produccionGenerada,
-                pobladoresAsignados: destinoData.pobladoresAsignados || []
-            };
+            origenData.subtipo = destinoData.subtipo;
+            origenData.nombre = destinoData.nombre;
+            origenData.rareza = destinoData.rareza;
+            origenData.nivel = destinoData.nivel;
+            origenData.estaOcupado = destinoData.estaOcupado;
+            origenData.pobladoresAsignados = destinoData.pobladoresAsignados;
 
-            // 4. TRANSACCIÓN ATÓMICA EN MEMORIA: Intercambiamos contenidos conservando los IDs físicos fijos
-            cimientos[indexOrigen].set({
-                slotId: origenIndex, // El ID del cimiento en el canvas 3D nunca se mueve
-                ...clonDestino
-            });
-
-            cimientos[idxDestinoFinal].set({
-                slotId: destinoIndex, // El ID del cimiento en el canvas 3D nunca se mueve
-                ...clonOrigen
-            });
+            destinoData.subtipo = tempSubtipo;
+            destinoData.nombre = tempNombre;
+            destinoData.rareza = tempRareza;
+            destinoData.nivel = tempNivel;
+            destinoData.estaOcupado = tempOcupado;
+            destinoData.pobladoresAsignados = tempPobladores;
 
             juegoData.markModified('cimientosFinca');
             await juegoData.save();
 
-            // 5. EMISIONES SINCRONIZADAS AL FRONTEND
             socket.emit('finca:intercambio-exitoso', {
-                mensaje: '¡Estructuras imperiales reorganizadas con éxito!',
+                mensaje: 'Intercambio de parcelas realizado con éxito.',
                 terreno: juegoData.cimientosFinca
             });
 
             socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca);
 
         } catch (error) {
-            console.error('❌ Error al procesar el intercambio en el servidor:', error);
+            console.error('Error al procesar el intercambio en el servidor:', error);
             socket.emit('finca:error', 'Error interno al procesar el intercambio de cimientos.');
         }
     });
