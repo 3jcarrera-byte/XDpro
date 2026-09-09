@@ -37,7 +37,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 // ========================================================
 // 🔐 CONEXIÓN DE RUTAS DE AUTENTICACIÓN MODULARES
 // ========================================================
-// Reemplaza el router inline viejo por tu controlador externo purgado
 const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
 
@@ -440,7 +439,6 @@ io.on('connection', (socket) => {
                 rareza: slot.rareza || 'comun'
             });
 
-            // Reubicación de recursos anidados usando la función modular
             if (Array.isArray(slot.recursosAnidados)) {
                 for (const item of slot.recursosAnidados) {
                     agregarRecursoAlmacen(
@@ -493,7 +491,6 @@ io.on('connection', (socket) => {
             const tipoRecurso = slot.subtipo === 'granja' ? 'trigo' : (slot.subtipo === 'aserradero' ? 'madera' : 'material');
             if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
 
-            // Adición apilada limpia al almacén
             agregarRecursoAlmacen(juegoData.almacenEdificiosDisponibles, tipoRecurso, slot.produccionPendiente);
 
             slot.produccionPendiente = 0;
@@ -519,7 +516,6 @@ io.on('connection', (socket) => {
 // ==========================================================================
 const PORT = process.env.PORT || 3000;
 
-// Escuchar en '0.0.0.0' es imprescindible en Render para vincular la red externa
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Servidor ejecutándose exitosamente en http://0.0.0.0:${PORT}`);
     console.log(`🏪 Canal de WebSockets enlazado a la par con el Motor 3D.`);
