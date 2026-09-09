@@ -42,7 +42,7 @@ mongoose.connect(MONGO_URI)
     .catch(err => console.error('❌ Error conectando a MongoDB:', err));
 
 // ========================================================
-// 🏗️ FUNCIÓN AUXILIAR DE INICIALIZACIÓN LIMPIA (EVITA FANTASMAS)
+// 🏗️ FUNCIÓN AUXILIAR DE INICIALIZACIÓN LIMPIA
 // ========================================================
 function inicializarCimientosPorDefecto() {
     const cimientosFincaIniciales = [
@@ -295,7 +295,6 @@ app.post('/api/auth/login', async (req, res) => {
 // DESPACHO E INGENIERÍA TRANSACCIONAL (SOCKET.IO)
 // ==========================================================================
 
-// 🛠️ FUNCIÓN AUXILIAR DE SINCRONIZACIÓN DEL CARRETÓN DE CARTAS
 async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
     if (!juegoData) {
         juegoData = await GameDataModel.findOne({ username });
@@ -430,104 +429,104 @@ io.on('connection', (socket) => {
                         ...inicializarCimientosPorDefecto()
                     });
                     if (typeof juegoData.inicializarEspaciosVacios === 'function') {
-               juegoData.inicializarEspaciosVacios();
+                        juegoData.inicializarEspaciosVacios();
+                    }
+                }
+            }
+
+            cachePartidas[username] = juegoData;
+
+            // 1. Validaciones de seguridad previa sobre la caché
+            const poseeNFT = Boolean(juegoData?._poseeAldeaNFT);
+            const maxSlotsCentral = poseeNFT ? 24 : 8;
+
+            // Asegurar estructura de carretonCartas antes de evaluar
+            if (!juegoData.carretonCartas) juegoData.carretonCartas = { cartasCentral: [] };
+            if (!juegoData.carretonCartas.cartasCentral) juegoData.carretonCartas.cartasCentral = [];
+
+            // 2. Control de capacidad del Carretón Central
+            if (cartaTienda.tipo === 'aldeanos' && juegoData.carretonCartas.cartasCentral.length >= maxSlotsCentral) {
+                return socket.emit('tienda:error', 'Tu Carretón Central está lleno. Requiere liberar slots.');
+            }
+
+            // 3. Generación de identificador único de activo
+            const nuevoIdActivo = crypto.randomUUID();
+
+            // 4. Procesamiento de adquisición según el rubro
+            if (cartaTienda.tipo === 'aldeanos') {
+                const slotsOcupados = new Set(juegoData.carretonCartas.cartasCentral.map(c => c.slotIndex));
+                let slotLibre = 0;
+                while (slotsOcupados.has(slotLibre)) {
+                    slotLibre++;
+                }
+
+                const nuevoPoblador = {
+                    id: nuevoIdActivo,
+                    uuid: nuevoIdActivo,
+                    subtipo: cartaTienda.subtipo,
+                    nombre: cartaTienda.nombre,
+                    rareza: cartaTienda.rareza,
+                    nivel: 0, 
+                    slotIndex: slotLibre,
+                    equipamientoAnidado: []
+                };
+                
+                juegoData.carretonCartas.cartasCentral.push(nuevoPoblador);
+                juegoData.markModified('carretonCartas');
+            } else {
+                const nuevoEdificio = {
+                    id: nuevoIdActivo,
+                    uuid: nuevoIdActivo,
+                    subtipo: cartaTienda.subtipo,
+                    nombre: cartaTienda.nombre,
+                    rareza: cartaTienda.rareza,
+                    nivel: 0 
+                };
+                
+                if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
+                juegoData.almacenEdificiosDisponibles.push(nuevoEdificio);
+                juegoData.markModified('almacenEdificiosDisponibles');
+            }
+
+            // 5. Persistencia Atómica: Se descuenta saldo y se guardan ambos documentos juntos
+            usuario.balance -= cartaTienda.precio;
+            await Promise.all([
+                usuario.save(),
+                juegoData.save()
+            ]);
+
+            // 6. Rotación de Stock en Tienda Sistema
+            stockTiendaSistema[rubro].splice(indexItem, 1);
+            const catalogoRubro = rubro === 'aldeanos' ? 'aldeanos' : rubro;
+
+            if (typeof CATALOGO_DISEÑOS !== 'undefined' && CATALOGO_DISEÑOS[catalogoRubro]) {
+                const diseñoOriginal = CATALOGO_DISEÑOS[catalogoRubro].find(d => d.subtipo === cartaTienda.subtipo);
+                if (diseñoOriginal) {
+                    stockTiendaSistema[rubro].push(crearCartaParaTienda(diseñoOriginal, rubro));
+                }
+            }
+
+            // 7. Notificaciones Sincronizadas
+            socket.emit('tienda:compra-exitosa', {
+                nuevoBalance: usuario.balance,
+                carta: { id: nuevoIdActivo, nombre: cartaTienda.nombre, tipo: cartaTienda.tipo }
+            });
+
+            io.emit('tienda:recibir-stock', stockTiendaSistema);
+
+            socket.emit('almacen:actualizar-estado', {
+                recursos: juegoData.almacenEdificiosDisponibles || []
+            });
+
+            await forzarEnvioEstadoCarreton(socket, username, juegoData);
+
+        } catch (error) {
+            console.error('❌ Error crítico en el procesamiento de compra:', error);
+            socket.emit('tienda:error', 'Error interno al adjudicar activos en base de datos.');
         }
-    }
-}
-cachePartidas[username] = juegoData;
+    });
 
-// 1. Validaciones de seguridad previa sobre la caché
-const poseeNFT = Boolean(juegoData?._poseeAldeaNFT);
-const maxSlotsCentral = poseeNFT ? 24 : 8;
-
-// Asegurar estructura de carretonCartas antes de evaluar
-if (!juegoData.carretonCartas) juegoData.carretonCartas = { cartasCentral: [] };
-if (!juegoData.carretonCartas.cartasCentral) juegoData.carretonCartas.cartasCentral = [];
-
-// 2. Control de capacidad del Carretón Central
-if (cartaTienda.tipo === 'aldeanos' && juegoData.carretonCartas.cartasCentral.length >= maxSlotsCentral) {
-    return socket.emit('tienda:error', 'Tu Carretón Central está lleno. Requiere liberar slots.');
-}
-
-// 3. Generación de identificador único de activo
-const nuevoIdActivo = crypto.randomUUID();
-
-// 4. Procesamiento de adquisición según el rubro
-if (cartaTienda.tipo === 'aldeanos') {
-    // Optimización en la búsqueda de slot index disponible mediante Set
-    const slotsOcupados = new Set(juegoData.carretonCartas.cartasCentral.map(c => c.slotIndex));
-    let slotLibre = 0;
-    while (slotsOcupados.has(slotLibre)) {
-        slotLibre++;
-    }
-
-    const nuevoPoblador = {
-        id: nuevoIdActivo,
-        uuid: nuevoIdActivo,
-        subtipo: cartaTienda.subtipo,
-        nombre: cartaTienda.nombre,
-        rareza: cartaTienda.rareza,
-        nivel: 0, 
-        slotIndex: slotLibre,
-        equipamientoAnidado: []
-    };
-    
-    juegoData.carretonCartas.cartasCentral.push(nuevoPoblador);
-    juegoData.markModified('carretonCartas');
-} else {
-    const nuevoEdificio = {
-        id: nuevoIdActivo,
-        uuid: nuevoIdActivo,
-        subtipo: cartaTienda.subtipo,
-        nombre: cartaTienda.nombre,
-        rareza: cartaTienda.rareza,
-        nivel: 0 
-    };
-    
-    if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
-    juegoData.almacenEdificiosDisponibles.push(nuevoEdificio);
-    juegoData.markModified('almacenEdificiosDisponibles');
-}
-
-// 5. Persistencia Atómica: Se descuenta saldo y se guardan ambos documentos juntos
-usuario.balance -= cartaTienda.precio;
-await Promise.all([
-    usuario.save(),
-    juegoData.save()
-]);
-
-// 6. Rotación de Stock en Tienda Sistema
-stockTiendaSistema[rubro].splice(indexItem, 1);
-const catalogoRubro = rubro === 'aldeanos' ? 'aldeanos' : rubro;
-
-if (typeof CATALOGO_DISEÑOS !== 'undefined' && CATALOGO_DISEÑOS[catalogoRubro]) {
-    const diseñoOriginal = CATALOGO_DISEÑOS[catalogoRubro].find(d => d.subtipo === cartaTienda.subtipo);
-    if (diseñoOriginal) {
-        stockTiendaSistema[rubro].push(crearCartaParaTienda(diseñoOriginal, rubro));
-    }
-}
-
-// 7. Notificaciones Sincronizadas
-socket.emit('tienda:compra-exitosa', {
-    nuevoBalance: usuario.balance,
-    carta: { id: nuevoIdActivo, nombre: cartaTienda.nombre, tipo: cartaTienda.tipo }
-});
-
-io.emit('tienda:recibir-stock', stockTiendaSistema);
-
-socket.emit('almacen:actualizar-estado', {
-    recursos: juegoData.almacenEdificiosDisponibles || []
-});
-
-await forzarEnvioEstadoCarreton(socket, username, juegoData);
-
-} catch (error) {
-    console.error('❌ Error crítico en el procesamiento de compra:', error);
-    socket.emit('tienda:error', 'Error interno al adjudicar activos en base de datos.');
-}
-});
-
-   // ==========================================================================
+ // ==========================================================================
     // 🚚 GESTIÓN DEL CARRETÓN Y EQUIPAMIENTO
     // ==========================================================================
     socket.on('carreton:solicitar-estado', async (data = {}) => {
