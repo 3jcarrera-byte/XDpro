@@ -1,4 +1,6 @@
-// public/js/carreton.js (Parte 1 - Estructura y Renderizado)
+// ==========================================================================
+// 🛒 MÓDULO DE GESTIÓN Y SINCRONIZACIÓN DEL CARRETÓN (CLIENTE)
+// ==========================================================================
 
 let datosCarreton = {
     poseeAldea: false, 
@@ -10,12 +12,18 @@ let datosCarreton = {
     cartasCentral: []
 };
 
+/**
+ * Solicita al Árbitro del servidor el estado actual de las cartas y contenedores.
+ */
 function cargarCarreton() {
     if (typeof socket !== 'undefined' && socket && socket.connected) {
         socket.emit('carreton:solicitar-datos');
     }
 }
 
+/**
+ * Renderiza de forma dinámica las celdas (slots) y piezas de cualquier bloque del carretón.
+ */
 function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabilitado, mensajeBloqueo, slotsHabilitados = 0) {
     if (!elementoDOM) return;
     elementoDOM.innerHTML = '';
@@ -39,6 +47,7 @@ function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabili
         slotDiv.dataset.bloque = bloqueTipo;
         slotDiv.dataset.slotIndex = i;
 
+        // El bloque central siempre tiene todos sus slots disponibles; los demás dependen de los edificios construidos
         const esSlotDisponible = (bloqueTipo === 'central') || (i < slotsHabilitados);
 
         if (esSlotDisponible) {
@@ -62,7 +71,7 @@ function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabili
                 
                 const cartaId = e.dataTransfer.getData('text/plain');
                 const bloqueDestino = slotDiv.dataset.bloque;
-                const slotDestinoIndex = parseInt(slotDiv.dataset.slotIndex);
+                const slotDestinoIndex = parseInt(slotDiv.dataset.slotIndex, 10);
 
                 if (slotDiv.classList.contains('ocupado')) return;
 
@@ -77,7 +86,7 @@ function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabili
             slotDiv.style.cursor = 'not-allowed';
         }
 
-        const carta = listaCartas.find(c => parseInt(c.slotIndex) === i);
+        const carta = listaCartas.find(c => parseInt(c.slotIndex, 10) === i);
 
         if (carta) {
             slotDiv.classList.add('ocupado');
@@ -114,21 +123,18 @@ function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabili
     }
 }
 
-
-// public/js/carreton.js (Continuación - Parte 2)
-
 /**
- * Notifica al Árbitro de Render las nuevas coordenadas para salvar de forma persistente en MongoDB
+ * Notifica al Árbitro de Render las nuevas coordenadas para salvar de forma persistente en MongoDB.
+ * Utiliza exactamente el evento receptor del servidor ('carreton:mover-carta').
  * @param {string} cartaId - Identificador único UUID de la carta arrastrada
  * @param {string} bloqueDestino - Bloque receptor ('aldea', 'finca', 'central')
  * @param {number} slotDestinoIndex - Índice de la ranura seleccionada
  */
 function ejecutarMovimientoDrag(cartaId, bloqueDestino, slotDestinoIndex) {
     if (typeof socket !== 'undefined' && socket && socket.connected) {
-        // Blindaje defensivo local previo al envío de red
         if (!cartaId || !bloqueDestino || isNaN(slotDestinoIndex)) return;
 
-        socket.emit('carreton:guardar-posicion', {
+        socket.emit('carreton:mover-carta', {
             cartaId: cartaId,
             bloqueDestino: bloqueDestino,
             slotDestinoIndex: slotDestinoIndex
@@ -136,7 +142,7 @@ function ejecutarMovimientoDrag(cartaId, bloqueDestino, slotDestinoIndex) {
     } else {
         console.error("❌ Error logístico: Sin conexión con el Árbitro del servidor.");
         alert("Se ha perdido la conexión con el Coliseo. Reintentando...");
-        cargarCarreton(); // Forzar intento de re-sincronización
+        cargarCarreton(); 
     }
 }
 
@@ -155,25 +161,25 @@ if (typeof socket !== 'undefined' && socket) {
         datosCarreton.cartasFinca = estadoBD.cartasFinca || [];
         datosCarreton.cartasCentral = estadoBD.cartasCentral || [];
 
-        // 1. COMPROBACIÓN PANTALLA CARRETÓN GENERAL
+        // 1. Contenedores de la Pantalla General del Carretón
         const contAldea = document.getElementById('carreton-aldea-lista');
         const contCentral = document.getElementById('carreton-central-lista');
         const contFinca = document.getElementById('carreton-finca-lista');
 
-        // 2. COMPROBACIÓN PANTALLA INTERFAZ FINCA (ESPEJO REACTIVO)
+        // 2. Contenedor Espejo (Barra Lateral 3D de la Finca)
         const contFincaEspejo = document.getElementById('finca-pobladores-lista');
 
         const habilitadoFinca = true; 
         const habilitadoAldea = estadoBD.poseeAldea; 
         const msgAldea = "🔒 RESTRICCIÓN: Requiere poseer la Aldea NFT";
 
-        // Renderizado si el usuario está parado en la sección del Carretón general
+        // Renderizado del Carretón General si el usuario se encuentra en esa vista
         if (contAldea && contCentral && contFinca) {
             renderizarBloqueCarreton(contAldea, datosCarreton.cartasAldea, estadoBD.slotsAldeaMax, habilitadoAldea, msgAldea, estadoBD.slotsAldeaHabilitados || 0);
-            renderizarBloqueCarreton(contCentral, datosCarreton.cartasCentral, datosCarreton.slotsCentralMax, true, "", estadoBD.slotsCentralMax);
+            renderizarBloqueCarreton(contCentral, datosCarreton.cartasCentral, datosCarreton.slotsCentralMax, true, "", datosCarreton.slotsCentralMax);
             renderizarBloqueCarreton(contFinca, datosCarreton.cartasFinca, estadoBD.slotsFincaMax, habilitadoFinca, "", estadoBD.slotsFincaHabilitados || 0);
 
-            // Actualizar títulos dinámicos en la UI del Carretón
+            // Actualización de títulos en el panel general
             const parentFinca = contFinca.parentElement;
             if (parentFinca) {
                 const tituloFinca = parentFinca.querySelector('h3');
@@ -187,28 +193,27 @@ if (typeof socket !== 'undefined' && socket) {
             }
         }
 
-        // 🚀 INYECCIÓN AUTOMÁTICA EN LA BARRA LATERAL DERECHA DE LA FINCA 3D
+        // Sincronización automática de la barra lateral en la escena 3D de la Finca
         if (contFincaEspejo) {
             renderizarBloqueCarreton(contFincaEspejo, datosCarreton.cartasFinca, estadoBD.slotsFincaMax, habilitadoFinca, "", estadoBD.slotsFincaHabilitados || 0);
             
-            // Actualizar el medidor de población superior de la Finca (Ej: POBLADORES FINCA 0/0)
             const tituloFincaEspejo = document.getElementById('finca-poblacion-titulo');
             if (tituloFincaEspejo) {
-                tituloFincaEspejo.innerText = `👨------------- Pobladores Finca (${datosCarreton.cartasFinca.length} / ${estadoBD.slotsFincaHabilitados || 0})`;
+                tituloFincaEspejo.innerText = `👨 Pobladores Finca (${datosCarreton.cartasFinca.length} / ${estadoBD.slotsFincaHabilitados || 0})`;
             }
         }
 
-        // Actualizar indicador de capacidad central dinámico en la UI
+        // Indicador dinámico de capacidad central
         const txtCapacidad = document.getElementById('carreton-central-capacidad');
         if (txtCapacidad) {
             txtCapacidad.innerText = `Slots Centrales: ${datosCarreton.cartasCentral.length} / ${datosCarreton.slotsCentralMax}`;
         }
     });
     
-    // Escudo ante fallos de servidor: Capturar errores enviados por el Árbitro y revertir cambios locales
+    // Escudo ante denegaciones del servidor (ej. intentar meter cartas sin espacio o sin edificios activos)
     socket.on('carreton:error', (mensajeError) => {
         console.error("❌ Denegación autoritaria del servidor:", mensajeError);
         alert(`Movimiento inválido: ${mensajeError}`);
-        cargarCarreton(); // Trae el estado persistente real de MongoDB para limpiar descolocaciones en el cliente
+        cargarCarreton(); 
     });
 }
