@@ -495,7 +495,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // ==========================================================================
+ // ==========================================================================
     // 🏗️ INGENIERÍA DE OBRA CIVIL Y COLOCACIÓN DE EDIFICIOS 3D
     // ==========================================================================
     socket.on('finca:instalar-edificio', async (datos) => {
@@ -584,7 +584,6 @@ io.on('connection', (socket) => {
             socket.emit('finca:error', 'El Árbitro experimentó un fallo interno al cimentar.');
         }
     });
-
 
     // ==========================================================================
     // 🚚 MOVIMIENTO DE CARTAS EN EL CARRETÓN
