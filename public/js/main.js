@@ -5,6 +5,17 @@
 // ========================================================
 const socket = window.io ? window.io({ transports: ['websocket'], upgrade: false }) : null;
 
+// Escucha global de reconexión WebSocket (Evita acumulación de listeners)
+if (socket) {
+    socket.on('connect', () => {
+        const nickActivo = sessionStorage.getItem('gladiador_nick');
+        if (nickActivo) {
+            console.log('🔄 Re-autenticando socket para:', nickActivo);
+            socket.emit('jugador:autenticado', { username: nickActivo });
+        }
+    });
+}
+
 // ========================================================
 // 2. ELEMENTOS DE INTERFAZ Y NAVEGACIÓN SPA
 // ========================================================
@@ -270,17 +281,9 @@ if (loginForm) {
                     setTimeout(inicializarMundo3D, 50);
                 }
                 
-                if (socket) {
-                    if (socket.connected) {
-                        socket.emit('jugador:autenticado', { username: data.username });
-                    }
-                    
-                    socket.on('connect', () => {
-                        const nickActivo = sessionStorage.getItem('gladiador_nick');
-                        if (nickActivo) {
-                            socket.emit('jugador:autenticado', { username: nickActivo });
-                        }
-                    });
+                // Emite el evento directo tras verificar el login
+                if (socket && socket.connected) {
+                    socket.emit('jugador:autenticado', { username: data.username });
                 }
             } else {
                 alert('Acceso denegado: ' + (data.message || 'Credenciales erróneas imperial.'));
