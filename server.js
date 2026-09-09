@@ -35,7 +35,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ========================================================
-// 🔐 ENRUTADOR DE AUTENTICACIÓN INLINE (ANTI-404 / ANTI-CASE-SENSITIVE)
+// 🔐 RUTAS DE AUTENTICACIÓN INLINE (100% AUTÓNOMAS)
 // ========================================================
 const authRouter = express.Router();
 
@@ -103,7 +103,7 @@ authRouter.post('/login', async (req, res) => {
     }
 });
 
-// Enlace directo del enrutador de autenticación
+// Enlace directo del enrutador de autenticación inline
 app.use('/api/auth', authRouter);
 
 // ========================================================
