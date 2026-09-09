@@ -148,11 +148,6 @@ authRouter.post('/login', async (req, res) => {
     }
 });
 
-// Activar el enrutador seguro e independiente dentro de la SPA
-app.use('/api/auth', authRouter);
-
-const authRoutes = require('./routes/auth');
-app.use('/api/auth', authRoutes);
 // ========================================================
 // CONEXIÓN A LA BASE DE DATOS MONGODB
 // ========================================================
