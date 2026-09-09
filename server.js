@@ -15,7 +15,7 @@ const User = require('./models/User');
 const GameDataModel = require('./models/GameData');
 
 // Rutas Modulares
-const authRoutes = require('./routes/auth');
+const authRoutes = require('./Routes/auth');
 
 const app = express();
 const server = http.createServer(app);
