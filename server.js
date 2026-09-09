@@ -35,11 +35,124 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ========================================================
-// 🔐 CONEXIÓN DE RUTAS DE AUTENTICACIÓN MODULARES
+// 🔐 ENRUTADOR DE AUTENTICACIÓN IMPERIAL UNIFICADO (INLINE)
 // ========================================================
+const authRouter = express.Router();
+
+// 📝 1. RUTA DE REGISTRO DE GLADIADORES
+authRouter.post('/register', async (req, res) => {
+    try {
+        const { username, password, email, pais, nombre, apellido, wallet } = req.body;
+
+        if (!username || !password) {
+            return res.status(400).json({ success: false, message: 'El nombre de usuario y la contraseña son obligatorios.' });
+        }
+
+        const usuarioExistente = await User.findOne({ username: username.trim() });
+        if (usuarioExistente) {
+            return res.status(409).json({ success: false, message: 'El nombre de gladiador ya se encuentra registrado en el Imperio.' });
+        }
+
+        // Crear usuario
+        const nuevoUsuario = new User({
+            username: username.trim(),
+            password, // Si usas ganchos pre-save en User, se encriptará automáticamente
+            email: email ? email.trim().toLowerCase() : null,
+            pais: pais ? pais.trim() : null,
+            nombre: nombre ? nombre.trim() : null,
+            apellido: apellido ? apellido.trim() : null,
+            wallet: wallet ? wallet.trim() : null,
+            balance: 100.00
+        });
+
+        await nuevoUsuario.save();
+
+        // Inicializar datos del juego de forma segura
+        let nuevoGameData = new GameDataModel({
+            username: nuevoUsuario.username,
+            inventarioRecursos: [
+                { tipo: 'madera', cantidad: 50 },
+                { tipo: 'oro', cantidad: 100 },
+                { tipo: 'comida', cantidad: 30 }
+            ]
+        });
+
+        if (typeof nuevoGameData.inicializarEspaciosVacios === 'function') {
+            nuevoGameData.inicializarEspaciosVacios();
+        }
+        await nuevoGameData.save();
+
+        return res.status(201).json({
+            success: true,
+            message: 'Gladiador registrado y parcelas del Imperio inicializadas correctamente.',
+            username: nuevoUsuario.username
+        });
+
+    } catch (error) {
+        console.error('❌ Error crítico en ruta /register:', error);
+        return res.status(500).json({ success: false, message: 'Error interno del servidor al procesar el registro imperial.' });
+    }
+});
+
+// 🔑 2. RUTA DE INICIO DE SESIÓN (LOGIN)
+authRouter.post('/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+
+        if (!username || !password) {
+            return res.status(400).json({ success: false, message: 'Debe proveer usuario y contraseña.' });
+        }
+
+        const usuario = await User.findOne({ username: username.trim() });
+        if (!usuario) {
+            return res.status(401).json({ success: false, message: 'Credenciales inválidas o gladiador no encontrado.' });
+        }
+
+        if (usuario.status && usuario.status !== 'active') {
+            return res.status(403).json({ success: false, message: `Acceso restringido. Motivo: ${usuario.banReason || 'Sanción administrativa en curso.'}` });
+        }
+
+        // Validación adaptada: intenta usar comparePassword si existe, si no, compara texto plano
+        let esPasswordValida = false;
+        if (typeof usuario.comparePassword === 'function') {
+            esPasswordValida = await usuario.comparePassword(password);
+        } else {
+            esPasswordValida = (usuario.password === password);
+        }
+
+        if (!esPasswordValida) {
+            return res.status(401).json({ success: false, message: 'Credenciales inválidas.' });
+        }
+
+        // Auto-reparación y chequeo de GameData
+        let gameData = await GameDataModel.findOne({ username: usuario.username });
+        if (!gameData) {
+            gameData = new GameDataModel({ username: usuario.username });
+            if (typeof gameData.inicializarEspaciosVacios === 'function') {
+                gameData.inicializarEspaciosVacios();
+            }
+            await gameData.save();
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'Sesión iniciada con éxito.',
+            username: usuario.username,
+            balance: usuario.balance,
+            poseeAldea: usuario.poseeAldea || false
+        });
+
+    } catch (error) {
+        console.error('❌ Error crítico en ruta /login:', error);
+        return res.status(500).json({ success: false, message: 'Error interno al intentar autenticar al gladiador.' });
+    }
+});
+
+// Activar el enrutador seguro e independiente dentro de la SPA
+app.use('/api/auth', authRouter);
+
 const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
-
 // ========================================================
 // CONEXIÓN A LA BASE DE DATOS MONGODB
 // ========================================================
