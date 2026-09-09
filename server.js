@@ -1,5 +1,5 @@
 // ========================================================
-// server.js - Servidor Principal Unificado (Bloque 1/2)
+// server.js - Servidor Principal Unificado (Production Ready)
 // ========================================================
 
 const express = require('express');
@@ -14,9 +14,6 @@ const crypto = require('crypto');
 const User = require('./models/User');
 const GameDataModel = require('./models/GameData');
 
-// Rutas Modulares
-const authRoutes = require('./Routes/auth');
-
 const app = express();
 const server = http.createServer(app);
 
@@ -30,15 +27,84 @@ const io = new Server(server, {
 });
 
 // ========================================================
-// MIDDLEWARES ESENCIALES Y RUTAS DE API
+// MIDDLEWARES ESENCIALES
 // ========================================================
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Delegación limpia a enrutador modular
-app.use('/api/auth', authRoutes);
+// ========================================================
+// 🔐 ENRUTADOR DE AUTENTICACIÓN INLINE (ANTI-404 / ANTI-CASE-SENSITIVE)
+// ========================================================
+const authRouter = express.Router();
+
+// Endpoint de Registro
+authRouter.post('/register', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        if (!username || !password) {
+            return res.status(400).json({ error: 'Faltan credenciales obligatorias.' });
+        }
+
+        const usernameLimpio = username.trim();
+        const existeUsuario = await User.findOne({ username: usernameLimpio });
+
+        if (existeUsuario) {
+            return res.status(400).json({ error: 'El nombre de gladiador ya está en uso.' });
+        }
+
+        const nuevoUsuario = new User({
+            username: usernameLimpio,
+            password: password,
+            balance: 1000,
+            poseeAldea: false
+        });
+
+        await nuevoUsuario.save();
+        return res.status(201).json({
+            exito: true,
+            mensaje: 'Gladiador registrado con éxito',
+            usuario: { username: nuevoUsuario.username, balance: nuevoUsuario.balance }
+        });
+    } catch (error) {
+        console.error('❌ Error en /register:', error);
+        return res.status(500).json({ error: 'Error interno al registrar usuario.' });
+    }
+});
+
+// Endpoint de Login
+authRouter.post('/login', async (req, res) => {
+    try {
+        const { username, password } = req.body;
+        if (!username || !password) {
+            return res.status(400).json({ error: 'Usuario y contraseña requeridos.' });
+        }
+
+        const usernameLimpio = username.trim();
+        const usuario = await User.findOne({ username: usernameLimpio, password });
+
+        if (!usuario) {
+            return res.status(401).json({ error: 'Credenciales inválidas.' });
+        }
+
+        return res.json({
+            exito: true,
+            mensaje: 'Autenticación exitosa',
+            usuario: {
+                username: usuario.username,
+                balance: usuario.balance,
+                poseeAldea: usuario.poseeAldea
+            }
+        });
+    } catch (error) {
+        console.error('❌ Error en /login:', error);
+        return res.status(500).json({ error: 'Error interno al iniciar sesión.' });
+    }
+});
+
+// Enlace directo del enrutador de autenticación
+app.use('/api/auth', authRouter);
 
 // ========================================================
 // CONEXIÓN A LA BASE DE DATOS MONGODB
@@ -512,6 +578,7 @@ io.on('connection', (socket) => {
         console.log(`🔌 Cliente desconectado: ${socket.id} (${socket.username || 'invitado'})`);
     });
 });
+
 // ==========================================================================
 // 🚀 INICIALIZACIÓN DEL SERVIDOR CON ENLACE UNIVERSAL (ANTI-502)
 // ==========================================================================
@@ -527,17 +594,14 @@ server.listen(PORT, '0.0.0.0', () => {
 // 🛡️ MANEJO DE ERRORES GLOBALES Y CIERRE CONTROLADO (GRACEFUL SHUTDOWN)
 // ==========================================================================
 
-// Captura de promesas no manejadas
 process.on('unhandledRejection', (reason, promise) => {
     console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-// Captura de excepciones no controladas
 process.on('uncaughtException', (err) => {
     console.error('💥 Uncaught Exception lanzada:', err);
 });
 
-// Cierre limpio ante reinicios de Render o señales del sistema
 const apagarServidorLimpio = async (signal) => {
     console.log(`\n⚠️ Recibida señal ${signal}. Cerrando servidor de forma limpia...`);
     
