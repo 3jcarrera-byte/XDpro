@@ -1,5 +1,5 @@
 // ==========================================================================
-// 🎮 public/js/game3d.js (Versión Definitiva con Re-intento Atómico de Sockets)
+// 🎮 public/js/game3d.js (Versión Reparada y Sincronizada)
 // ==========================================================================
 
 // Configuración global de optimización de GPU conectada con el ruteo SPA de main.js
@@ -174,7 +174,7 @@ function configurarDragAndDropCanvas(contenedorCanvas) {
                     return;
                 }
 
-                // CASO B: INSTALACIÓN NUEVA DESDE CARTA EXTERNA
+                // CASO B: CONSTRUCCIÓN DESDE CARTA EXTERNA (Evento sincronizado: 'finca:construir')
                 if (!cartaUuid) return;
 
                 if (cimientoGolpeado.userData.estaOcupado) {
@@ -182,10 +182,10 @@ function configurarDragAndDropCanvas(contenedorCanvas) {
                     return;
                 }
 
-                console.log(`🎯 Instalando edificio nuevo en Slot Index ${cimientoIndex}. UUID: ${cartaUuid}`);
+                console.log(`🎯 Construyendo edificio nuevo en Slot Index ${cimientoIndex}. UUID: ${cartaUuid}`);
 
                 if (typeof socket !== 'undefined' && socket && socket.connected) {
-                    socket.emit('finca:instalar-edificio', {
+                    socket.emit('finca:construir', {
                         slotId: cimientoIndex,
                         edificioUuid: cartaUuid,
                         cartaUuid: cartaUuid,
@@ -290,9 +290,9 @@ function configurarEventosPunteroAvanzados(contenedorCanvas) {
                 e.clientY >= rectBanda.top &&
                 e.clientY <= rectBanda.bottom
             ) {
-                console.log(`📦 Soltado en banda inferior. Retirando estructura del slot [${slotIdNumerico}]...`);
+                console.log(`📦 Soltado en banda inferior. Desmantelando estructura del slot [${slotIdNumerico}]...`);
                 if (typeof socket !== 'undefined' && socket && socket.connected) {
-                    socket.emit('finca:retirar-edificio', { slotId: slotIdNumerico });
+                    socket.emit('finca:desmantelar', { slotId: slotIdNumerico });
                 }
                 return;
             }
@@ -553,7 +553,7 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
 }
 
 // ==========================================================================
-// CONFIGURACIÓN GLOBAL DINÁMICA DE RECEPTORES DE SOCKET.IO (CON RE-INTENTO ATÓMICO)
+// CONFIGURACIÓN GLOBAL DINÁMICA DE RECEPTORES DE SOCKET.IO
 // ==========================================================================
 window.configurarSocketsFinca = function() {
     // 🛡️ RE-INTENTO ATÓMICO: Si el script base no ha declarado la red, esperar 100ms y re-enganchar
@@ -568,6 +568,7 @@ window.configurarSocketsFinca = function() {
     }
     window._socketsGame3DConfigurados = true;
 
+    // 🏗️ EVENTO: Construcción exitosa en el servidor
     socket.on('finca:construccion-exitosa', (data) => {
         if (data.mensaje) console.log(data.mensaje);
         if (data.terreno) {
@@ -581,6 +582,7 @@ window.configurarSocketsFinca = function() {
         if (typeof cargarCarreton === 'function') cargarCarreton();
     });
 
+    // 🌾 EVENTO: Actualización general del terreno
     socket.on('finca:actualizar-terreno', (edificiosConstruidos) => {
         window.cacheTerrenoServidor = edificiosConstruidos;
         if (listaCimientos3D && listaCimientos3D.length > 0) {
@@ -590,6 +592,7 @@ window.configurarSocketsFinca = function() {
         }
     });
 
+    // 🔄 EVENTO: Intercambio entre slots
     socket.on('finca:intercambio-exitoso', (data) => {
         if (data.terreno) {
             window.cacheTerrenoServidor = data.terreno;
@@ -599,9 +602,10 @@ window.configurarSocketsFinca = function() {
         if (typeof cargarCarreton === 'function') cargarCarreton();
     });
 
-    socket.on('finca:retiro-exitoso', (data) => {
+    // 🔨 EVENTO: Desmantelamiento / Retiro exitoso desde el servidor
+    socket.on('finca:desmantelamiento-exitoso', (data) => {
         const targetSlot = data.slotId !== undefined ? data.slotId : data.slotIndex;
-        console.log(`♻️ Árbitro confirma retiro en slot ${targetSlot}. Purgando malla 3D local...`, data);
+        console.log(`♻️ Árbitro confirma desmantelamiento en slot ${targetSlot}. Purgando malla 3D local...`, data);
         
         if (targetSlot !== undefined && targetSlot !== null && listaCimientos3D && listaCimientos3D.length > 0) {
             const targetSlotNum = parseInt(targetSlot, 10);
@@ -634,6 +638,18 @@ window.configurarSocketsFinca = function() {
         if (typeof cargarCarreton === 'function') cargarCarreton();
     });
 
+    // 🌾 EVENTO: Recolección de recursos exitosa
+    socket.on('finca:recoleccion-exitosa', (data) => {
+        if (data.mensaje) console.log(`🌾 Recolección exitosa: ${data.mensaje}`);
+        if (data.terreno) {
+            window.cacheTerrenoServidor = data.terreno;
+            sincronizarTerrenoEnMallas(data.terreno);
+        }
+        if (typeof cargarAlmacen === 'function') cargarAlmacen();
+        if (typeof cargarCarreton === 'function') cargarCarreton();
+    });
+
+    // ❌ EVENTO: Error devuelto por el backend
     socket.on('finca:error', (msgError) => {
         alert(`❌ Obra civil rechazada: ${msgError}`);
     });
@@ -641,6 +657,9 @@ window.configurarSocketsFinca = function() {
     console.log("🔌 Receptores de Socket.io para la Finca configurados exitosamente.");
 };
 
+/**
+ * Función auxiliar para manejar el soltado en inventario/almacén (desmantelamiento inverso)
+ */
 window.manejarDropInversoAlmacen = function(e) {
     e.preventDefault();
     const origenSlotStr = e.dataTransfer.getData('text/origen-slot');
@@ -651,7 +670,7 @@ window.manejarDropInversoAlmacen = function(e) {
             return;
         }
         if (typeof socket !== 'undefined' && socket && socket.connected) {
-            socket.emit('finca:retirar-edificio', { slotId: slotIdNumerico });
+            socket.emit('finca:desmantelar', { slotId: slotIdNumerico });
         }
     }
 };
