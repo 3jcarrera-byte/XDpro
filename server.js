@@ -35,76 +35,11 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ========================================================
-// 🔐 RUTAS DE AUTENTICACIÓN INLINE (100% AUTÓNOMAS)
+// 🔐 CONEXIÓN DE RUTAS DE AUTENTICACIÓN MODULARES
 // ========================================================
-const authRouter = express.Router();
-
-// Endpoint de Registro
-authRouter.post('/register', async (req, res) => {
-    try {
-        const { username, password } = req.body;
-        if (!username || !password) {
-            return res.status(400).json({ error: 'Faltan credenciales obligatorias.' });
-        }
-
-        const usernameLimpio = username.trim();
-        const existeUsuario = await User.findOne({ username: usernameLimpio });
-
-        if (existeUsuario) {
-            return res.status(400).json({ error: 'El nombre de gladiador ya está en uso.' });
-        }
-
-        const nuevoUsuario = new User({
-            username: usernameLimpio,
-            password: password,
-            balance: 1000,
-            poseeAldea: false
-        });
-
-        await nuevoUsuario.save();
-        return res.status(201).json({
-            exito: true,
-            mensaje: 'Gladiador registrado con éxito',
-            usuario: { username: nuevoUsuario.username, balance: nuevoUsuario.balance }
-        });
-    } catch (error) {
-        console.error('❌ Error en /register:', error);
-        return res.status(500).json({ error: 'Error interno al registrar usuario.' });
-    }
-});
-
-// Endpoint de Login
-authRouter.post('/login', async (req, res) => {
-    try {
-        const { username, password } = req.body;
-        if (!username || !password) {
-            return res.status(400).json({ error: 'Usuario y contraseña requeridos.' });
-        }
-
-        const usernameLimpio = username.trim();
-        const usuario = await User.findOne({ username: usernameLimpio, password });
-
-        if (!usuario) {
-            return res.status(401).json({ error: 'Credenciales inválidas.' });
-        }
-
-        return res.json({
-            exito: true,
-            mensaje: 'Autenticación exitosa',
-            usuario: {
-                username: usuario.username,
-                balance: usuario.balance,
-                poseeAldea: usuario.poseeAldea
-            }
-        });
-    } catch (error) {
-        console.error('❌ Error en /login:', error);
-        return res.status(500).json({ error: 'Error interno al iniciar sesión.' });
-    }
-});
-
-// Enlace directo del enrutador de autenticación inline
-app.use('/api/auth', authRouter);
+// Reemplaza el router inline viejo por tu controlador externo purgado
+const authRoutes = require('./routes/auth');
+app.use('/api/auth', authRoutes);
 
 // ========================================================
 // CONEXIÓN A LA BASE DE DATOS MONGODB
