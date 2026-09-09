@@ -546,9 +546,12 @@ io.on('connection', (socket) => {
 });
 
 // ==========================================================================
-// 🚀 INICIALIZACIÓN DEL SERVIDOR
+// 🚀 INICIALIZACIÓN DEL SERVIDOR CON ENLACE UNIVERSAL (ANTI-502)
 // ==========================================================================
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log(`🚀 Servidor ejecutándose exitosamente en el puerto ${PORT}`);
+
+// Escuchar explícitamente en '0.0.0.0' para que Render rutee el tráfico hacia internet
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`🚀 Servidor ejecutándose exitosamente en http://0.0.0:${PORT}`);
+    console.log(`🏪 Canal de WebSockets enlazado a la par con el Motor 3D.`);
 });
