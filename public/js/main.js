@@ -40,6 +40,10 @@ if (btnToggleAuth && loginForm && registerForm) {
             loginForm.style.display = 'block';
             btnToggleAuth.textContent = 'Registrarse';
         }
+        // Recalcular validación al alternar vistas
+        if (typeof verificarFormularioValido === 'function') {
+            verificarFormularioValido();
+        }
     });
 }
 
@@ -130,7 +134,7 @@ window.cambiarPantalla = function(pantallaId) {
 };
 
 // ========================================================
-// 3. LÓGICA DE REGISTRO EXTENDIDO (ESTILO VUE REACTIVO)
+// 3. LÓGICA DE REGISTRO EXTENDIDO (DEFENSIVA Y REACTIVA)
 // ========================================================
 const btnEnviarRegistro = document.getElementById('btnEnviarRegistro');
 const regEmail = document.getElementById('reg-email');
@@ -153,8 +157,10 @@ const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function verificarFormularioValido() {
     if (!btnEnviarRegistro) return;
+
+    // Validación defensiva comprobando existencia previa de elementos
     const esValido = (
-        regEmail && regexEmail.test(regEmail.value.trim()) &&
+        regEmail && regEmail.value.trim() !== "" && regexEmail.test(regEmail.value.trim()) &&
         regPais && regPais.value.trim() !== "" &&
         regNombre && regNombre.value.trim() !== "" &&
         regApellido && regApellido.value.trim() !== "" &&
@@ -166,18 +172,28 @@ function verificarFormularioValido() {
         regAceptaTerminos && regAceptaTerminos.checked &&
         regNoRobot && regNoRobot.checked
     );
+
     btnEnviarRegistro.disabled = !esValido;
 }
 
+// Vinculación de eventos de escucha
 camposRegistro.forEach(elemento => {
     elemento.addEventListener('input', verificarFormularioValido);
     elemento.addEventListener('change', verificarFormularioValido);
 });
 
+// Comprobación inicial al cargar el script
+verificarFormularioValido();
+
 if (registerForm) {
     registerForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
+
+        if (!regPassword || !regRepetirPassword || !regNick || !regEmail) {
+            alert('Error: No se encontraron los campos del formulario en el DOM.');
+            return;
+        }
+
         if (regPassword.value !== regRepetirPassword.value) {
             alert('Las contraseñas no coinciden.');
             return;
@@ -185,24 +201,28 @@ if (registerForm) {
 
         const username = regNick.value.trim();
         const password = regPassword.value;
-        const textoOriginalBtn = btnEnviarRegistro.innerHTML;
-        
-        btnEnviarRegistro.disabled = true;
-        btnEnviarRegistro.innerHTML = '⚙️ Registrando Gladiador...';
+        const textoOriginalBtn = btnEnviarRegistro ? btnEnviarRegistro.innerHTML : 'Registrarse';
+
+        if (btnEnviarRegistro) {
+            btnEnviarRegistro.disabled = true;
+            btnEnviarRegistro.innerHTML = '⚙️ Registrando Gladiador...';
+        }
 
         try {
             const response = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    username, password,
-                    email: regEmail.value.trim(),
-                    pais: regPais.value.trim(),
-                    nombre: regNombre.value.trim(),
-                    apellido: regApellido.value.trim(),
-                    wallet: regWallet.value.trim()
+                    username, 
+                    password,
+                    email: regEmail ? regEmail.value.trim() : '',
+                    pais: regPais ? regPais.value.trim() : '',
+                    nombre: regNombre ? regNombre.value.trim() : '',
+                    apellido: regApellido ? regApellido.value.trim() : '',
+                    wallet: regWallet ? regWallet.value.trim() : ''
                 })
             });
+            
             const data = await response.json();
 
             if (response.ok && data.success) {
@@ -212,14 +232,14 @@ if (registerForm) {
                 if (btnToggleAuth) btnToggleAuth.click();
             } else {
                 alert('Error al registrar: ' + (data.message || 'Error interno del Coliseo.'));
-                btnEnviarRegistro.disabled = false;
+                if (btnEnviarRegistro) btnEnviarRegistro.disabled = false;
             }
         } catch (error) {
             console.error('❌ Fallo de red en registro:', error);
             alert('Error al conectar con el servidor central.');
-            btnEnviarRegistro.disabled = false;
+            if (btnEnviarRegistro) btnEnviarRegistro.disabled = false;
         } finally {
-            btnEnviarRegistro.innerHTML = textoOriginalBtn;
+            if (btnEnviarRegistro) btnEnviarRegistro.innerHTML = textoOriginalBtn;
         }
     });
 }
