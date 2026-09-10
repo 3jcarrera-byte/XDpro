@@ -275,6 +275,14 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
     const poseeAldea = cachePartidas[username]?._poseeAldeaNFT || false;
     const maxSlots = poseeAldea ? 24 : 8;
 
+    // Cálculo dinámico de casonas/casas construidas para habilitar ranuras
+    const casonasFinca = (juegoData.cimientosFinca || []).filter(s => s.estaOcupado && (s.subtipo === 'casona' || s.subtipo === 'casa')).length;
+    const casonasAldea = (juegoData.cimientosAldea || []).filter(s => s.estaOcupado && (s.subtipo === 'casona' || s.subtipo === 'casa')).length;
+    const totalCasonas = casonasFinca + casonasAldea;
+
+    // Ranuras base (por ejemplo, 2 base + 2 por cada casona construida, limitado a maxSlots)
+    const slotsFincaHabilitados = Math.min(maxSlots, Math.max(2, totalCasonas * 2));
+
     if (!juegoData.carretonCartas) {
         juegoData.carretonCartas = { cartasCentral: [] };
     }
@@ -282,6 +290,7 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
     socket.emit('carreton:actualizar-estado', {
         cartasCentral: juegoData.carretonCartas.cartasCentral || [],
         maxSlots: maxSlots,
+        slotsFincaHabilitados: slotsFincaHabilitados,
         poseeAldea: poseeAldea
     });
 }
@@ -451,8 +460,11 @@ io.on('connection', (socket) => {
     socket.on('carreton:solicitar-estado', responderCarreton);
 
     socket.on('carreton:mover-carta', async (data = {}) => {
-        const { uuidCarta, haciaSlot } = data;
+        // Soporta tanto 'uuidCarta' como 'cartaId' enviados desde el frontend
+        const uuidCarta = data.uuidCarta || data.cartaId;
+        const { haciaSlot } = data;
         const username = socket.username || data?.username;
+        
         if (!username || uuidCarta === undefined || haciaSlot === undefined) return;
 
         try {
@@ -539,9 +551,9 @@ io.on('connection', (socket) => {
             socket.emit('finca:error', 'Error al construir en la finca.');
         }
     });
-  // ==========================================================================
-    // 🪵 EVENTOS DE FINCA: DESMANTELAMIENTO Y RECOLECCIÓN (CONTINUACIÓN)
-    // ==========================================================================
+ // ==========================================================================
+// 🪵 EVENTOS DE FINCA: DESMANTELAMIENTO Y RECOLECCIÓN (CONTINUACIÓN - BLOQUE 2 DE 2)
+// ==========================================================================
 
     socket.on('finca:desmantelar', async (data = {}) => {
         const { slotId } = data;
@@ -605,6 +617,9 @@ io.on('connection', (socket) => {
             socket.emit('finca:desmantelamiento-exitoso', { slotId });
             socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca);
             socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles });
+            
+            // Re-sincronizar los slots permitidos del carretón tras el desmantelamiento
+            await forzarEnvioEstadoCarreton(socket, username, juegoData);
         } catch (err) {
             console.error('❌ Error desmantelando estructura:', err);
             socket.emit('finca:error', 'Error al desmantelar la estructura.');
