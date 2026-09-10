@@ -1,4 +1,6 @@
-// public/js/main.js (Versión Definitiva Unificada - SPA, Autenticación y Control 3D)
+// ==========================================================================
+// public/js/main.js - Versión Definitiva Unificada (SPA, Autenticación y Control 3D)
+// ==========================================================================
 
 // ========================================================
 // 1. INICIALIZACIÓN SEGURA DE SOCKETS (Evita caídas en Render)
@@ -107,28 +109,35 @@ window.cambiarPantalla = function(pantallaId) {
             }
         }
 
-        // DISPARADOR AUTOMÁTICO MOTOR 3D: FINCA PERSONAL (5 CIMIENTOS)
+        // ==========================================================================
+        // 🏗️ DISPARADOR LOGÍSTICO COMPENSADO: FINCA IMPERIAL (SOLUCIONADO)
+        // ==========================================================================
         if (pantallaId === 'pantalla-finca') {
             if (typeof init3D === 'function') {
                 console.log("🏗️ Inicializando terreno 3D de la Finca...");
                 init3D('canvas-finca-container', 5);
             }
             
+            // Incrementar el desfase asíncrono a 180ms para permitir el redibujado de la GPU
             setTimeout(() => {
+                console.log("🚚 Hilo gráfico liberado: Forzando sincronización de inventario...");
                 if (typeof cargarCarreton === 'function') cargarCarreton();
                 if (typeof cargarAlmacen === 'function') cargarAlmacen();
-            }, 50);
-        }
-
-        // DISPARADOR AUTOMÁTICO MOTOR 3D: ALDEA IMPERIAL (12 CIMIENTOS)
-        if (pantallaId === 'pantalla-aldea') {
-            if (typeof init3D === 'function') {
-                console.log("🏛️ Inicializando terreno 3D de la Aldea (12 Cimientos)...");
+                
+                // Forzar un segundo redibujado de seguridad por si el WebSocket se adelantó
+                setTimeout(() => {
+                    if (typeof renderizarAlmacen === 'function') renderizarAlmacen();
+                }, 80);
+            }, 180);
+        } else if (pantallaId === 'pantalla-aldea') {
+            if (typeof init3D === 'function' && document.getElementById('canvas-aldea-container')) {
+                console.log("🏘️ Inicializando entorno 3D de la Aldea...");
                 init3D('canvas-aldea-container', 12);
             }
             setTimeout(() => {
                 if (typeof cargarCarreton === 'function') cargarCarreton();
-            }, 50);
+                if (typeof cargarAlmacen === 'function') cargarAlmacen();
+            }, 150);
         }
 
         // HERENCIA CONTINUA DE FONDOS REALES AL ENTRAR AL MERCADO
