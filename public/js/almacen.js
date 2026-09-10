@@ -33,26 +33,26 @@ function renderizarAlmacen() {
     });
 
     // ==========================================================================
-    // DETECCIÓN MULTI-PANTALLA CON SALVAVIDAS DE TRANSICIÓN SPA (SOLUCIONADO)
+    // 🎯 DETECCIÓN DE PANTALLA ULTRA-ESTRICTA BASADA EN VISIBILIDAD (SOLUCIONADO)
     // ==========================================================================
     const seccionFinca = document.getElementById('pantalla-finca');
     const seccionAldea = document.getElementById('pantalla-aldea');
     let contenedorGrid = null;
 
-    // Leer el estado real del CSS computado en la GPU
-    const fincaEstiloReal = seccionFinca ? window.getComputedStyle(seccionFinca).display : '';
-    const aldeaEstiloReal = seccionAldea ? window.getComputedStyle(seccionAldea).display : '';
+    // Leer los estilos computados reales de visualización
+    const fincaEstiloReal = seccionFinca ? window.getComputedStyle(seccionFinca).display : 'none';
+    const aldeaEstiloReal = seccionAldea ? window.getComputedStyle(seccionAldea).display : 'none';
 
-    // 🎯 SALVAVIDAS IMPERIAL: Si el contenedor de Three.js está activo en el DOM, forzar el ruteo a la barra inferior
-    if (fincaEstiloReal === 'block' || (seccionFinca && seccionFinca.style.display === 'block') || document.getElementById('canvas-finca-container')) {
+    // Validar si la pantalla contenedora está realmente visible ante los ojos del usuario
+    if (fincaEstiloReal === 'block' || (seccionFinca && seccionFinca.style.display === 'block')) {
         contenedorGrid = document.getElementById('finca-edificios-lista');
-    } else if (aldeaEstiloReal === 'block' || (seccionAldea && seccionAldea.style.display === 'block') || document.getElementById('canvas-aldea-container')) {
+    } else if (aldeaEstiloReal === 'block' || (seccionAldea && seccionAldea.style.display === 'block')) {
         contenedorGrid = document.getElementById('aldea-edificios-lista');
     } else {
         contenedorGrid = document.getElementById('grid-almacen-recursos');
     }
 
-    // Fallback de contingencia absoluta
+    // Fallback de contingencia por si se ejecuta en medio de la transición asíncrona de main.js
     if (!contenedorGrid) {
         contenedorGrid = document.getElementById('finca-edificios-lista') || document.getElementById('grid-almacen-recursos');
     }
