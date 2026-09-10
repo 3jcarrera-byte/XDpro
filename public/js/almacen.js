@@ -31,24 +31,24 @@ function renderizarAlmacen() {
     });
 
     // ==========================================================================
-    // DETECCIÓN MULTI-PANTALLA BASADA EN LA VISTA ACTIVA DE LA SPA (CORREGIDO)
+    // DETECCIÓN MULTI-PANTALLA BASADA EN LA VISTA ACTIVA DE LA SPA (SOLUCIONADO)
     // ==========================================================================
     const seccionFinca = document.getElementById('pantalla-finca');
     const seccionAldea = document.getElementById('pantalla-aldea');
-    const seccionAlmacen = document.getElementById('pantalla-almacen');
-
     let contenedorGrid = null;
 
-    // Evaluar cuál sección de juego principal de la SPA está visible en el navegador
-    if (seccionFinca && window.getComputedStyle(seccionFinca).display !== 'none') {
+    // Asignación directa comprobando si el elemento HTML está activo en el DOM
+    if (seccionFinca && seccionFinca.style.display === 'block') {
         contenedorGrid = document.getElementById('finca-edificios-lista');
-    } else if (seccionAldea && window.getComputedStyle(seccionAldea).display !== 'none') {
+    } else if (seccionAldea && seccionAldea.style.display === 'block') {
         contenedorGrid = document.getElementById('aldea-edificios-lista');
-    } else if (seccionAlmacen && window.getComputedStyle(seccionAlmacen).display !== 'none') {
-        contenedorGrid = document.getElementById('grid-almacen-recursos');
     } else {
-        // Fallback seguro por si se llama durante transiciones rápidas
-        contenedorGrid = gridAlmacenGeneral || contenedorFinca || contenedorAldea;
+        contenedorGrid = document.getElementById('grid-almacen-recursos');
+    }
+
+    // Fallback de emergencia por si se ejecuta en medio de la transición
+    if (!contenedorGrid) {
+        contenedorGrid = document.getElementById('finca-edificios-lista') || document.getElementById('grid-almacen-recursos');
     }
 
     if (!contenedorGrid) return;
