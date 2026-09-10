@@ -508,7 +508,9 @@ io.on('connection', (socket) => {
         }
     });
 
+  // ==========================================================================
     // 🚚 CARRETÓN
+    // ==========================================================================
     const responderCarreton = async (data = {}) => {
         const username = socket.username || data?.username;
         if (!username) return;
@@ -576,7 +578,9 @@ io.on('connection', (socket) => {
         }
     });
 
+    // ==========================================================================
     // 🌾 FINCA Y CONSTRUCCIÓN
+    // ==========================================================================
     socket.on('finca:construir', async (data = {}) => {
         const { slotId, uuidEdificio } = data;
         const username = socket.username || data?.username;
@@ -616,7 +620,9 @@ io.on('connection', (socket) => {
         }
     });
 
+    // ==========================================================================
     // 🪵 DESMANTELAMIENTO Y RECOLECCIÓN EN TERRENOS
+    // ==========================================================================
     socket.on('finca:desmantelar', async (data = {}) => {
         const { slotId } = data;
         const username = socket.username || data?.username;
@@ -632,7 +638,7 @@ io.on('connection', (socket) => {
             }
 
             const slot = juegoData.cimientosFinca[slotIndex];
-            const uuidEvacuado = slot.uuid || crypto.randomUUID();
+            const uuidEvacuado = slot.uuid || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
 
             if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
 
