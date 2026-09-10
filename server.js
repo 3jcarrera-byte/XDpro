@@ -9,6 +9,7 @@ const mongoose = require('mongoose');
 const path = require('path');
 const cors = require('cors');
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
 
 // ========================================================
 // 🛡️ ADAPTADOR UNIVERSAL DE MODELOS MONGOOSE (ANTI-CRASH)
@@ -58,10 +59,10 @@ authRouter.post('/register', async (req, res) => {
             return res.status(409).json({ success: false, message: 'El nombre de gladiador ya se encuentra registrado en el Imperio.' });
         }
 
-        // Crear usuario
+        // Crear usuario (el middleware pre-save del esquema User o Bcrypt procesará el hash)
         const nuevoUsuario = new User({
             username: username.trim(),
-            password, // Encriptado automático vía middleware pre-save en User
+            password, 
             email: email ? email.trim().toLowerCase() : null,
             pais: pais ? pais.trim() : null,
             nombre: nombre ? nombre.trim() : null,
@@ -96,7 +97,7 @@ authRouter.post('/register', async (req, res) => {
     }
 });
 
-// 🔑 2. RUTA DE INICIO DE SESIÓN (LOGIN)
+// 🔑 2. RUTA DE INICIO DE SESIÓN (LOGIN ROBUSTO)
 authRouter.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -114,10 +115,16 @@ authRouter.post('/login', async (req, res) => {
             return res.status(403).json({ success: false, message: `Acceso restringido. Motivo: ${usuario.banReason || 'Sanción administrativa en curso.'}` });
         }
 
+        // 🛡️ Validación Jerárquica de Contraseña
         let esPasswordValida = false;
+
         if (typeof usuario.comparePassword === 'function') {
             esPasswordValida = await usuario.comparePassword(password);
+        } else if (usuario.password && typeof usuario.password === 'string' && usuario.password.startsWith('$2')) {
+            // Hash Bcrypt detectado ($2a$, $2b$, $2y$)
+            esPasswordValida = await bcrypt.compare(password, usuario.password);
         } else {
+            // Contraseña en texto plano
             esPasswordValida = (usuario.password === password);
         }
 
