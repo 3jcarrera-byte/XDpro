@@ -406,23 +406,23 @@ function enviarEstadoAlmacen(socket, juegoData) {
 }
 
 // ==========================================================================
-// 📊 CONTROL DEMOGRÁFICO DE POBLACIÓN ACTIVA (NORMALIZADO)
+// 📊 CONTROL DEMOGRÁFICO DE POBLACIÓN ACTIVA (EVALUACIÓN DIRECTA DE CASONA)
 // ==========================================================================
 async function enviarEstadoFincaActualizado(socket, username, juegoData) {
     if (!juegoData) {
         juegoData = await obtenerOGenerarJuegoData(username);
     }
 
-    // Detección elástica de la Casona activa (soporta slot-X y número literal)
-    const casonaActiva = juegoData.almacenEdificiosDisponibles?.some(
-        carta => carta.subtipo === 'casona' && (carta.estaAnidado === true || carta.slotAnidado !== null)
-    ) || juegoData.cimientosFinca?.some(
-        cimiento => cimiento.estaOcupado && cimiento.subtipo === 'casona'
+    // Evaluación directa e inmediata sobre la carta Casona (sin latencia de slots)
+    const casonaActiva = (juegoData.almacenEdificiosDisponibles || []).some(
+        carta => carta.subtipo === 'casona' && (
+            carta.estaAnidado === true || 
+            carta.estaAnidado === "true" || 
+            carta.slotAnidado !== null
+        )
     );
 
     const maxPobladores = casonaActiva ? 2 : 0;
-
-    // Extraer y contar pobladores asignados a la finca
     const cartasCentral = juegoData.carretonCartas?.cartasCentral || [];
     const actualesPobladores = cartasCentral.filter(
         c => c.bloque === 'finca' || c.ubicacion === 'finca' || c.bloqueDestino === 'finca'
@@ -503,7 +503,7 @@ io.on('connection', (socket) => {
                 await enviarEstadoFincaActualizado(socket, usernameLimpio, juegoData);
             }
         } catch (err) {
-            console.error("❌ Fallo crítico al synchronizar sesión de socket:", err);
+            console.error("❌ Fallo crítico al sincronizar sesión de socket:", err);
         }
     });
 
