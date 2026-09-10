@@ -1,5 +1,5 @@
 // ==========================================================================
-// server.js - Servidor Principal Unificado y Definitivo (Con Casona y Población)
+// server.js - Servidor Principal Definitivo Unificado
 // ==========================================================================
 
 const express = require('express');
@@ -382,14 +382,38 @@ async function obtenerOGenerarJuegoData(username) {
 }
 
 // ==========================================================================
-// 📊 CONTROL DEMOGRÁFICO DE POBLACIÓN ACTIVA (MODIFICADO - DIRECTIVA 1)
+// 📦 SINCRONIZACIÓN OMNICANAL DEL ALMACÉN (PROPIEDADES MULTI-ALIAS Y FILTRADO)
+// ==========================================================================
+function enviarEstadoAlmacen(socket, juegoData) {
+    if (!juegoData) return;
+
+    const todasLasCartas = juegoData.almacenEdificiosDisponibles || [];
+    
+    // Filtrar únicamente las cartas que NO están construidas/anidadas en el terreno
+    const cartasDisponibles = todasLasCartas.filter(carta => !carta.estaAnidado);
+
+    // Payload defensivo con todos los alias que puede requerir el cliente (almacen.js)
+    const payload = {
+        success: true,
+        cartas: cartasDisponibles,
+        edificios: cartasDisponibles,
+        recursos: cartasDisponibles,
+        almacenEdificiosDisponibles: todasLasCartas
+    };
+
+    socket.emit('almacen:actualizar-estado', payload);
+    socket.emit('almacen:actualizar-cartas', payload);
+}
+
+// ==========================================================================
+// 📊 CONTROL DEMOGRÁFICO DE POBLACIÓN ACTIVA
 // ==========================================================================
 async function enviarEstadoFincaActualizado(socket, username, juegoData) {
     if (!juegoData) {
         juegoData = await obtenerOGenerarJuegoData(username);
     }
 
-    // 1. Análisis atómico para verificar si la casona está activa (almacén anidado o cimientos)
+    // 1. Análisis atómico para verificar si la casona está activa
     const casonaActiva = juegoData.almacenEdificiosDisponibles?.some(
         carta => carta.subtipo === 'casona' && carta.estaAnidado === true
     ) || juegoData.cimientosFinca?.some(
@@ -411,7 +435,7 @@ async function enviarEstadoFincaActualizado(socket, username, juegoData) {
 }
 
 // ==========================================================================
-// 🚚 GESTIÓN Y SINCRONIZACIÓN DEL CARRETÓN (MODIFICADO - DIRECTIVA 2)
+// 🚚 GESTIÓN Y SINCRONIZACIÓN DEL CARRETÓN
 // ==========================================================================
 async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
     if (!juegoData) {
@@ -473,12 +497,10 @@ io.on('connection', (socket) => {
                 cachePartidas[usernameLimpio]._poseeAldeaNFT = Boolean(usuarioBD?.poseeAldea);
                 
                 socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca || []);
-                socket.emit('almacen:actualizar-estado', {
-                    recursos: juegoData.almacenEdificiosDisponibles || []
-                });
-                socket.emit('almacen:actualizar-cartas', {
-                    almacenEdificiosDisponibles: juegoData.almacenEdificiosDisponibles || []
-                });
+                
+                // Emisión omnicanal del almacén
+                enviarEstadoAlmacen(socket, juegoData);
+                
                 await forzarEnvioEstadoCarreton(socket, usernameLimpio, juegoData);
                 await enviarEstadoFincaActualizado(socket, usernameLimpio, juegoData);
             }
@@ -502,12 +524,7 @@ io.on('connection', (socket) => {
 
         try {
             const juegoData = await obtenerOGenerarJuegoData(username);
-            socket.emit('almacen:actualizar-estado', { 
-                recursos: juegoData.almacenEdificiosDisponibles || [] 
-            });
-            socket.emit('almacen:actualizar-cartas', {
-                almacenEdificiosDisponibles: juegoData.almacenEdificiosDisponibles || []
-            });
+            enviarEstadoAlmacen(socket, juegoData);
         } catch (error) {
             console.error("❌ Error solicitando recursos del almacén:", error);
             socket.emit('almacen:error', 'Error interno al consultar el almacén.');
@@ -533,7 +550,7 @@ io.on('connection', (socket) => {
     socket.on('carreton:solicitar-datos', responderCarreton);
     socket.on('carreton:solicitar-estado', responderCarreton);
 
-    // 🚚 MOVER CARTA EN CARRETÓN (MODIFICADO - DIRECTIVA 3)
+    // 🚚 MOVER CARTA EN CARRETÓN
     socket.on('carreton:mover-carta', async (data = {}) => {
         const { cartaId, bloqueDestino, slotDestinoIndex } = data;
         const targetCartaId = cartaId || data.uuidCarta;
@@ -590,8 +607,7 @@ io.on('connection', (socket) => {
                 await juegoData.save();
 
                 await forzarEnvioEstadoCarreton(socket, username, juegoData);
-                socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles });
-                socket.emit('almacen:actualizar-cartas', { almacenEdificiosDisponibles: juegoData.almacenEdificiosDisponibles });
+                enviarEstadoAlmacen(socket, juegoData);
             }
         } catch (err) {
             console.error('❌ Error al equipar ítem:', err);
@@ -599,7 +615,7 @@ io.on('connection', (socket) => {
     });
 
     // ==========================================================================
-    // 🌾 FINCA Y CONSTRUCCIÓN (MODIFICADO - DIRECTIVA 3)
+    // 🌾 FINCA Y CONSTRUCCIÓN
     // ==========================================================================
     socket.on('finca:construir', async (data = {}) => {
         const { slotId, uuidEdificio } = data;
@@ -611,7 +627,7 @@ io.on('connection', (socket) => {
 
             if (!juegoData.cimientosFinca) juegoData.cimientosFinca = [];
             
-            // Búsqueda tolerante de slot según la firma/formato del string del modelo
+            // Búsqueda tolerante de slot según el formato del string o número
             const slot = juegoData.cimientosFinca.find(
                 s => s.slotId === `slot-${slotId}` || Number(s.slotId) === Number(slotId) || s.slotId === slotId
             );
@@ -642,9 +658,8 @@ io.on('connection', (socket) => {
 
             socket.emit('finca:construccion-exitosa', { slotId, edificio: slot });
             socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca);
-            socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles });
-            socket.emit('almacen:actualizar-cartas', { almacenEdificiosDisponibles: juegoData.almacenEdificiosDisponibles });
             
+            enviarEstadoAlmacen(socket, juegoData);
             await enviarEstadoFincaActualizado(socket, username, juegoData);
             await forzarEnvioEstadoCarreton(socket, username, juegoData);
         } catch (err) {
@@ -723,9 +738,8 @@ io.on('connection', (socket) => {
 
             socket.emit('finca:desmantelamiento-exitoso', { slotId });
             socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca);
-            socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles });
-            socket.emit('almacen:actualizar-cartas', { almacenEdificiosDisponibles: juegoData.almacenEdificiosDisponibles });
             
+            enviarEstadoAlmacen(socket, juegoData);
             await enviarEstadoFincaActualizado(socket, username, juegoData);
             await forzarEnvioEstadoCarreton(socket, username, juegoData);
         } catch (err) {
@@ -771,8 +785,8 @@ io.on('connection', (socket) => {
                 recurso: tipoRecurso, 
                 cantidad: cantidadRecolectada 
             });
-            socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles });
-            socket.emit('almacen:actualizar-cartas', { almacenEdificiosDisponibles: juegoData.almacenEdificiosDisponibles });
+            
+            enviarEstadoAlmacen(socket, juegoData);
         } catch (err) {
             console.error('❌ Error en recolección:', err);
             socket.emit('finca:error', 'Error al recolectar producción.');
