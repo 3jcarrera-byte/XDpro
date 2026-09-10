@@ -12,29 +12,31 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 
 // ========================================================
-// 📦 IMPORTACIÓN DIRECTA DE MODELOS
+// 📦 IMPORTACIÓN Y RESOLUCIÓN SEGURA DE MODELOS (ANTI-MISSINGSCHEMA)
 // ========================================================
-const User = require('./models/User');
-const GameDataModel = require('./models/GameData');
+const rawUser = require('./models/User');
+const rawGameData = require('./models/GameData');
 
 /**
- * Función auxiliar para obtener dinámicamente el modelo de Usuario
- * evitando errores de inicialización prematura de Mongoose.
+ * Resuelve de forma segura la referencia al modelo de Usuario sin forzar 
+ * la llamada a mongoose.model('User') si el esquema no se ha registrado globalmente.
  */
 function obtenerModeloUsuario() {
-    if (User && typeof User.findOne === 'function') return User;
-    if (User && User.User && typeof User.User.findOne === 'function') return User.User;
-    return mongoose.models.User || mongoose.model('User');
+    if (rawUser && typeof rawUser.findOne === 'function') return rawUser;
+    if (rawUser && rawUser.User && typeof rawUser.User.findOne === 'function') return rawUser.User;
+    if (mongoose.models && mongoose.models.User) return mongoose.models.User;
+    return rawUser;
 }
 
 /**
- * Función auxiliar para obtener dinámicamente el modelo de GameData.
+ * Resuelve de forma segura la referencia al modelo de GameData.
  */
 function obtenerModeloGameData() {
-    if (GameDataModel && typeof GameDataModel.findOne === 'function') return GameDataModel;
-    if (GameDataModel && GameDataModel.GameData && typeof GameDataModel.GameData.findOne === 'function') return GameDataModel.GameData;
-    if (GameDataModel && GameDataModel.GameDataModel && typeof GameDataModel.GameDataModel.findOne === 'function') return GameDataModel.GameDataModel;
-    return mongoose.models.GameData || mongoose.model('GameData');
+    if (rawGameData && typeof rawGameData.findOne === 'function') return rawGameData;
+    if (rawGameData && rawGameData.GameData && typeof rawGameData.GameData.findOne === 'function') return rawGameData.GameData;
+    if (rawGameData && rawGameData.GameDataModel && typeof rawGameData.GameDataModel.findOne === 'function') return rawGameData.GameDataModel;
+    if (mongoose.models && mongoose.models.GameData) return mongoose.models.GameData;
+    return rawGameData;
 }
 
 const app = express();
@@ -117,7 +119,7 @@ authRouter.post('/register', async (req, res) => {
     }
 });
 
-// 🔑 2. RUTA DE INICIO DE SESIÓN (LOGIN ROBUSTO CON RESOLUCIÓN DINÁMICA)
+// 🔑 2. RUTA DE INICIO DE SESIÓN (LOGIN ROBUSTO)
 authRouter.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -126,7 +128,6 @@ authRouter.post('/login', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Debe proveer usuario y contraseña.' });
         }
 
-        // 🛡️ Resolución dinámica del modelo durante la petición HTTP
         const ModeloUsuario = obtenerModeloUsuario();
         const ModeloGameData = obtenerModeloGameData();
 
@@ -607,7 +608,7 @@ io.on('connection', (socket) => {
             const uuidEvacuado = slot.uuid || crypto.randomUUID();
 
             if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
-            
+
             // Devolver edificio al inventario
             juegoData.almacenEdificiosDisponibles.push({
                 uuid: uuidEvacuado,
