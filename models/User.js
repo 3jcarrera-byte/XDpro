@@ -30,6 +30,13 @@ function obtenerModeloGameData() {
     return mongoose.model('GameData');
 }
 
+/**
+ * Auxiliar para escapar caracteres especiales en expresiones regulares
+ */
+function escapeRegex(text) {
+    return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+}
+
 // ==========================================================================
 // 📝 1. RUTA DE REGISTRO DE GLADIADORES
 // ==========================================================================
@@ -38,18 +45,29 @@ router.post('/register', async (req, res) => {
         const { username, password, email, pais, nombre, apellido, wallet } = req.body;
 
         // Validar campos mínimos obligatorios
-        if (!username || !password) {
+        if (!username || !password || typeof username !== 'string' || typeof password !== 'string') {
             return res.status(400).json({ 
                 success: false, 
-                message: 'El nombre de usuario y la contraseña son obligatorios.' 
+                message: 'El nombre de usuario y la contraseña son obligatorios y deben ser válidos.' 
+            });
+        }
+
+        const usernameLimpio = username.trim();
+        if (usernameLimpio.length < 3) {
+            return res.status(400).json({
+                success: false,
+                message: 'El nombre de usuario debe tener al menos 3 caracteres.'
             });
         }
 
         const User = obtenerModeloUsuario();
         const GameData = obtenerModeloGameData();
 
-        // Verificar si el usuario ya existe
-        const usuarioExistente = await User.findOne({ username: username.trim() });
+        // Búsqueda insensible a mayúsculas/minúsculas
+        const usuarioExistente = await User.findOne({ 
+            username: new RegExp(`^${escapeRegex(usernameLimpio)}$`, 'i') 
+        });
+
         if (usuarioExistente) {
             return res.status(409).json({ 
                 success: false, 
@@ -57,31 +75,47 @@ router.post('/register', async (req, res) => {
             });
         }
 
-        // Crear y guardar el nuevo usuario
+        // Determinar si el modelo hashes de forma automática o si debemos hashear explícitamente
+        let passwordFinal = password;
+        const dummyUser = new User({});
+        // Si no tiene hook 'pre' o método para hashear y la contraseña no parece bcrypt, la encriptamos defensivamente
+        if (typeof dummyUser.comparePassword !== 'function' && !password.startsWith('$2')) {
+            const salt = await bcrypt.genSalt(10);
+            passwordFinal = await bcrypt.hash(password, salt);
+        }
+
+        // Crear instancia del usuario
         const nuevoUsuario = new User({
-            username: username.trim(),
-            password,
-            email: email ? email.trim().toLowerCase() : null,
-            pais: pais ? pais.trim() : null,
-            nombre: nombre ? nombre.trim() : null,
-            apellido: apellido ? apellido.trim() : null,
-            wallet: wallet ? wallet.trim() : null,
+            username: usernameLimpio,
+            password: passwordFinal,
+            email: email && typeof email === 'string' ? email.trim().toLowerCase() : null,
+            pais: pais && typeof pais === 'string' ? pais.trim() : null,
+            nombre: nombre && typeof nombre === 'string' ? nombre.trim() : null,
+            apellido: apellido && typeof apellido === 'string' ? apellido.trim() : null,
+            wallet: wallet && typeof wallet === 'string' ? wallet.trim() : null,
             balance: 100.00
         });
 
         await nuevoUsuario.save();
 
         // Inicializar documento GameData de forma defensiva
-        let nuevoGameData = new GameData({
-            username: nuevoUsuario.username,
-            almacenEdificiosDisponibles: [],
-            carretonCartas: { cartasCentral: [] }
-        });
+        try {
+            let nuevoGameData = new GameData({
+                username: nuevoUsuario.username,
+                almacenEdificiosDisponibles: [],
+                carretonCartas: { cartasCentral: [] }
+            });
 
-        if (typeof nuevoGameData.inicializarEspaciosVacios === 'function') {
-            nuevoGameData.inicializarEspaciosVacios();
+            if (typeof nuevoGameData.inicializarEspaciosVacios === 'function') {
+                nuevoGameData.inicializarEspaciosVacios();
+            }
+            await nuevoGameData.save();
+        } catch (gameDataError) {
+            console.error('⚠️ Error al crear GameData en el registro:', gameDataError);
+            // Si la inicialización de GameData falla, revertimos la creación del usuario si es posible
+            await User.deleteOne({ _id: nuevoUsuario._id });
+            throw new Error('Fallo en la inicialización de los datos del juego del gladiador.');
         }
-        await nuevoGameData.save();
 
         return res.status(201).json({
             success: true,
@@ -91,6 +125,15 @@ router.post('/register', async (req, res) => {
 
     } catch (error) {
         console.error('❌ Error crítico en ruta /register:', error);
+
+        // Control del error de clave duplicada de MongoDB (Index constraint)
+        if (error.code === 11000) {
+            return res.status(409).json({
+                success: false,
+                message: 'El nombre de gladiador o correo electrónico ya está registrado.'
+            });
+        }
+
         return res.status(500).json({ 
             success: false, 
             message: 'Error interno del servidor al procesar el registro imperial.' 
@@ -105,17 +148,22 @@ router.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
 
-        if (!username || !password) {
+        if (!username || !password || typeof username !== 'string' || typeof password !== 'string') {
             return res.status(400).json({ 
                 success: false, 
-                message: 'Debe proveer usuario y contraseña.' 
+                message: 'Debe proveer un usuario y contraseña válidos.' 
             });
         }
 
+        const usernameLimpio = username.trim();
         const User = obtenerModeloUsuario();
         const GameData = obtenerModeloGameData();
 
-        const usuario = await User.findOne({ username: username.trim() });
+        // Buscar al usuario de manera insensible a mayúsculas/minúsculas
+        const usuario = await User.findOne({ 
+            username: new RegExp(`^${escapeRegex(usernameLimpio)}$`, 'i') 
+        });
+
         if (!usuario) {
             return res.status(401).json({ 
                 success: false, 
