@@ -1,5 +1,5 @@
 // ==========================================================================
-// 🎮 public/js/game3d.js (Versión Reparada y Sincronizada)
+// 🎮 public/js/game3d.js (Versión Optimizada y Sanitizada)
 // ==========================================================================
 
 // Configuración global de optimización de GPU conectada con el ruteo SPA de main.js
@@ -12,6 +12,8 @@ window.estadoMotor3D = {
 let scene, camera, renderer;
 let listaCimientos3D = []; // Array unificado para el Raycasting del Drag & Drop
 let raycaster, mouse;
+let animationFrameId = null; // Control del bucle para evitar fugas de memoria
+let resizeObserver = null;
 
 // 🛡️ Caché local persistente para mitigar la carrera de red entre el motor gráfico y los Sockets
 window.cacheTerrenoServidor = null;
@@ -33,12 +35,10 @@ function init3D(containerId, maxCimientos) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    // Liberar renderer anterior si existe para evitar fugas de memoria en entornos SPA
-    if (renderer) {
-        renderer.dispose();
-    }
+    // 1. Detener animaciones y liberar memoria GPU de la escena previa
+    destruirMotor3D();
 
-    // 1. Limpieza preventiva total del contenedor para mitigar canvas duplicados
+    // 2. Limpieza preventiva del contenedor
     container.innerHTML = '';
     listaCimientos3D = [];
     window.estadoMotor3D.maxCimientosActivos = maxCimientos;
@@ -47,25 +47,26 @@ function init3D(containerId, maxCimientos) {
     datosArrastreActuales = null;
     removerClonVisualDOM();
 
-    // 2. Creación y configuración de la Escena
+    // 3. Creación y configuración de la Escena
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x120c09); // Fondo terráqueo imperial oscuro
 
-    // 3. Configuración de la Cámara Perspectiva y exposición global segura
+    // 4. Configuración de la Cámara Perspectiva
     const aspect = container.clientWidth / (container.clientHeight || 1);
     camera = new THREE.PerspectiveCamera(45, aspect, 1, 1000);
     camera.position.set(0, 14, 18);
     camera.lookAt(0, 0, 0);
     window.cameraGlobalFinca = camera;
 
-    // 4. Configuración del Renderizador WebGL con perfil de alto rendimiento
+    // 5. Configuración del Renderizador WebGL con perfil de alto rendimiento
     renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Optimización de renderizado DPI
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
-    // 5. Configuración de Sistemas de Iluminación Calibrada
+    // 6. Configuración de Sistemas de Iluminación Calibrada
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
     scene.add(ambientLight);
 
@@ -74,32 +75,35 @@ function init3D(containerId, maxCimientos) {
     dirLight.castShadow = true;
     scene.add(dirLight);
 
-    // 6. Terreno / Rejilla Base de Construcción Estética
+    // 7. Terreno / Rejilla Base de Construcción
     const gridHelper = new THREE.GridHelper(24, 24, 0xd4af37, 0x2c2c35);
     gridHelper.position.y = 0;
     scene.add(gridHelper);
 
-    // 7. Inicialización de herramientas de Raycasting
+    // 8. Inicialización de Raycasting
     raycaster = new THREE.Raycaster();
     mouse = new THREE.Vector2();
 
-    // 8. Distribución y renderizado dinámico de los Cimientos lógicos
+    // 9. Distribución de los Cimientos lógicos
     generarCimientos(containerId, maxCimientos);
 
-    // 🚀 9. CONFIGURACIÓN DEL RECEPTOR DRAG & DROP NATIVO Y PUNTERO AVANZADO PARA EL CANVAS 3D
+    // 10. Configuración de eventos de puntero y drag & drop
     configurarDragAndDropCanvas(container);
     configurarEventosPunteroAvanzados(container);
 
-    // 10. Encender el motor e iniciar el ciclo de animación inteligente
+    // 11. Ajuste dinámico de pantalla mediante ResizeObserver
+    configurarResizeObserver(container);
+
+    // 12. Encender el motor e iniciar ciclo de animación inteligente
     window.estadoMotor3D.activo = true;
     animate();
 
-    // ⚡ INTERCEPCIÓN CLAVE: Enganchar los sockets una vez que la escena 3D y la variable de red existan
+    // ⚡ Enganchar los sockets
     if (typeof window.configurarSocketsFinca === 'function') {
         window.configurarSocketsFinca();
     }
 
-    // 🔄 11. SINCRONIZACIÓN DIFERIDA: Si MongoDB respondió antes de que el motor 3D naciera, inyectamos la caché aquí
+    // 🔄 Sincronización diferida de caché
     if (window.cacheTerrenoServidor && Array.isArray(window.cacheTerrenoServidor)) {
         console.log("♻️ Aplicando caché de terreno diferida tras la inicialización geométrica completa.");
         sincronizarTerrenoEnMallas(window.cacheTerrenoServidor);
@@ -107,7 +111,65 @@ function init3D(containerId, maxCimientos) {
 }
 
 /**
- * Configura los eventos de arrastre y soltado directamente sobre el contenedor y canvas tridimensional
+ * Libera de forma completa los recursos de GPU y detiene los hilos de animación de Three.js
+ */
+function destruirMotor3D() {
+    window.estadoMotor3D.activo = false;
+
+    if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
+
+    if (resizeObserver) {
+        resizeObserver.disconnect();
+        resizeObserver = null;
+    }
+
+    if (scene) {
+        scene.traverse((objeto) => {
+            if (objeto.geometry) objeto.geometry.dispose();
+            if (objeto.material) {
+                if (Array.isArray(objeto.material)) {
+                    objeto.material.forEach(mat => mat.dispose());
+                } else {
+                    objeto.material.dispose();
+                }
+            }
+        });
+    }
+
+    if (renderer) {
+        renderer.dispose();
+        renderer.forceContextLoss();
+        renderer.domElement = null;
+        renderer = null;
+    }
+
+    listaCimientos3D = [];
+}
+
+/**
+ * Mantiene la proporción de aspecto adaptativa sin distorsión
+ */
+function configurarResizeObserver(container) {
+    if (typeof ResizeObserver === 'undefined') return;
+
+    resizeObserver = new ResizeObserver(() => {
+        if (!container || !renderer || !camera) return;
+        const width = container.clientWidth;
+        const height = container.clientHeight || 1;
+
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height);
+    });
+
+    resizeObserver.observe(container);
+}
+
+/**
+ * Configura los eventos de arrastre y soltado sobre el canvas tridimensional
  */
 function configurarDragAndDropCanvas(contenedorCanvas) {
     if (!contenedorCanvas) return;
@@ -156,7 +218,7 @@ function configurarDragAndDropCanvas(contenedorCanvas) {
                     return;
                 }
 
-                // CASO A: REORDENAMIENTO / INTERCAMBIO ENTRE CIMIENTOS 3D
+                // CASO A: REORDENAMIENTO ENTRE CIMIENTOS 3D
                 if (origenSlotStr !== "" && origenSlotStr !== undefined) {
                     const origenSlotIdNum = parseInt(origenSlotStr, 10);
                     if (isNaN(origenSlotIdNum) || origenSlotIdNum === cimientoIndex) return;
@@ -174,7 +236,7 @@ function configurarDragAndDropCanvas(contenedorCanvas) {
                     return;
                 }
 
-                // CASO B: CONSTRUCCIÓN DESDE CARTA EXTERNA (Evento sincronizado: 'finca:construir')
+                // CASO B: CONSTRUCCIÓN DESDE CARTA EXTERNA
                 if (!cartaUuid) return;
 
                 if (cimientoGolpeado.userData.estaOcupado) {
@@ -202,7 +264,7 @@ function configurarDragAndDropCanvas(contenedorCanvas) {
 }
 
 /**
- * 🛠️ Sistema Avanzado de Eventos de Puntero combinado con Raycaster dinámico
+ * Sistema Avanzado de Eventos de Puntero combinado con Raycaster
  */
 function configurarEventosPunteroAvanzados(contenedorCanvas) {
     if (!contenedorCanvas) return;
@@ -248,7 +310,7 @@ function configurarEventosPunteroAvanzados(contenedorCanvas) {
                     try {
                         contenedorCanvas.setPointerCapture(e.pointerId);
                     } catch (err) {
-                        // Ignorar si el navegador rechaza la captura
+                        // Ignorar rejections de capturas no soportadas
                     }
 
                     e.stopPropagation();
@@ -281,6 +343,7 @@ function configurarEventosPunteroAvanzados(contenedorCanvas) {
         const slotIdNumerico = parseInt(datosArrastre.origenSlot, 10);
         if (isNaN(slotIdNumerico)) return;
 
+        // Validar desmantelamiento en la interfaz inferior
         const elementoBandaInferior = document.querySelector('.finca-buildings-drawer');
         if (elementoBandaInferior) {
             const rectBanda = elementoBandaInferior.getBoundingClientRect();
@@ -340,7 +403,7 @@ function configurarEventosPunteroAvanzados(contenedorCanvas) {
 }
 
 /**
- * Crea un elemento HTML flotante translúcido para representar visualmente el arrastre
+ * Crea el elemento flotante translúcido para representar el arrastre
  */
 function crearClonVisualDOM(x, y, tipoEdificio) {
     removerClonVisualDOM();
@@ -384,7 +447,7 @@ function removerClonVisualDOM() {
 }
 
 /**
- * Distribuye espacialmente los cimientos geométricos de forma dinámica según el tipo de terreno
+ * Distribuye los cimientos según el tipo de área
  */
 function generarCimientos(containerId, cantidad) {
     listaCimientos3D = []; 
@@ -467,14 +530,14 @@ function generarCimientos(containerId, cantidad) {
 }
 
 /**
- * Bucle de animación inteligente controlado por bandera de optimización de GPU
+ * Bucle de animación optimizado
  */
 function animate() {
     if (!window.estadoMotor3D.activo) {
         return;
     }
 
-    requestAnimationFrame(animate);
+    animationFrameId = requestAnimationFrame(animate);
 
     if (renderer && scene && camera) {
         renderer.render(scene, camera);
@@ -489,12 +552,12 @@ window.reanudarAnimacion3D = function() {
 };
 
 /**
- * Función centralizada para actualizar los materiales de las mallas 3D según el estado del terreno
+ * Actualiza los materiales de las mallas 3D según el estado recibido por red
  */
 function sincronizarTerrenoEnMallas(edificiosConstruidos) {
     if (!edificiosConstruidos || !Array.isArray(edificiosConstruidos)) return;
 
-    // 1. Limpieza general previa de todas las mallas para resetear estados fantasmas
+    // Resetear estados previos de la escena 3D
     listaCimientos3D.forEach(malla => {
         malla.userData.estaOcupado = false;
         malla.userData.tipoEdificio = null;
@@ -506,7 +569,7 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
         malla.material.needsUpdate = true;
     });
 
-    // 2. Aplicación iterativa de datos reales provenientes del servidor/caché
+    // Sincronizar datos del backend
     edificiosConstruidos.forEach(edificio => {
         const rawSlot = edificio.slotId !== undefined ? edificio.slotId : (edificio.cimientoIndex !== undefined ? edificio.cimientoIndex : edificio.slotIndex);
         const slotIdDestino = parseInt(rawSlot, 10);
@@ -535,64 +598,50 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
                     malla3D.material.opacity = 0.92;
                     malla3D.material.transparent = true;
                 }
-            } else {
-                malla3D.userData.estaOcupado = false;
-                malla3D.userData.tipoEdificio = null;
-                malla3D.userData.edificioUuid = null;
-                malla3D.userData.id = null;
-                malla3D.material.color.setHex(0xd4af37);
-                malla3D.material.opacity = 0.35;
-                malla3D.material.transparent = true;
             }
 
             malla3D.material.needsUpdate = true;
         }
     });
 
-    console.log("🎨 Sincronización visual y blindaje completados en GPU.");
+    console.log("🎨 Sincronización visual completada en la GPU.");
 }
 
 // ==========================================================================
-// CONFIGURACIÓN GLOBAL DINÁMICA DE RECEPTORES DE SOCKET.IO
+// CONFIGURACIÓN GLOBAL DE RECEPTORES DE SOCKET.IO
 // ==========================================================================
 window.configurarSocketsFinca = function() {
-    // 🛡️ RE-INTENTO ATÓMICO: Si el script base no ha declarado la red, esperar 100ms y re-enganchar
     if (typeof socket === 'undefined' || !socket) {
-        console.log("⏳ Esperando inicialización del canal Socket.io en main.js...");
+        console.log("⏳ Esperando canal Socket.io en main.js...");
         setTimeout(window.configurarSocketsFinca, 100);
         return;
     }
 
     if (window._socketsGame3DConfigurados) {
-        return; // Evita registrar múltiples listeners duplicados
+        return; // Evita duplicar listeners de eventos
     }
     window._socketsGame3DConfigurados = true;
 
-    // 🏗️ EVENTO: Construcción exitosa en el servidor
     socket.on('finca:construccion-exitosa', (data) => {
         if (data.mensaje) console.log(data.mensaje);
-        if (data.terreno) {
-            window.cacheTerrenoServidor = data.terreno;
-            sincronizarTerrenoEnMallas(data.terreno);
-        } else if (data.edificios) {
-            window.cacheTerrenoServidor = data.edificios;
-            sincronizarTerrenoEnMallas(data.edificios);
+        const terreno = data.terreno || data.edificios;
+        if (terreno) {
+            window.cacheTerrenoServidor = terreno;
+            sincronizarTerrenoEnMallas(terreno);
         }
         if (typeof cargarAlmacen === 'function') cargarAlmacen();
         if (typeof cargarCarreton === 'function') cargarCarreton();
     });
 
-    // 🌾 EVENTO: Actualización general del terreno
     socket.on('finca:actualizar-terreno', (edificiosConstruidos) => {
         window.cacheTerrenoServidor = edificiosConstruidos;
         if (listaCimientos3D && listaCimientos3D.length > 0) {
             sincronizarTerrenoEnMallas(edificiosConstruidos);
         } else {
-            console.log("⏳ Mallas 3D aún no inicializadas. Terreno guardado en caché temporal.");
+            console.log("⏳ Mallas 3D en espera. Terreno en caché.");
         }
     });
 
-    // 🔄 EVENTO: Intercambio entre slots
     socket.on('finca:intercambio-exitoso', (data) => {
         if (data.terreno) {
             window.cacheTerrenoServidor = data.terreno;
@@ -602,12 +651,10 @@ window.configurarSocketsFinca = function() {
         if (typeof cargarCarreton === 'function') cargarCarreton();
     });
 
-    // 🔨 EVENTO: Desmantelamiento / Retiro exitoso desde el servidor
     socket.on('finca:desmantelamiento-exitoso', (data) => {
         const targetSlot = data.slotId !== undefined ? data.slotId : data.slotIndex;
-        console.log(`♻️ Árbitro confirma desmantelamiento en slot ${targetSlot}. Purgando malla 3D local...`, data);
         
-        if (targetSlot !== undefined && targetSlot !== null && listaCimientos3D && listaCimientos3D.length > 0) {
+        if (targetSlot !== undefined && targetSlot !== null && listaCimientos3D.length > 0) {
             const targetSlotNum = parseInt(targetSlot, 10);
             const malla3D = listaCimientos3D.find(c => {
                 const sId = parseInt(c.userData.slotId !== undefined ? c.userData.slotId : c.userData.index, 10);
@@ -623,9 +670,6 @@ window.configurarSocketsFinca = function() {
                 malla3D.material.opacity = 0.35;
                 malla3D.material.transparent = true;
                 malla3D.material.needsUpdate = true;
-                console.log(`✅ Cimiento ${targetSlotNum} liberado y actualizado visualmente en la Finca 3D.`);
-            } else {
-                console.warn(`⚠️ No se encontró la malla 3D correspondiente al slot ${targetSlotNum} en listaCimientos3D.`);
             }
         }
 
@@ -638,9 +682,8 @@ window.configurarSocketsFinca = function() {
         if (typeof cargarCarreton === 'function') cargarCarreton();
     });
 
-    // 🌾 EVENTO: Recolección de recursos exitosa
     socket.on('finca:recoleccion-exitosa', (data) => {
-        if (data.mensaje) console.log(`🌾 Recolección exitosa: ${data.mensaje}`);
+        if (data.mensaje) console.log(`🌾 Recolección: ${data.mensaje}`);
         if (data.terreno) {
             window.cacheTerrenoServidor = data.terreno;
             sincronizarTerrenoEnMallas(data.terreno);
@@ -649,26 +692,20 @@ window.configurarSocketsFinca = function() {
         if (typeof cargarCarreton === 'function') cargarCarreton();
     });
 
-    // ❌ EVENTO: Error devuelto por el backend
     socket.on('finca:error', (msgError) => {
         alert(`❌ Obra civil rechazada: ${msgError}`);
     });
 
-    console.log("🔌 Receptores de Socket.io para la Finca configurados exitosamente.");
+    console.log("🔌 Receptores de Socket.io configurados.");
 };
 
-/**
- * Función auxiliar para manejar el soltado en inventario/almacén (desmantelamiento inverso)
- */
 window.manejarDropInversoAlmacen = function(e) {
     e.preventDefault();
     const origenSlotStr = e.dataTransfer.getData('text/origen-slot');
     if (origenSlotStr !== "" && origenSlotStr !== undefined) {
         const slotIdNumerico = parseInt(origenSlotStr, 10);
-        if (isNaN(slotIdNumerico)) {
-            console.error('El slot de origen inverso no es válido.');
-            return;
-        }
+        if (isNaN(slotIdNumerico)) return;
+        
         if (typeof socket !== 'undefined' && socket && socket.connected) {
             socket.emit('finca:desmantelar', { slotId: slotIdNumerico });
         }
