@@ -1,5 +1,5 @@
 // ==========================================================================
-// server.js - Servidor Principal Unificado y Definitivo
+// server.js - Servidor Principal Unificado y Definitivo (Con Casona y Población)
 // ==========================================================================
 
 const express = require('express');
@@ -98,7 +98,7 @@ authRouter.post('/register', async (req, res) => {
         }
 
         const User = obtenerModeloUsuario();
-        const GameData = obtenerModeloGameData();
+        const GameDataModel = obtenerModeloGameData();
 
         const usuarioExistente = await User.findOne({ username: new RegExp(`^${escapeRegex(usernameLimpio)}$`, 'i') });
         if (usuarioExistente) {
@@ -126,10 +126,29 @@ authRouter.post('/register', async (req, res) => {
         await nuevoUsuario.save();
 
         try {
-            let nuevoGameData = new GameData({
+            // ==========================================================================
+            // 📦 INICIALIZACIÓN DE GAMEDATA CON LA CASONA ÚNICA INICIAL
+            // ==========================================================================
+            let nuevoGameData = new GameDataModel({
                 username: nuevoUsuario.username,
-                almacenEdificiosDisponibles: [],
-                carretonCartas: { cartasCentral: [] }
+                // Cada gladiador nace con su carta de estructura civil protegida
+                almacenEdificiosDisponibles: [
+                    {
+                        uuid: `carta-casona-${nuevoUsuario.username}`,
+                        id: `carta-casona-${nuevoUsuario.username}`,
+                        tipo: 'estructura',
+                        subtipo: 'casona',
+                        nombre: 'Casona Imperial',
+                        descripcion: 'Estructura civil única. Habilita +2 slots de población en la Finca.',
+                        esTradeable: false,
+                        esDestructible: false,
+                        estaAnidado: false,
+                        slotAnidado: null,
+                        nivel: 0,
+                        rareza: 'epica'
+                    }
+                ],
+                carretonCartas: { cartasCentral: [], cartasFinca: [], cartasAldea: [] }
             });
 
             if (typeof nuevoGameData.inicializarEspaciosVacios === 'function') {
@@ -168,7 +187,7 @@ authRouter.post('/login', async (req, res) => {
 
         const usernameLimpio = username.trim();
         const User = obtenerModeloUsuario();
-        const GameData = obtenerModeloGameData();
+        const GameDataModel = obtenerModeloGameData();
 
         const usuario = await User.findOne({ username: new RegExp(`^${escapeRegex(usernameLimpio)}$`, 'i') });
         if (!usuario) {
@@ -192,12 +211,27 @@ authRouter.post('/login', async (req, res) => {
             return res.status(401).json({ success: false, message: 'Credenciales inválidas.' });
         }
 
-        let gameData = await GameData.findOne({ username: usuario.username });
+        let gameData = await GameDataModel.findOne({ username: usuario.username });
         if (!gameData) {
-            gameData = new GameData({ 
+            gameData = new GameDataModel({ 
                 username: usuario.username,
-                almacenEdificiosDisponibles: [],
-                carretonCartas: { cartasCentral: [] }
+                almacenEdificiosDisponibles: [
+                    {
+                        uuid: `carta-casona-${usuario.username}`,
+                        id: `carta-casona-${usuario.username}`,
+                        tipo: 'estructura',
+                        subtipo: 'casona',
+                        nombre: 'Casona Imperial',
+                        descripcion: 'Estructura civil única. Habilita +2 slots de población en la Finca.',
+                        esTradeable: false,
+                        esDestructible: false,
+                        estaAnidado: false,
+                        slotAnidado: null,
+                        nivel: 0,
+                        rareza: 'epica'
+                    }
+                ],
+                carretonCartas: { cartasCentral: [], cartasFinca: [], cartasAldea: [] }
             });
             if (typeof gameData.inicializarEspaciosVacios === 'function') {
                 gameData.inicializarEspaciosVacios();
@@ -321,7 +355,22 @@ async function obtenerOGenerarJuegoData(username) {
         juegoData = new GameData({ 
             username, 
             ...inicializarCimientosPorDefecto(),
-            almacenEdificiosDisponibles: [],
+            almacenEdificiosDisponibles: [
+                {
+                    uuid: `carta-casona-${username}`,
+                    id: `carta-casona-${username}`,
+                    tipo: 'estructura',
+                    subtipo: 'casona',
+                    nombre: 'Casona Imperial',
+                    descripcion: 'Estructura civil única. Habilita +2 slots de población en la Finca.',
+                    esTradeable: false,
+                    esDestructible: false,
+                    estaAnidado: false,
+                    slotAnidado: null,
+                    nivel: 0,
+                    rareza: 'epica'
+                }
+            ],
             carretonCartas: { cartasCentral: [] }
         });
         if (typeof juegoData.inicializarEspaciosVacios === 'function') {
@@ -331,6 +380,38 @@ async function obtenerOGenerarJuegoData(username) {
     }
     cachePartidas[username] = juegoData;
     return juegoData;
+}
+
+// ==========================================================================
+// 📊 CONTROL DEMOGRÁFICO DE POBLACIÓN ACTIVA
+// ==========================================================================
+async function enviarEstadoFincaActualizado(socket, username, juegoData) {
+    if (!juegoData) {
+        juegoData = await obtenerOGenerarJuegoData(username);
+    }
+
+    // 1. Contar si la casona única está activa (anidada) en algún cimiento 3D
+    const casonaActiva = juegoData.almacenEdificiosDisponibles?.some(
+        carta => carta.subtipo === 'casona' && carta.estaAnidado === true
+    ) || juegoData.cimientosFinca?.some(
+        cimiento => cimiento.estaOcupado && cimiento.subtipo === 'casona'
+    );
+
+    // 2. Establecer el límite demográfico dinámico
+    const maxPobladores = casonaActiva ? 2 : 0;
+
+    // 3. Contar cuántos pobladores reales se encuentran trabajando en las parcelas
+    let actualesPobladores = 0;
+    juegoData.cimientosFinca?.forEach(cimiento => {
+        if (cimiento.pobladoresAsignados) {
+            actualesPobladores += cimiento.pobladoresAsignados.length;
+        }
+    });
+
+    // Enviar los datos exactos que el frontend pintará en la misma línea
+    socket.emit('finca:actualizar-marcador-poblacion', {
+        conteoTexto: `${actualesPobladores} / ${maxPobladores}`
+    });
 }
 
 async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
@@ -357,6 +438,8 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
         slotsFincaHabilitados: slotsFincaHabilitados,
         poseeAldea: poseeAldea
     });
+
+    await enviarEstadoFincaActualizado(socket, username, juegoData);
 }
 
 // ==========================================================================
@@ -389,7 +472,11 @@ io.on('connection', (socket) => {
                 socket.emit('almacen:actualizar-estado', {
                     recursos: juegoData.almacenEdificiosDisponibles || []
                 });
+                socket.emit('almacen:actualizar-cartas', {
+                    almacenEdificiosDisponibles: juegoData.almacenEdificiosDisponibles || []
+                });
                 await forzarEnvioEstadoCarreton(socket, usernameLimpio, juegoData);
+                await enviarEstadoFincaActualizado(socket, usernameLimpio, juegoData);
             }
         } catch (err) {
             console.error("❌ Fallo crítico al sincronizar sesión de socket:", err);
@@ -413,6 +500,9 @@ io.on('connection', (socket) => {
             const juegoData = await obtenerOGenerarJuegoData(username);
             socket.emit('almacen:actualizar-estado', { 
                 recursos: juegoData.almacenEdificiosDisponibles || [] 
+            });
+            socket.emit('almacen:actualizar-cartas', {
+                almacenEdificiosDisponibles: juegoData.almacenEdificiosDisponibles || []
             });
         } catch (error) {
             console.error("❌ Error solicitando recursos del almacén:", error);
@@ -479,7 +569,8 @@ io.on('connection', (socket) => {
                     subtipo: cartaTienda.subtipo,
                     nombre: cartaTienda.nombre,
                     rareza: cartaTienda.rareza,
-                    nivel: 0 
+                    nivel: 0,
+                    estaAnidado: false
                 });
                 juegoData.markModified('almacenEdificiosDisponibles');
             }
@@ -500,6 +591,7 @@ io.on('connection', (socket) => {
 
             io.emit('tienda:recibir-stock', stockTiendaSistema);
             socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles || [] });
+            socket.emit('almacen:actualizar-cartas', { almacenEdificiosDisponibles: juegoData.almacenEdificiosDisponibles || [] });
             await forzarEnvioEstadoCarreton(socket, username, juegoData);
 
         } catch (error) {
@@ -572,6 +664,7 @@ io.on('connection', (socket) => {
 
                 await forzarEnvioEstadoCarreton(socket, username, juegoData);
                 socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles });
+                socket.emit('almacen:actualizar-cartas', { almacenEdificiosDisponibles: juegoData.almacenEdificiosDisponibles });
             }
         } catch (err) {
             console.error('❌ Error al equipar ítem:', err);
@@ -599,7 +692,10 @@ io.on('connection', (socket) => {
             const indexEdificio = juegoData.almacenEdificiosDisponibles.findIndex(e => e.uuid === uuidEdificio || e.id === uuidEdificio);
             if (indexEdificio === -1) return socket.emit('finca:error', 'Edificio no encontrado en el almacén.');
 
-            const [edificio] = juegoData.almacenEdificiosDisponibles.splice(indexEdificio, 1);
+            // Si es una carta del almacén, podemos marcarla como anidada o removerla según el flujo actual
+            const edificio = juegoData.almacenEdificiosDisponibles[indexEdificio];
+            edificio.estaAnidado = true;
+            edificio.slotAnidado = slotId;
 
             slot.estaOcupado = true;
             slot.subtipo = edificio.subtipo;
@@ -614,6 +710,10 @@ io.on('connection', (socket) => {
             socket.emit('finca:construccion-exitosa', { slotId, edificio: slot });
             socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca);
             socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles });
+            socket.emit('almacen:actualizar-cartas', { almacenEdificiosDisponibles: juegoData.almacenEdificiosDisponibles });
+            
+            await enviarEstadoFincaActualizado(socket, username, juegoData);
+            await forzarEnvioEstadoCarreton(socket, username, juegoData);
         } catch (err) {
             console.error('❌ Error en finca:construir:', err);
             socket.emit('finca:error', 'Error al construir en la finca.');
@@ -642,15 +742,23 @@ io.on('connection', (socket) => {
 
             if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
 
-            // Devolver la estructura al almacén del jugador
-            juegoData.almacenEdificiosDisponibles.push({
-                uuid: uuidEvacuado,
-                id: uuidEvacuado,
-                subtipo: slot.subtipo,
-                nombre: slot.nombre || slot.subtipo,
-                nivel: slot.nivel || 0,
-                rareza: slot.rareza || 'comun'
-            });
+            // Buscar si la carta existe en el almacén para desmarcarla como anidada, o reinsertarla
+            const cartaAlmacen = juegoData.almacenEdificiosDisponibles.find(c => c.uuid === uuidEvacuado || c.id === uuidEvacuado);
+            if (cartaAlmacen) {
+                cartaAlmacen.estaAnidado = false;
+                cartaAlmacen.slotAnidado = null;
+            } else {
+                juegoData.almacenEdificiosDisponibles.push({
+                    uuid: uuidEvacuado,
+                    id: uuidEvacuado,
+                    subtipo: slot.subtipo,
+                    nombre: slot.nombre || slot.subtipo,
+                    nivel: slot.nivel || 0,
+                    rareza: slot.rareza || 'comun',
+                    estaAnidado: false,
+                    slotAnidado: null
+                });
+            }
 
             // Evacuar recursos anidados acumulados si los hay
             if (Array.isArray(slot.recursosAnidados) && slot.recursosAnidados.length > 0) {
@@ -683,8 +791,9 @@ io.on('connection', (socket) => {
             socket.emit('finca:desmantelamiento-exitoso', { slotId });
             socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca);
             socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles });
+            socket.emit('almacen:actualizar-cartas', { almacenEdificiosDisponibles: juegoData.almacenEdificiosDisponibles });
             
-            // Recalcular la capacidad del carretón por si se desmanteló una Casona/Casa
+            await enviarEstadoFincaActualizado(socket, username, juegoData);
             await forzarEnvioEstadoCarreton(socket, username, juegoData);
         } catch (err) {
             console.error('❌ Error desmantelando estructura:', err);
@@ -730,6 +839,7 @@ io.on('connection', (socket) => {
                 cantidad: cantidadRecolectada 
             });
             socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles });
+            socket.emit('almacen:actualizar-cartas', { almacenEdificiosDisponibles: juegoData.almacenEdificiosDisponibles });
         } catch (err) {
             console.error('❌ Error en recolección:', err);
             socket.emit('finca:error', 'Error al recolectar producción.');
