@@ -1,640 +1,260 @@
-// ==========================================================================
-// 🏛️ SERVIDOR BACKEND XDPRO UNIFICADO Y DEFINITIVO (Node.js + Socket.io + Mongoose)
-// ==========================================================================
+import express from 'express';
+import http from 'http';
+import { Server } from 'socket.io';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const mongoose = require('mongoose');
-const crypto = require('crypto');
+dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
+
+// Configuración de CORS y Socket.io para Render y entornos de producción
 const io = new Server(server, {
     cors: {
-        origin: "*",
-        methods: ["GET", "POST"]
+        origin: '*',
+        methods: ['GET', 'POST']
     }
 });
 
-// ==========================================================================
-// 📦 MEMORIA CACHÉ Y ESTADO GLOBAL DE TIENDA DEL SISTEMA
-// ==========================================================================
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Cache en memoria para partidas activas
 const cachePartidas = {};
-let stockTiendaSistema = {
-    edificios: [],
-    aldeanos: [],
-    equipamiento: []
-};
 
-// Catalogo base para reposición dinámica de tienda (AMM)
-const CATALOGO_DISEÑOS = {
-    edificios: [
-        { subtipo: 'casona', nombre: '🏛️ Casona Imperial', precio: 1000, rareza: 'legendaria' },
-        { subtipo: 'granja', nombre: '🌾 Granja de Trigo', precio: 150, rareza: 'comun' },
-        { subtipo: 'aserradero', nombre: '🪵 Aserradero Real', precio: 200, rareza: 'comun' }
-    ],
-    aldeanos: [
-        { subtipo: 'agricultor', nombre: '👨‍🌾 Agricultor Imperial', precio: 100, rareza: 'comun' },
-        { subtipo: 'lenador', nombre: '🪓 Leñador Experto', precio: 120, rareza: 'comun' }
-    ],
-    equipamiento: [
-        { subtipo: 'hacha_hierro', nombre: '🪓 Hacha de Hierro', precio: 80, rareza: 'poco_comun' },
-        { subtipo: 'hoz_oro', nombre: '🌾 Hoz de Oro', precio: 250, rareza: 'rara' }
-    ]
-};
-
-// Helper: Generador de cartas para la tienda
-function crearCartaParaTienda(diseno, rubro) {
-    return {
-        tiendaItemId: crypto.randomUUID(),
-        subtipo: diseno.subtipo,
-        nombre: diseno.nombre,
-        precio: diseno.precio,
-        rareza: diseno.rareza,
-        tipo: rubro
-    };
-}
-
-// Inicializar stock inicial de la tienda
-function inicializarStockTienda() {
-    for (const rubro in CATALOGO_DISEÑOS) {
-        stockTiendaSistema[rubro] = CATALOGO_DISEÑOS[rubro].map(d => crearCartaParaTienda(d, rubro));
+// ==========================================================================
+// 🍃 ESQUEMAS DE MONGOOSE (MongoDB)
+// ==========================================================================
+const JuegoDataSchema = new mongoose.Schema({
+    username: { type: String, required: true, unique: true },
+    almacenEdificiosDisponibles: { type: Array, default: [] },
+    cimientosFinca: { type: Array, default: [] },
+    carretonCartas: {
+        cartasCentral: { type: Array, default: [] }
     }
-}
-inicializarStockTienda();
+}, { timestamps: true });
+
+const UsuarioSchema = new mongoose.Schema({
+    username: { type: String, required: true, unique: true },
+    monedas: { type: Number, default: 100 }
+});
+
+const JuegoData = mongoose.model('JuegoData', JuegoDataSchema);
+const Usuario = mongoose.model('Usuario', UsuarioSchema);
 
 // ==========================================================================
-// 🛠️ FUNCIONES AUXILIARES DE MODELOS Y UTILIDADES
+// 🛠️ FUNCIONES DE APOYO Y LOGÍSTICA
 // ==========================================================================
-function obtenerModeloUsuario() {
-    return mongoose.models.User || mongoose.model('User', new mongoose.Schema({
-        username: String,
-        balance: { type: Number, default: 0 }
-    }));
-}
-
-function obtenerModeloJuegoData() {
-    return mongoose.models.JuegoData || mongoose.model('JuegoData', new mongoose.Schema({
-        username: String,
-        almacenEdificiosDisponibles: { type: Array, default: [] },
-        carretonCartas: {
-            cartasCentral: { type: Array, default: [] }
-        },
-        cimientosFinca: { type: Array, default: [] }
-    }, { strict: false }));
-}
-
 async function obtenerOGenerarJuegoData(username) {
-    const JuegoData = obtenerModeloJuegoData();
-    let data = await JuegoData.findOne({ username });
-    if (!data) {
-        data = new JuegoData({
+    let juego = await JuegoData.findOne({ username });
+    if (!juego) {
+        juego = await JuegoData.create({
             username,
-            almacenEdificiosDisponibles: [],
-            carretonCartas: { cartasCentral: [] },
-            cimientosFinca: Array.from({ length: 9 }, (_, i) => ({
-                slotId: i,
-                estaOcupado: false,
-                subtipo: null,
-                nivel: 0,
-                nombre: null,
-                uuid: null,
-                produccionPendiente: 0,
-                recursosAnidados: []
-            }))
-        });
-        await data.save();
-    }
-    return data;
-}
-
-function agregarRecursoAlmacen(almacen, recurso, cantidad, nombre) {
-    const existente = almacen.find(i => i.subtipo === recurso && !i.uuid);
-    if (existente) {
-        existente.cantidad = (existente.cantidad || 0) + cantidad;
-    } else {
-        almacen.push({
-            subtipo: recurso,
-            nombre: nombre || recurso,
-            cantidad: cantidad,
-            tipo: 'recurso',
-            esTradeable: true
+            almacenEdificiosDisponibles: [
+                { uuid: 'casona-1', subtipo: 'casona', nombre: 'Casona Imperial', tipo: 'edificio' }
+            ],
+            cimientosFinca: Array.from({ length: 8 }, (_, i) => ({ slotIndex: i, estaOcupado: false })),
+            carretonCartas: { cartasCentral: [] }
         });
     }
+    return juego;
 }
 
+// 🚚 REPARACIÓN LOGÍSTICA: DISTRIBUCIÓN DE POBLADORES IMPERIALES
 async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
     if (!juegoData) juegoData = await obtenerOGenerarJuegoData(username);
+
+    const poseeNFT = Boolean(cachePartidas[username]?._poseeAldeaNFT);
+    const maxSlotsCentral = poseeNFT ? 24 : 8;
+
+    // Contar de manera dinámica cuántas Casonas imperiales activas tiene construidas el jugador
+    const casonasFinca = (juegoData.cimientosFinca || []).filter(s => s.estaOcupado && s.subtipo === 'casona').length;
+    const slotsFincaHabilitados = Math.min(8, Math.max(2, casonasFinca * 2)); // Abre 2 slots por Casona
+
+    const cartasCentral = juegoData.carretonCartas?.cartasCentral || [];
+
+    // Filtrar los pobladores según la propiedad de asignación para alimentar el espejo lateral 3D
+    const cartasFinca = cartasCentral.filter(c => c.bloque === 'finca' || c.ubicacion === 'finca');
+    const cartasAldea = cartasCentral.filter(c => c.bloque === 'aldea' || c.ubicacion === 'aldea');
+
     socket.emit('carreton:actualizar-estado', {
-        cartasCentral: juegoData.carretonCartas?.cartasCentral || []
+        cartasCentral: cartasCentral.filter(c => !c.bloque || c.bloque === 'central'),
+        cartasFinca: cartasFinca,
+        cartasAldea: cartasAldea,
+        maxSlotsCentral: maxSlotsCentral,
+        slotsCentralMax: maxSlotsCentral,
+        slotsFincaMax: 8,
+        slotsAldeaMax: 16,
+        slotsFincaHabilitados: slotsFincaHabilitados,
+        slotsAldeaHabilitados: poseeNFT ? 16 : 0,
+        poseeAldeaNFT: poseeNFT
     });
+
+    await enviarEstadoFincaActualizado(socket, username, juegoData);
 }
 
 async function enviarEstadoFincaActualizado(socket, username, juegoData) {
     if (!juegoData) juegoData = await obtenerOGenerarJuegoData(username);
-    socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca || []);
+    socket.emit('finca:actualizar-estado', { cimientos: juegoData.cimientosFinca });
 }
 
 // ==========================================================================
-// 🏪 CANAL DE WEBSOCKETS (SOCKET.IO)
+// 🔌 MANEJO DE CONEXIONES SOCKET.IO
 // ==========================================================================
 io.on('connection', (socket) => {
-    console.log(`🔌 Nuevo gladiador conectado: ${socket.id}`);
+    let currentUsername = null;
 
-    socket.on('autenticar', (datos) => {
-        if (datos?.username) {
-            socket.username = datos.username;
-            console.log(`👤 Socket ${socket.id} autenticado como: ${socket.username}`);
+    // 1. AUTENTICACIÓN Y SINCRONIZACIÓN INICIAL
+    socket.on('autenticar-jugador', async (data) => {
+        try {
+            currentUsername = data?.username || 'jugador_demo';
+            const juegoData = await obtenerOGenerarJuegoData(currentUsername);
+
+            // Emisión dual para garantizar la actualización del Almacén en almacen.js
+            socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles });
+            socket.emit('almacen:actualizar-cartas', { almacenEdificiosDisponibles: juegoData.almacenEdificiosDisponibles });
+
+            // Sincronización del Carretón y Finca
+            await forzarEnvioEstadoCarreton(socket, currentUsername, juegoData);
+        } catch (err) {
+            console.error('Error en autenticar-jugador:', err);
         }
     });
 
-    // ----------------------------------------------------------------------
-    // 🛒 COMPRA EN TIENDA AMM Y REGISTRO EN ALMACÉN / CARRETÓN
-    // ----------------------------------------------------------------------
-    socket.on('tienda:comprar-carta', async (datos = {}) => {
-        const itemId = datos.itemId || datos.tiendaItemId;
-        const rubro = datos.rubro || datos.categoria;
-        const username = socket.username || datos.username;
-
-        if (!username) return socket.emit('tienda:error', 'Sesión de juego no válida.');
-        if (!rubro || !stockTiendaSistema[rubro]) return socket.emit('tienda:error', 'Categoría comercial no válida.');
-
-        const indexItem = stockTiendaSistema[rubro].findIndex(item => item.tiendaItemId === itemId);
-        if (indexItem === -1) return socket.emit('tienda:error', 'La carta ya fue adquirida por otro gladiador.');
-
-        const cartaTienda = stockTiendaSistema[rubro][indexItem];
+    // 2. COMPRA DE CARTAS / EDIFICIOS
+    socket.on('almacen:comprar-carta', async (data) => {
+        if (!currentUsername) return;
 
         const session = await mongoose.startSession();
         try {
             session.startTransaction();
 
-            const User = obtenerModeloUsuario();
-            const usuario = await User.findOne({ username }).session(session);
+            const juegoData = await JuegoData.findOne({ username: currentUsername }).session(session);
+            const usuario = await Usuario.findOne({ username: currentUsername }).session(session);
 
-            if (!usuario || usuario.balance < cartaTienda.precio) {
+            const precio = data.precio || 50;
+            if (usuario && usuario.monedas < precio) {
                 await session.abortTransaction();
-                return socket.emit('tienda:error', 'Monedas imperiales insuficientes en tus arcas.');
+                return socket.emit('almacen:compra-error', { mensaje: 'Monedas insuficientes' });
             }
 
-            const juegoData = await obtenerOGenerarJuegoData(username);
-            const poseeNFT = Boolean(cachePartidas[username]?._poseeAldeaNFT);
-            const maxSlotsCentral = poseeNFT ? 24 : 8;
+            if (usuario) usuario.monedas -= precio;
 
-            if (!juegoData.carretonCartas) juegoData.carretonCartas = { cartasCentral: [] };
+            const nuevaCarta = {
+                uuid: `edificio-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+                subtipo: data.subtipo || 'casona',
+                nombre: data.nombre || 'Casona Imperial',
+                tipo: 'edificio'
+            };
 
-            if (cartaTienda.tipo === 'aldeanos' && juegoData.carretonCartas.cartasCentral.length >= maxSlotsCentral) {
-                await session.abortTransaction();
-                return socket.emit('tienda:error', 'Tu Carretón Central está lleno.');
-            }
+            juegoData.almacenEdificiosDisponibles.push(nuevaCarta);
 
-            // Transacción aprobada: Descontar saldo y retirar del stock
-            usuario.balance -= cartaTienda.precio;
-            stockTiendaSistema[rubro].splice(indexItem, 1);
-
-            const nuevoIdActivo = crypto.randomUUID();
-
-            if (cartaTienda.tipo === 'aldeanos') {
-                const slotsOcupados = new Set(juegoData.carretonCartas.cartasCentral.map(c => c.slotIndex));
-                let slotLibre = 0;
-                while (slotsOcupados.has(slotLibre)) slotLibre++;
-
-                juegoData.carretonCartas.cartasCentral.push({
-                    id: nuevoIdActivo,
-                    uuid: nuevoIdActivo,
-                    subtipo: cartaTienda.subtipo,
-                    nombre: cartaTienda.nombre,
-                    rareza: cartaTienda.rareza,
-                    nivel: 0,
-                    slotIndex: slotLibre,
-                    equipamientoAnidado: []
-                });
-                juegoData.markModified('carretonCartas');
-            } else {
-                if (!Array.isArray(juegoData.almacenEdificiosDisponibles)) {
-                    juegoData.almacenEdificiosDisponibles = [];
-                }
-                juegoData.almacenEdificiosDisponibles.push({
-                    id: nuevoIdActivo,
-                    uuid: nuevoIdActivo,
-                    tipo: rubro === 'edificios' ? 'estructura' : 'equipamiento',
-                    subtipo: cartaTienda.subtipo,
-                    nombre: cartaTienda.nombre,
-                    rareza: cartaTienda.rareza,
-                    nivel: 0,
-                    estaAnidado: false,
-                    slotAnidado: null
-                });
-                juegoData.markModified('almacenEdificiosDisponibles');
-            }
-
-            await usuario.save({ session });
+            if (usuario) await usuario.save({ session });
             await juegoData.save({ session });
+
             await session.commitTransaction();
 
-            cachePartidas[username] = juegoData;
-
-            // Reabastecimiento dinámico del stock AMM
-            const diseñoOriginal = CATALOGO_DISEÑOS[rubro]?.find(d => d.subtipo === cartaTienda.subtipo);
-            if (diseñoOriginal) {
-                stockTiendaSistema[rubro].push(crearCartaParaTienda(diseñoOriginal, rubro));
-            }
-
-            socket.emit('tienda:compra-exitosa', {
-                nuevoBalance: usuario.balance,
-                carta: { id: nuevoIdActivo, nombre: cartaTienda.nombre, tipo: cartaTienda.tipo }
-            });
-
-            io.emit('tienda:recibir-stock', stockTiendaSistema);
-            socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles || [] });
-            socket.emit('almacen:actualizar-cartas', { almacenEdificiosDisponibles: juegoData.almacenEdificiosDisponibles || [] });
-            await forzarEnvioEstadoCarreton(socket, username, juegoData);
+            // Refresco atómico dual del Almacén
+            socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles });
+            socket.emit('almacen:actualizar-cartas', { almacenEdificiosDisponibles: juegoData.almacenEdificiosDisponibles });
 
         } catch (error) {
             await session.abortTransaction();
-            console.error('❌ Error en el procesamiento de compra:', error);
-            socket.emit('tienda:error', 'Error interno al procesar la compra.');
+            console.error('Error procesando transacción de compra:', error);
+            socket.emit('almacen:compra-error', { mensaje: 'Error interno en la transacción' });
         } finally {
             session.endSession();
         }
     });
 
-    // ----------------------------------------------------------------------
-    // 🚚 CARRETÓN DE CARTAS Y EQUIPAMIENTO
-    // ----------------------------------------------------------------------
-    const responderCarreton = async (data = {}) => {
-        const username = socket.username || data?.username;
-        if (!username) return;
+    // 3. CONSTRUCCIÓN EN LA FINCA
+    socket.on('finca:construir-edificio', async (data) => {
+        if (!currentUsername) return;
 
         try {
-            const juegoData = await obtenerOGenerarJuegoData(username);
-            await forzarEnvioEstadoCarreton(socket, username, juegoData);
-        } catch (err) {
-            console.error('❌ Error en solicitud de estado del carretón:', err);
-        }
-    };
+            const uuidCarta = data.cartaUuid || data.uuidEdificio;
+            const slotIndex = data.slotIndex;
 
-    socket.on('carreton:solicitar-datos', responderCarreton);
-    socket.on('carreton:solicitar-estado', responderCarreton);
+            const juegoData = await JuegoData.findOne({ username: currentUsername });
+            if (!juegoData) return;
 
-    socket.on('carreton:mover-carta', async (data = {}) => {
-        const uuidCarta = data.uuidCarta || data.cartaId || data.cartaUuid;
-        const haciaSlot = data.haciaSlot !== undefined ? data.haciaSlot : data.destino;
-        const username = socket.username || data?.username;
+            const indexCarta = juegoData.almacenEdificiosDisponibles.findIndex(c => c.uuid === uuidCarta);
+            if (indexCarta === -1) return;
 
-        if (!username || !uuidCarta) return socket.emit('carreton:error', 'Parámetros de movimiento inválidos.');
+            const [cartaConstruida] = juegoData.almacenEdificiosDisponibles.splice(indexCarta, 1);
 
-        try {
-            const juegoData = await obtenerOGenerarJuegoData(username);
-            if (!juegoData?.carretonCartas?.cartasCentral) return;
-
-            // Caso A: Reordenar slot dentro del Carretón
-            if (typeof haciaSlot === 'number') {
-                const carta = juegoData.carretonCartas.cartasCentral.find(c => c.uuid === uuidCarta || c.id === uuidCarta);
-                if (carta) {
-                    carta.slotIndex = haciaSlot;
-                    juegoData.markModified('carretonCartas');
-                    await juegoData.save();
-                    cachePartidas[username] = juegoData;
-                    await forzarEnvioEstadoCarreton(socket, username, juegoData);
-                }
-                return;
+            const slot = juegoData.cimientosFinca.find(s => s.slotIndex === slotIndex);
+            if (slot) {
+                slot.estaOcupado = true;
+                slot.subtipo = cartaConstruida.subtipo;
+                slot.uuidEdificio = cartaConstruida.uuid;
             }
 
-            // Caso B: Transferencia entre Carretón y Almacén
-            if (haciaSlot === 'carreton') {
-                const idx = juegoData.almacenEdificiosDisponibles?.findIndex(c => c.uuid === uuidCarta || c.id === uuidCarta);
-                if (idx === -1) return socket.emit('carreton:error', 'La carta no está en el almacén.');
-
-                const carta = juegoData.almacenEdificiosDisponibles[idx];
-                if (carta.estaAnidado) return socket.emit('carreton:error', 'No puedes mover una carta construida.');
-
-                const poseeNFT = Boolean(cachePartidas[username]?._poseeAldeaNFT);
-                const maxSlots = poseeNFT ? 24 : 8;
-
-                if (juegoData.carretonCartas.cartasCentral.length >= maxSlots) {
-                    return socket.emit('carreton:error', 'El carretón ha alcanzado su capacidad máxima.');
-                }
-
-                juegoData.almacenEdificiosDisponibles.splice(idx, 1);
-                juegoData.carretonCartas.cartasCentral.push(carta);
-
-            } else if (haciaSlot === 'almacen') {
-                const idx = juegoData.carretonCartas.cartasCentral.findIndex(c => c.uuid === uuidCarta || c.id === uuidCarta);
-                if (idx === -1) return socket.emit('carreton:error', 'La carta no está en el carretón.');
-
-                const carta = juegoData.carretonCartas.cartasCentral[idx];
-                juegoData.carretonCartas.cartasCentral.splice(idx, 1);
-
-                if (!Array.isArray(juegoData.almacenEdificiosDisponibles)) juegoData.almacenEdificiosDisponibles = [];
-                juegoData.almacenEdificiosDisponibles.push(carta);
-            }
-
-            juegoData.markModified('carretonCartas');
-            juegoData.markModified('almacenEdificiosDisponibles');
             await juegoData.save();
-            cachePartidas[username] = juegoData;
 
-            await forzarEnvioEstadoCarreton(socket, username, juegoData);
+            // Refrescar almacén y estado del carretón/finca
             socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles });
             socket.emit('almacen:actualizar-cartas', { almacenEdificiosDisponibles: juegoData.almacenEdificiosDisponibles });
+            await forzarEnvioEstadoCarreton(socket, currentUsername, juegoData);
 
         } catch (err) {
-            console.error('❌ Error al mover carta en el carretón:', err);
+            console.error('Error al construir edificio:', err);
         }
     });
 
-    socket.on('carreton:equipar-item', async (data = {}) => {
-        const { uuidAldeano, uuidItem } = data;
-        const username = socket.username || data?.username;
-        if (!username || !uuidAldeano || !uuidItem) return;
+    // 4. MOVER / ASIGNAR POBLADORES EN EL CARRETÓN
+    socket.on('carreton:mover-carta', async (data) => {
+        if (!currentUsername) return;
 
         try {
-            const juegoData = await obtenerOGenerarJuegoData(username);
+            const uuidCarta = data.cartaUuid || data.uuidCarta;
+            const destino = data.destino || data.haciaSlot; // Soporte de alias para compatibilidad
 
-            const aldeano = juegoData.carretonCartas?.cartasCentral?.find(c => c.uuid === uuidAldeano || c.id === uuidAldeano);
-            if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
-            const indexItem = juegoData.almacenEdificiosDisponibles.findIndex(i => i.uuid === uuidItem || i.id === uuidItem);
+            const juegoData = await JuegoData.findOne({ username: currentUsername });
+            if (!juegoData) return;
 
-            if (aldeano && indexItem !== -1) {
-                const [item] = juegoData.almacenEdificiosDisponibles.splice(indexItem, 1);
-                if (!aldeano.equipamientoAnidado) aldeano.equipamientoAnidado = [];
-                aldeano.equipamientoAnidado.push(item);
-
-                juegoData.markModified('carretonCartas');
-                juegoData.markModified('almacenEdificiosDisponibles');
+            const carta = (juegoData.carretonCartas?.cartasCentral || []).find(c => c.uuid === uuidCarta);
+            if (carta) {
+                carta.bloque = destino;
+                carta.ubicacion = destino;
                 await juegoData.save();
-                cachePartidas[username] = juegoData;
-
-                await forzarEnvioEstadoCarreton(socket, username, juegoData);
-                socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles });
-                socket.emit('almacen:actualizar-cartas', { almacenEdificiosDisponibles: juegoData.almacenEdificiosDisponibles });
             }
+
+            await forzarEnvioEstadoCarreton(socket, currentUsername, juegoData);
+
         } catch (err) {
-            console.error('❌ Error al equipar ítem:', err);
+            console.error('Error al mover carta en el carretón:', err);
         }
     });
 
-    // ----------------------------------------------------------------------
-    // 🌾 FINCA, CONSTRUCCIÓN Y DESMANTELAMIENTO
-    // ----------------------------------------------------------------------
-    socket.on('finca:construir', async (data = {}) => {
-        const slotId = data.slotId;
-        const cartaUuid = data.cartaUuid || data.uuidEdificio;
-        const username = socket.username || data?.username;
-
-        if (!username) return socket.emit('finca:error', 'Sesión no autenticada.');
-        if (slotId === undefined || !cartaUuid) return socket.emit('finca:error', 'Datos de construcción incompletos.');
-
-        try {
-            const juegoData = await obtenerOGenerarJuegoData(username);
-
-            if (!juegoData.cimientosFinca) juegoData.cimientosFinca = [];
-            const slotIndex = juegoData.cimientosFinca.findIndex(s => s.slotId === Number(slotId));
-            if (slotIndex === -1) return socket.emit('finca:error', 'Cimiento de finca no válido.');
-
-            const slot = juegoData.cimientosFinca[slotIndex];
-            if (slot.estaOcupado) return socket.emit('finca:error', 'El cimiento ya está ocupado.');
-
-            if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
-            const indexEdificio = juegoData.almacenEdificiosDisponibles.findIndex(e => e.uuid === cartaUuid || e.id === cartaUuid);
-            if (indexEdificio === -1) return socket.emit('finca:error', 'Edificio no encontrado en el almacén.');
-
-            const edificio = juegoData.almacenEdificiosDisponibles[indexEdificio];
-
-            if (edificio.subtipo === 'casona') {
-                const casonaExistente = juegoData.cimientosFinca.some(c => c.estaOcupado && c.subtipo === 'casona');
-                if (casonaExistente) return socket.emit('finca:error', 'Ya posees una Casona Imperial construida.');
-            }
-
-            edificio.estaAnidado = true;
-            edificio.slotAnidado = Number(slotId);
-
-            slot.estaOcupado = true;
-            slot.subtipo = edificio.subtipo;
-            slot.nivel = edificio.nivel || 0;
-            slot.nombre = edificio.nombre || edificio.subtipo;
-            slot.uuid = edificio.uuid || edificio.id;
-            slot.cartaUuid = edificio.uuid || edificio.id;
-
-            juegoData.markModified('cimientosFinca');
-            juegoData.markModified('almacenEdificiosDisponibles');
-            await juegoData.save();
-            cachePartidas[username] = juegoData;
-
-            socket.emit('finca:construccion-exitosa', { slotId, subtipo: edificio.subtipo, nivel: edificio.nivel, edificio: slot });
-            socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca);
-            socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles });
-            socket.emit('almacen:actualizar-cartas', { almacenEdificiosDisponibles: juegoData.almacenEdificiosDisponibles });
-
-            await enviarEstadoFincaActualizado(socket, username, juegoData);
-            await forzarEnvioEstadoCarreton(socket, username, juegoData);
-        } catch (err) {
-            console.error('❌ Error en finca:construir:', err);
-            socket.emit('finca:error', 'Error al construir en la finca.');
-        }
-    });
-
-    socket.on('finca:desmantelar', async (data = {}) => {
-        const slotId = data.slotId;
-        const username = socket.username || data?.username;
-
-        if (!username) return socket.emit('finca:error', 'Sesión no autenticada.');
-        if (slotId === undefined) return socket.emit('finca:error', 'Slot no especificado.');
-
-        try {
-            const juegoData = await obtenerOGenerarJuegoData(username);
-            if (!juegoData?.cimientosFinca) return socket.emit('finca:error', 'Datos de juego no encontrados.');
-
-            const slotIndex = juegoData.cimientosFinca.findIndex(s => s.slotId === Number(slotId));
-            if (slotIndex === -1 || !juegoData.cimientosFinca[slotIndex].estaOcupado) {
-                return socket.emit('finca:error', 'El slot no tiene ninguna estructura para desmantelar.');
-            }
-
-            const slot = juegoData.cimientosFinca[slotIndex];
-            const uuidEvacuado = slot.cartaUuid || slot.uuid || crypto.randomUUID();
-
-            if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
-
-            const cartaAlmacen = juegoData.almacenEdificiosDisponibles.find(c => c.uuid === uuidEvacuado || c.id === uuidEvacuado);
-            if (cartaAlmacen) {
-                cartaAlmacen.estaAnidado = false;
-                cartaAlmacen.slotAnidado = null;
-            } else {
-                juegoData.almacenEdificiosDisponibles.push({
-                    uuid: uuidEvacuado,
-                    id: uuidEvacuado,
-                    subtipo: slot.subtipo,
-                    nombre: slot.nombre || slot.subtipo,
-                    nivel: slot.nivel || 0,
-                    rareza: slot.rareza || 'comun',
-                    estaAnidado: false,
-                    slotAnidado: null
-                });
-            }
-
-            // Vaciar y volcar recursos pendientes anidados
-            if (Array.isArray(slot.recursosAnidados) && slot.recursosAnidados.length > 0) {
-                for (const item of slot.recursosAnidados) {
-                    agregarRecursoAlmacen(juegoData.almacenEdificiosDisponibles, item.subtipo, item.cantidad, item.nombre);
-                }
-            }
-
-            juegoData.cimientosFinca[slotIndex] = {
-                slotId: Number(slotId),
-                estaOcupado: false,
-                subtipo: null,
-                nivel: 0,
-                nombre: null,
-                uuid: null,
-                cartaUuid: null,
-                produccionPendiente: 0,
-                recursosAnidados: []
-            };
-
-            juegoData.markModified('cimientosFinca');
-            juegoData.markModified('almacenEdificiosDisponibles');
-            await juegoData.save();
-            cachePartidas[username] = juegoData;
-
-            socket.emit('finca:demolicion-exitosa', { slotId });
-            socket.emit('finca:desmantelamiento-exitoso', { slotId });
-            socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca);
-            socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles });
-            socket.emit('almacen:actualizar-cartas', { almacenEdificiosDisponibles: juegoData.almacenEdificiosDisponibles });
-
-            await enviarEstadoFincaActualizado(socket, username, juegoData);
-            await forzarEnvioEstadoCarreton(socket, username, juegoData);
-        } catch (err) {
-            console.error('❌ Error desmantelando estructura:', err);
-            socket.emit('finca:error', 'Error al desmantelar la estructura.');
-        }
-    });
-
-    // Alias para compatibilidad con evento `finca:demoler`
-    socket.on('finca:demoler', (data) => socket.emit('finca:desmantelar', data));
-
-    // ----------------------------------------------------------------------
-    // 🪵 RECOLECCIÓN Y PRODUCCIÓN DE TERRENOS
-    // ----------------------------------------------------------------------
-    socket.on('finca:recolectar', async (data = {}) => {
-        const slotId = data.slotId;
-        const username = socket.username || data?.username;
-
-        if (!username || slotId === undefined) return socket.emit('finca:error', 'Datos de recolección incompletos.');
-
-        try {
-            const juegoData = await obtenerOGenerarJuegoData(username);
-            const slotIndex = juegoData.cimientosFinca.findIndex(s => s.slotId === Number(slotId));
-
-            if (slotIndex === -1 || !juegoData.cimientosFinca[slotIndex].estaOcupado) {
-                return socket.emit('finca:error', 'El cimiento seleccionado está vacío.');
-            }
-
-            const slot = juegoData.cimientosFinca[slotIndex];
-
-            // Producción directa basada en subtipo o producción acumulada pendiente
-            const mapaProduccion = {
-                granja: { recurso: 'trigo', cantidad: 10, nombre: '🌾 Trigo Imperial' },
-                aserradero: { recurso: 'madera', cantidad: 8, nombre: '🪵 Madera Fina' },
-                casona: { recurso: 'monedas', cantidad: 5, nombre: '🪙 Moneda de Oro' }
-            };
-
-            const prodConfig = mapaProduccion[slot.subtipo];
-            let cantidadObtenida = 0;
-            let recursoNombre = 'material';
-            let tipoRecurso = 'material';
-
-            if (slot.produccionPendiente && slot.produccionPendiente > 0) {
-                cantidadObtenida = slot.produccionPendiente;
-                tipoRecurso = slot.subtipo === 'granja' ? 'trigo' : (slot.subtipo === 'aserradero' ? 'madera' : 'monedas');
-                slot.produccionPendiente = 0;
-            } else if (prodConfig) {
-                cantidadObtenida = prodConfig.cantidad;
-                tipoRecurso = prodConfig.recurso;
-                recursoNombre = prodConfig.nombre;
-            } else {
-                return socket.emit('finca:error', 'Esta estructura no tiene recursos disponibles.');
-            }
-
-            if (!Array.isArray(juegoData.almacenEdificiosDisponibles)) {
-                juegoData.almacenEdificiosDisponibles = [];
-            }
-
-            agregarRecursoAlmacen(juegoData.almacenEdificiosDisponibles, tipoRecurso, cantidadObtenida, recursoNombre);
-
-            juegoData.markModified('cimientosFinca');
-            juegoData.markModified('almacenEdificiosDisponibles');
-            await juegoData.save();
-            cachePartidas[username] = juegoData;
-
-            socket.emit('finca:recoleccion-exitosa', {
-                slotId,
-                recurso: tipoRecurso,
-                cantidad: cantidadObtenida,
-                message: `¡Has recolectado +${cantidadObtenida} de ${tipoRecurso}!`
-            });
-
-            socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles });
-            socket.emit('almacen:actualizar-cartas', { almacenEdificiosDisponibles: juegoData.almacenEdificiosDisponibles });
-
-        } catch (err) {
-            console.error('❌ Error en recolección:', err);
-            socket.emit('finca:error', 'Error interno al recolectar producción.');
-        }
-    });
-
-    socket.on('finca:recolectar-produccion', (data) => socket.emit('finca:recolectar', data));
-
-    // ----------------------------------------------------------------------
-    // 🔌 DESCONEXIÓN
-    // ----------------------------------------------------------------------
     socket.on('disconnect', () => {
-        console.log(`🔌 Cliente desconectado: ${socket.id} (${socket.username || 'invitado'})`);
+        if (currentUsername) {
+            delete cachePartidas[currentUsername];
+        }
     });
 });
 
 // ==========================================================================
-// 🚀 INICIALIZACIÓN DEL SERVIDOR Y ESCUCHA EN PUERTO (0.0.0.0)
+// 🚀 CONEXIÓN A BASE DE DATOS Y CONEXIÓN EN BIND 0.0.0.0
 // ==========================================================================
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/xdpro';
 const PORT = process.env.PORT || 3000;
 
-server.listen(PORT, '0.0.0.0', () => {
-    console.log(`===================================================`);
-    console.log(`🏛️  SERVIDOR XDPRO UNIFICADO Y DEFINITIVO ACTIVO   `);
-    console.log(`🚀  Escuchando peticiones en: http://0.0.0.0:${PORT} `);
-    console.log(`🏪  WebSockets enlazados al Motor 3D correctamente.`);
-    console.log(`===================================================`);
-});
-
-// ==========================================================================
-// 🛡️ MANEJO DE ERRORES GLOBALES Y CIERRE CONTROLADO (GRACEFUL SHUTDOWN)
-// ==========================================================================
-process.on('unhandledRejection', (reason, promise) => {
-    console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-process.on('uncaughtException', (err) => {
-    console.error('💥 Uncaught Exception lanzada:', err);
-});
-
-const apagarServidorLimpio = async (signal) => {
-    console.log(`\n⚠️ Recibida señal ${signal}. Cerrando servidor de forma limpia...`);
-    
-    server.close(async () => {
-        console.log('🔌 Servidor HTTP y WebSockets cerrados.');
-        try {
-            if (typeof mongoose !== 'undefined' && mongoose.connection && mongoose.connection.readyState !== 0) {
-                await mongoose.connection.close();
-                console.log('📦 Conexión a MongoDB cerrada con éxito.');
-            }
-            process.exit(0);
-        } catch (err) {
-            console.error('❌ Error al cerrar MongoDB:', err);
-            process.exit(1);
-        }
+mongoose.connect(MONGO_URI)
+    .then(() => {
+        console.log('🍃 Conectado exitosamente a MongoDB');
+        server.listen(PORT, '0.0.0.0', () => {
+            console.log(`🚀 Servidor ejecutándose en el puerto ${PORT} (0.0.0.0)`);
+        });
+    })
+    .catch((err) => {
+        console.error('❌ Error al conectar a MongoDB:', err);
     });
-};
-
-process.on('SIGTERM', () => apagarServidorLimpio('SIGTERM'));
-process.on('SIGINT', () => apagarServidorLimpio('SIGINT'));
