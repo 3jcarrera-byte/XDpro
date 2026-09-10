@@ -1,5 +1,5 @@
 // ==========================================================================
-// routes/auth.js - Controlador de Autenticación y Registro
+// routes/auth.js - Controlador de Autenticación y Registro de Gladiadores
 // ==========================================================================
 
 const express = require('express');
@@ -15,6 +15,24 @@ const GameData = require('../models/GameData');
  */
 function escapeRegex(text) {
     return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+}
+
+/**
+ * Inicialización defensiva de cimientosFinca por si el método del modelo no está presente
+ */
+function inicializarCimientosFincaDefault(gameData) {
+    if (!gameData.cimientosFinca || gameData.cimientosFinca.length === 0) {
+        gameData.cimientosFinca = Array.from({ length: 12 }, (_, i) => ({
+            slotId: `slot-${i}`,
+            estaOcupado: false,
+            subtipo: null,
+            nivel: 0,
+            nombre: null,
+            uuid: null,
+            produccionPendiente: 0,
+            recursosAnidados: []
+        }));
+    }
 }
 
 // ==========================================================================
@@ -79,10 +97,14 @@ router.post('/register', async (req, res) => {
 
             if (typeof nuevoGameData.inicializarEspaciosVacios === 'function') {
                 nuevoGameData.inicializarEspaciosVacios();
+            } else {
+                inicializarCimientosFincaDefault(nuevoGameData);
             }
+
             await nuevoGameData.save();
         } catch (gameDataError) {
             console.error('⚠️ Error al crear GameData en el registro:', gameDataError);
+            // Revertir creación de usuario si falla la inicialización del juego
             await User.deleteOne({ _id: nuevoUsuario._id });
             throw new Error('Fallo en la inicialización de los datos del juego del gladiador.');
         }
@@ -161,7 +183,7 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // Auto-reparación o comprobación de GameData
+        // Auto-reparación o comprobación de GameData en inicio de sesión
         let gameData = await GameData.findOne({ username: usuario.username });
         if (!gameData) {
             gameData = new GameData({ 
@@ -171,6 +193,8 @@ router.post('/login', async (req, res) => {
             });
             if (typeof gameData.inicializarEspaciosVacios === 'function') {
                 gameData.inicializarEspaciosVacios();
+            } else {
+                inicializarCimientosFincaDefault(gameData);
             }
             await gameData.save();
         }
