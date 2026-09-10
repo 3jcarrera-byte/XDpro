@@ -1,6 +1,6 @@
-// ========================================================
-// server.js - Servidor Principal Unificado (Parte 1 de 2)
-// ========================================================
+// ==========================================================================
+// server.js - Servidor Principal Unificado y Definitivo
+// ==========================================================================
 
 const express = require('express');
 const http = require('http');
@@ -11,22 +11,31 @@ const cors = require('cors');
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 
-// ========================================================
+// ==========================================================================
 // 📦 IMPORTACIÓN Y RESOLUCIÓN DEFENSIVA DE MODELOS (ANTI-MISSINGSCHEMA)
-// ========================================================
+// ==========================================================================
 const rawUser = require('./models/User');
 const rawGameData = require('./models/GameData');
 
 /**
  * 🛡️ RESOLUTORES DEFENSIVOS DE MODELOS
- * Resuelven el modelo directamente desde el módulo exportado o la caché activa 
- * de Mongoose (mongoose.models), recurriendo a mongoose.model() si rawUser/rawGameData son objetos planos.
+ * Resuelven el modelo directamente desde el módulo exportado, la caché activa 
+ * de Mongoose (mongoose.models), o compilan el Schema sobre la marcha si se exportó un Schema crudo.
  */
 function obtenerModeloUsuario() {
     if (rawUser && typeof rawUser.findOne === 'function') return rawUser;
     if (rawUser && rawUser.User && typeof rawUser.User.findOne === 'function') return rawUser.User;
     if (mongoose.models && mongoose.models.User) return mongoose.models.User;
-    return mongoose.model('User');
+    
+    // Si rawUser es un Schema de Mongoose o tiene definición de objeto, lo compilamos
+    if (rawUser && (rawUser.obj || typeof rawUser.add === 'function')) {
+        return mongoose.model('User', rawUser);
+    }
+    if (rawUser && rawUser.schema) {
+        return mongoose.model('User', rawUser.schema);
+    }
+
+    throw new Error('El modelo "User" no está registrado ni exportado correctamente en ./models/User.js');
 }
 
 function obtenerModeloGameData() {
@@ -34,7 +43,16 @@ function obtenerModeloGameData() {
     if (rawGameData && rawGameData.GameData && typeof rawGameData.GameData.findOne === 'function') return rawGameData.GameData;
     if (rawGameData && rawGameData.GameDataModel && typeof rawGameData.GameDataModel.findOne === 'function') return rawGameData.GameDataModel;
     if (mongoose.models && mongoose.models.GameData) return mongoose.models.GameData;
-    return mongoose.model('GameData');
+
+    // Si rawGameData es un Schema de Mongoose o tiene definición de objeto, lo compilamos
+    if (rawGameData && (rawGameData.obj || typeof rawGameData.add === 'function')) {
+        return mongoose.model('GameData', rawGameData);
+    }
+    if (rawGameData && rawGameData.schema) {
+        return mongoose.model('GameData', rawGameData.schema);
+    }
+
+    throw new Error('El modelo "GameData" no está registrado ni exportado correctamente en ./models/GameData.js');
 }
 
 const app = express();
@@ -49,17 +67,17 @@ const io = new Server(server, {
     transports: ['websocket', 'polling']
 });
 
-// ========================================================
+// ==========================================================================
 // MIDDLEWARES ESENCIALES
-// ========================================================
+// ==========================================================================
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ========================================================
+// ==========================================================================
 // 🔐 ENRUTADOR DE AUTENTICACIÓN IMPERIAL UNIFICADO
-// ========================================================
+// ==========================================================================
 const authRouter = express.Router();
 
 // 📝 1. RUTA DE REGISTRO DE GLADIADORES
@@ -184,17 +202,17 @@ authRouter.post('/login', async (req, res) => {
 // Registrar el router de autenticación en Express
 app.use('/api/auth', authRouter);
 
-// ========================================================
+// ==========================================================================
 // CONEXIÓN A LA BASE DE DATOS MONGODB
-// ========================================================
+// ==========================================================================
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/xdpro';
 mongoose.connect(MONGO_URI)
     .then(() => console.log('✅ Conectado a la base de datos MongoDB'))
     .catch(err => console.error('❌ Error conectando a MongoDB:', err));
 
-// ========================================================
+// ==========================================================================
 // 🏗️ FUNCIONES AUXILIARES Y ESTADO EN MEMORIA
-// ========================================================
+// ==========================================================================
 const cachePartidas = {};
 let stockTiendaSistema = { edificios: [], aldeanos: [], equipamiento: [] };
 
@@ -578,10 +596,6 @@ io.on('connection', (socket) => {
             socket.emit('finca:error', 'Error al construir en la finca.');
         }
     });
-
-   // ==========================================================================
-// server.js - Servidor Principal Unificado (Parte 2 de 2)
-// ==========================================================================
 
     // 🪵 DESMANTELAMIENTO Y RECOLECCIÓN EN TERRENOS
     socket.on('finca:desmantelar', async (data = {}) => {
