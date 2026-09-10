@@ -64,9 +64,20 @@ function renderizarAlmacen() {
         return;
     }
 
-    // 🔥 FILTRADO IMPERIAL: Pintar solo las estructuras que NO estén construidas en el canvas 3D
+    // ==========================================================================
+    // 🔥 FILTRADO IMPERIAL: Forzar la inclusión de Estructuras Disponibles
+    // ==========================================================================
     const cartasMostrables = datosAlmacen.recursos.filter(recurso => {
-        return recurso.estaAnidado !== true && recurso.estaAnidado !== "true";
+        // Regla 1: Descartar si el plano ya está físicamente anidado en el terreno 3D
+        if (recurso.estaAnidado === true || recurso.estaAnidado === "true") return false;
+        
+        // Regla 2: Si estamos en la pantalla de la Finca o de la Aldea, forzar la inclusión de estructuras
+        if (contenedorGrid.id === 'finca-edificios-lista' || contenedorGrid.id === 'aldea-edificios-lista') {
+            return recurso.tipo === 'estructura' || recurso.subtipo === 'casona' || recurso.subtipo === 'granja' || recurso.subtipo === 'aserradero';
+        }
+        
+        // Regla 3: Si estamos en el Almacén General, mostrar todo lo que no esté construido
+        return true;
     });
 
     if (cartasMostrables.length === 0) {
