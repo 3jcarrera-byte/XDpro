@@ -12,13 +12,30 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 
 // ========================================================
-// 🛡️ ADAPTADOR UNIVERSAL DE MODELOS MONGOOSE (ANTI-CRASH)
+// 📦 IMPORTACIÓN DIRECTA DE MODELOS
 // ========================================================
-const rawUser = require('./models/User');
-const User = rawUser.findOne ? rawUser : (rawUser.User || mongoose.models.User || mongoose.model('User'));
+const User = require('./models/User');
+const GameDataModel = require('./models/GameData');
 
-const rawGameData = require('./models/GameData');
-const GameDataModel = rawGameData.findOne ? rawGameData : (rawGameData.GameData || rawGameData.GameDataModel || mongoose.models.GameData || mongoose.model('GameData'));
+/**
+ * Función auxiliar para obtener dinámicamente el modelo de Usuario
+ * evitando errores de inicialización prematura de Mongoose.
+ */
+function obtenerModeloUsuario() {
+    if (User && typeof User.findOne === 'function') return User;
+    if (User && User.User && typeof User.User.findOne === 'function') return User.User;
+    return mongoose.models.User || mongoose.model('User');
+}
+
+/**
+ * Función auxiliar para obtener dinámicamente el modelo de GameData.
+ */
+function obtenerModeloGameData() {
+    if (GameDataModel && typeof GameDataModel.findOne === 'function') return GameDataModel;
+    if (GameDataModel && GameDataModel.GameData && typeof GameDataModel.GameData.findOne === 'function') return GameDataModel.GameData;
+    if (GameDataModel && GameDataModel.GameDataModel && typeof GameDataModel.GameDataModel.findOne === 'function') return GameDataModel.GameDataModel;
+    return mongoose.models.GameData || mongoose.model('GameData');
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -54,13 +71,16 @@ authRouter.post('/register', async (req, res) => {
             return res.status(400).json({ success: false, message: 'El nombre de usuario y la contraseña son obligatorios.' });
         }
 
-        const usuarioExistente = await User.findOne({ username: username.trim() });
+        const ModeloUsuario = obtenerModeloUsuario();
+        const ModeloGameData = obtenerModeloGameData();
+
+        const usuarioExistente = await ModeloUsuario.findOne({ username: username.trim() });
         if (usuarioExistente) {
             return res.status(409).json({ success: false, message: 'El nombre de gladiador ya se encuentra registrado en el Imperio.' });
         }
 
-        // Crear usuario (el middleware pre-save del esquema User o Bcrypt procesará el hash)
-        const nuevoUsuario = new User({
+        // Crear usuario (el middleware pre-save del esquema User procesará el hash de la contraseña)
+        const nuevoUsuario = new ModeloUsuario({
             username: username.trim(),
             password, 
             email: email ? email.trim().toLowerCase() : null,
@@ -74,14 +94,14 @@ authRouter.post('/register', async (req, res) => {
         await nuevoUsuario.save();
 
         // Inicializar datos del juego de forma segura
-        let nuevoGameData = new GameDataModel({
+        let nuevoGameData = new ModeloGameData({
             username: nuevoUsuario.username,
             almacenEdificiosDisponibles: [],
             carretonCartas: { cartasCentral: [] }
         });
 
         if (typeof nuevoGameData.inicializarEspaciosVacios === 'function') {
-            nuevoGameData.inicializarEspaciosVacios(); // Llena las matrices con los slots de Blender
+            nuevoGameData.inicializarEspaciosVacios(); // Llena las matrices con los slots
         }
         await nuevoGameData.save();
 
@@ -97,7 +117,7 @@ authRouter.post('/register', async (req, res) => {
     }
 });
 
-// 🔑 2. RUTA DE INICIO DE SESIÓN (LOGIN ROBUSTO)
+// 🔑 2. RUTA DE INICIO DE SESIÓN (LOGIN ROBUSTO CON RESOLUCIÓN DINÁMICA)
 authRouter.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -106,7 +126,11 @@ authRouter.post('/login', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Debe proveer usuario y contraseña.' });
         }
 
-        const usuario = await User.findOne({ username: username.trim() });
+        // 🛡️ Resolución dinámica del modelo durante la petición HTTP
+        const ModeloUsuario = obtenerModeloUsuario();
+        const ModeloGameData = obtenerModeloGameData();
+
+        const usuario = await ModeloUsuario.findOne({ username: username.trim() });
         if (!usuario) {
             return res.status(401).json({ success: false, message: 'Credenciales inválidas o gladiador no encontrado.' });
         }
@@ -124,7 +148,7 @@ authRouter.post('/login', async (req, res) => {
             // Hash Bcrypt detectado ($2a$, $2b$, $2y$)
             esPasswordValida = await bcrypt.compare(password, usuario.password);
         } else {
-            // Contraseña en texto plano
+            // Fallback en texto plano
             esPasswordValida = (usuario.password === password);
         }
 
@@ -133,9 +157,9 @@ authRouter.post('/login', async (req, res) => {
         }
 
         // Auto-reparación y chequeo de GameData
-        let gameData = await GameDataModel.findOne({ username: usuario.username });
+        let gameData = await ModeloGameData.findOne({ username: usuario.username });
         if (!gameData) {
-            gameData = new GameDataModel({ 
+            gameData = new ModeloGameData({ 
                 username: usuario.username,
                 almacenEdificiosDisponibles: [],
                 carretonCartas: { cartasCentral: [] }
@@ -160,7 +184,7 @@ authRouter.post('/login', async (req, res) => {
     }
 });
 
-// Registrar el router de autenticación inline en Express
+// Registrar el router de autenticación en Express
 app.use('/api/auth', authRouter);
 
 // ========================================================
@@ -262,9 +286,10 @@ function agregarRecursoAlmacen(almacen, subtipo, cantidad, nombrePersonalizado =
  * Obtener o cargar en caché los datos de juego de un usuario.
  */
 async function obtenerOGenerarJuegoData(username) {
-    let juegoData = cachePartidas[username] || await GameDataModel.findOne({ username });
+    const ModeloGameData = obtenerModeloGameData();
+    let juegoData = cachePartidas[username] || await ModeloGameData.findOne({ username });
     if (!juegoData) {
-        juegoData = new GameDataModel({ 
+        juegoData = new ModeloGameData({ 
             username, 
             ...inicializarCimientosPorDefecto(),
             almacenEdificiosDisponibles: [],
@@ -287,12 +312,10 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
     const poseeAldea = cachePartidas[username]?._poseeAldeaNFT || false;
     const maxSlots = poseeAldea ? 24 : 8;
 
-    // Cálculo dinámico de casonas/casas construidas para habilitar ranuras
     const casonasFinca = (juegoData.cimientosFinca || []).filter(s => s.estaOcupado && (s.subtipo === 'casona' || s.subtipo === 'casa')).length;
     const casonasAldea = (juegoData.cimientosAldea || []).filter(s => s.estaOcupado && (s.subtipo === 'casona' || s.subtipo === 'casa')).length;
     const totalCasonas = casonasFinca + casonasAldea;
 
-    // Ranuras base (por ejemplo, 2 base + 2 por cada casona construida, limitado a maxSlots)
     const slotsFincaHabilitados = Math.min(maxSlots, Math.max(2, totalCasonas * 2));
 
     if (!juegoData.carretonCartas) {
@@ -325,8 +348,9 @@ io.on('connection', (socket) => {
         console.log(`🏛️ Gladiador enlazado con éxito en sockets: ${socket.username}`);
         
         try {
+            const ModeloUsuario = obtenerModeloUsuario();
             const juegoData = await obtenerOGenerarJuegoData(usernameLimpio);
-            const usuarioBD = await User.findOne({ username: usernameLimpio });
+            const usuarioBD = await ModeloUsuario.findOne({ username: usernameLimpio });
             
             if (juegoData) {
                 cachePartidas[usernameLimpio] = juegoData;
@@ -384,7 +408,8 @@ io.on('connection', (socket) => {
         const cartaTienda = stockTiendaSistema[rubro][indexItem];
 
         try {
-            const usuario = await User.findOne({ username });
+            const ModeloUsuario = obtenerModeloUsuario();
+            const usuario = await ModeloUsuario.findOne({ username });
             if (!usuario || usuario.balance < cartaTienda.precio) {
                 return socket.emit('tienda:error', 'Monedas imperiales insuficientes en tus arcas.');
             }
