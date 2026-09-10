@@ -110,16 +110,21 @@ window.cambiarPantalla = function(pantallaId) {
         }
 
         // ==========================================================================
-        // 🏗️ DISPARADOR LOGÍSTICO COMPENSADO: FINCA IMPERIAL (SOLUCIONADO)
+        // 🏗️ DISPARADOR LOGÍSTICO COMPENSADO: FINCA IMPERIAL (SOLUCIONADO DEFINITIVO)
         // ==========================================================================
         if (pantallaId === 'pantalla-finca') {
             if (typeof init3D === 'function') {
                 init3D('canvas-finca-container', 5);
             }
+            // Forzar la solicitud de recursos en caliente al cambiar de vista
+            if (socket && socket.connected && typeof cargarAlmacen === 'function') {
+                console.log("🗄️ Forzando recarga de inventario arquitectónico...");
+                cargarAlmacen(); 
+            }
             setTimeout(() => {
                 if (typeof renderizarAlmacen === 'function') renderizarAlmacen();
                 if (typeof cargarCarreton === 'function') cargarCarreton();
-            }, 100);
+            }, 120);
         } else if (pantallaId === 'pantalla-aldea') {
             if (typeof init3D === 'function' && document.getElementById('canvas-aldea-container')) {
                 init3D('canvas-aldea-container', 12);
