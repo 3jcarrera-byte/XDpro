@@ -244,20 +244,19 @@ function configurarDragAndDropCanvas(contenedorCanvas) {
                     return;
                 }
 
-                console.log(`🎯 Construyendo edificio nuevo en Slot Index ${cimientoIndex}. UUID: ${cartaUuid}`);
-
-                if (typeof socket !== 'undefined' && socket && socket.connected) {
-                    socket.emit('finca:construir', {
-                        slotId: cimientoIndex,
-                        edificioUuid: cartaUuid,
-                        cartaUuid: cartaUuid,
-                        edificioId: cartaUuid,
-                        cimientoSlotId: cimientoIndex,
-                        cimientoIndex: cimientoIndex
-                    });
-                } else {
-                    alert("❌ Error de red: No hay conexión activa con el servidor del Imperio.");
-                }
+                 // ==========================================================================
+            // 🎯 EMISIÓN UNIFICADA Y NORMALIZADA CON EL SERVIDOR DE RENDER (SOLUCIONADO)
+            // ==========================================================================
+            console.log(`🎯 Construyendo edificio nuevo en Slot Index ${cimientoIndex}. UUID: ${cartaUuid}`);
+            if (typeof socket !== 'undefined' && socket && socket.connected) {
+                socket.emit('finca:construir', {
+                    slotId: Number(cimientoIndex), // Asegurar casteo de tipo entero plano
+                    uuidEdificio: String(cartaUuid), // Enviar el nombre exacto que espera server.js
+                    cartaUuid: String(cartaUuid)
+                });
+            } else {
+                alert("❌ Error de red: No hay conexión activa con el servidor del Imperio.");
+            }
             }
         }
     });
