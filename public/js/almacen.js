@@ -145,29 +145,45 @@ function solicitarConsumoRecurso(recursoId) {
     }
 }
 
-// ========================================================
-// RECEPTORES DE RED DE SOCKET.IO (SINCRONIZACIÓN DE RECURSOS)
-// ========================================================
+// ==========================================================================
+// 🛡️ RECEPTOR OMNICANAL DE FUERZA BRUTA VISUAL (SOLUCIONADO DEFINITIVO)
+// ==========================================================================
 if (typeof socket !== 'undefined' && socket) {
-
     socket.on('almacen:actualizar-estado', (payload) => {
-        console.log("🗃️ Datos del Almacén validados por el servidor recibidos:", payload);
+        console.log("🗃️ Datos del Almacén Imperial recibidos en crudo:", payload);
         
-        // ==========================================================================
-        // 🛡️ RECEPTOR PRIORITARIO DE PLANOS ESTRUCTURALES (SOLUCIONADO)
-        // Prioriza la matriz completa almacenEdificiosDisponibles para evitar descarte de Casona
-        // ==========================================================================
-        if (payload && payload.almacenEdificiosDisponibles && payload.almacenEdificiosDisponibles.length > 0) {
-            datosAlmacen.recursos = payload.almacenEdificiosDisponibles;
-        } else if (payload && payload.recursos) {
-            datosAlmacen.recursos = payload.recursos;
-        } else if (payload && Array.isArray(payload)) {
-            datosAlmacen.recursos = payload;
-        } else {
-            datosAlmacen.recursos = [];
+        let poolCartas = [];
+
+        // 🎯 UNIFICACIÓN AGRESIVA: Extraer y amalgamar todas las fuentes de datos posibles en un array plano
+        if (payload) {
+            if (Array.isArray(payload)) {
+                poolCartas = payload;
+            } else {
+                if (payload.almacenEdificiosDisponibles && Array.isArray(payload.almacenEdificiosDisponibles)) {
+                    poolCartas = poolCartas.concat(payload.almacenEdificiosDisponibles);
+                }
+                if (payload.recursos && Array.isArray(payload.recursos)) {
+                    // Evitar duplicaciones de objetos que compartan el mismo UUID exacto
+                    payload.recursos.forEach(rec => {
+                        if (!poolCartas.some(p => (p.uuid === rec.uuid || p.id === rec.id))) {
+                            poolCartas.push(rec);
+                        }
+                    });
+                }
+                if (payload.cartas && Array.isArray(payload.cartas)) {
+                    payload.cartas.forEach(car => {
+                        if (!poolCartas.some(p => (p.uuid === car.uuid || p.id === car.id))) {
+                            poolCartas.push(car);
+                        }
+                    });
+                }
+            }
         }
-        
-        // Forzar redibujado de la interfaz de inmediato en el contenedor activo
+
+        // Asignar el pool unificado libre de fugas asíncronas
+        datosAlmacen.recursos = poolCartas;
+
+        // Forzar redibujado geométrico inmediato en la barra inferior activa de la SPA
         renderizarAlmacen();
     });
 
