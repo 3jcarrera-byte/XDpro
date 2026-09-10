@@ -1,5 +1,5 @@
 // ========================================================
-// server.js - Servidor Principal Unificado (Production Ready) - BLOQUE 1
+// server.js - Servidor Principal Unificado (Production Ready) - BLOQUE 1 DE 2
 // ========================================================
 
 const express = require('express');
@@ -23,7 +23,7 @@ const io = new Server(server, {
         origin: "*",
         methods: ["GET", "POST"]
     },
-    transports: ['websocket']
+    transports: ['websocket', 'polling']
 });
 
 // ========================================================
@@ -67,21 +67,17 @@ authRouter.post('/register', async (req, res) => {
 
         await nuevoUsuario.save();
 
-        // Inicializar datos del juego de forma segura inyectando el catálogo base
+        // Inicializar datos del juego de forma segura
         let nuevoGameData = new GameDataModel({
             username: nuevoUsuario.username,
-            inventarioRecursos: [
-                { tipo: 'madera', cantidad: 50 },
-                { tipo: 'oro', cantidad: 100 },
-                { tipo: 'comida', cantidad: 30 }
-            ]
+            almacenEdificiosDisponibles: [],
+            carretonCartas: { cartasCentral: [] }
         });
 
-        // 🔥 REGLA DE ORO IMPERIAL: Invocar el poblador de cimientos antes de ejecutar el save
         if (typeof nuevoGameData.inicializarEspaciosVacios === 'function') {
             nuevoGameData.inicializarEspaciosVacios(); // Llena las matrices con los slots de Blender
         }
-        await nuevoGameData.save(); // Salva de forma permanente en la base de datos remota
+        await nuevoGameData.save();
 
         return res.status(201).json({
             success: true,
@@ -127,7 +123,11 @@ authRouter.post('/login', async (req, res) => {
         // Auto-reparación y chequeo de GameData
         let gameData = await GameDataModel.findOne({ username: usuario.username });
         if (!gameData) {
-            gameData = new GameDataModel({ username: usuario.username });
+            gameData = new GameDataModel({ 
+                username: usuario.username,
+                almacenEdificiosDisponibles: [],
+                carretonCartas: { cartasCentral: [] }
+            });
             if (typeof gameData.inicializarEspaciosVacios === 'function') {
                 gameData.inicializarEspaciosVacios();
             }
@@ -217,6 +217,7 @@ inicializarTiendaSistema();
  * Función auxiliar para apilar recursos en stacks de hasta 99 unidades en el almacén.
  */
 function agregarRecursoAlmacen(almacen, subtipo, cantidad, nombrePersonalizado = null) {
+    if (!Array.isArray(almacen)) return;
     let cantidadRestante = Number(cantidad) || 0;
     while (cantidadRestante > 0) {
         let stackExistente = almacen.find(
@@ -251,10 +252,16 @@ function agregarRecursoAlmacen(almacen, subtipo, cantidad, nombrePersonalizado =
 async function obtenerOGenerarJuegoData(username) {
     let juegoData = cachePartidas[username] || await GameDataModel.findOne({ username });
     if (!juegoData) {
-        juegoData = new GameDataModel({ username, ...inicializarCimientosPorDefecto() });
+        juegoData = new GameDataModel({ 
+            username, 
+            ...inicializarCimientosPorDefecto(),
+            almacenEdificiosDisponibles: [],
+            carretonCartas: { cartasCentral: [] }
+        });
         if (typeof juegoData.inicializarEspaciosVacios === 'function') {
             juegoData.inicializarEspaciosVacios();
         }
+        await juegoData.save();
     }
     cachePartidas[username] = juegoData;
     return juegoData;
@@ -286,7 +293,7 @@ io.on('connection', (socket) => {
     console.log(`🔌 Nuevo cliente conectado: ${socket.id}`);
 
     if (socket.handshake?.auth?.username) {
-        socket.username = socket.handshake.auth.username;
+        socket.username = socket.handshake.auth.username.trim();
     }
 
     socket.on('jugador:autenticado', async (data) => {
@@ -297,7 +304,7 @@ io.on('connection', (socket) => {
         console.log(`🏛️ Gladiador enlazado con éxito en sockets: ${socket.username}`);
         
         try {
-            const juegoData = await GameDataModel.findOne({ username: usernameLimpio });
+            const juegoData = await obtenerOGenerarJuegoData(usernameLimpio);
             const usuarioBD = await User.findOne({ username: usernameLimpio });
             
             if (juegoData) {
@@ -321,7 +328,8 @@ io.on('connection', (socket) => {
         socket.emit('tienda:recibir-stock', stockTiendaSistema);
     });
 
-    socket.on('almacen:solicitar-recursos', async (data = {}) => {
+    // 📦 MANEJO DE ALMACÉN
+    const responderAlmacen = async (data = {}) => {
         const username = socket.username || data.username;
         if (!username) return socket.emit('almacen:error', 'Sesión no autenticada.');
         
@@ -336,8 +344,12 @@ io.on('connection', (socket) => {
             console.error("❌ Error solicitando recursos del almacén:", error);
             socket.emit('almacen:error', 'Error interno al consultar el almacén.');
         }
-    });
+    };
 
+    socket.on('almacen:solicitar-recursos', responderAlmacen);
+    socket.on('almacen:obtener-recursos', responderAlmacen);
+
+    // 🏪 TIENDA
     socket.on('tienda:comprar-carta', async (datos = {}) => {
         const { itemId, rubro } = datos;
         const username = socket.username || datos.username;
@@ -422,8 +434,8 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 🚚 RECEPTOR LOGÍSTICO MAPEADO CON EL FRONTEND (carreton.js)
-    socket.on('carreton:solicitar-datos', async (data = {}) => {
+    // 🚚 MANEJO DEL CARRETÓN
+    const responderCarreton = async (data = {}) => {
         const username = socket.username || data?.username;
         if (!username) return;
 
@@ -431,9 +443,12 @@ io.on('connection', (socket) => {
             const juegoData = await obtenerOGenerarJuegoData(username);
             await forzarEnvioEstadoCarreton(socket, username, juegoData);
         } catch (err) {
-            console.error('❌ Error en carreton:solicitar-datos:', err);
+            console.error('❌ Error en solicitud de estado del carretón:', err);
         }
-    });
+    };
+
+    socket.on('carreton:solicitar-datos', responderCarreton);
+    socket.on('carreton:solicitar-estado', responderCarreton);
 
     socket.on('carreton:mover-carta', async (data = {}) => {
         const { uuidCarta, haciaSlot } = data;
@@ -485,6 +500,7 @@ io.on('connection', (socket) => {
         }
     });
 
+    // 🌾 MANEJO DE FINCA Y CONSTRUCCIÓN
     socket.on('finca:construir', async (data = {}) => {
         const { slotId, uuidEdificio } = data;
         const username = socket.username || data?.username;
@@ -523,8 +539,7 @@ io.on('connection', (socket) => {
             socket.emit('finca:error', 'Error al construir en la finca.');
         }
     });
-
-   // ==========================================================================
+  // ==========================================================================
     // 🪵 EVENTOS DE FINCA: DESMANTELAMIENTO Y RECOLECCIÓN (CONTINUACIÓN)
     // ==========================================================================
 
@@ -546,6 +561,8 @@ io.on('connection', (socket) => {
             const uuidEvacuado = slot.uuid || crypto.randomUUID();
 
             if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
+            
+            // Devolver edificio al inventario
             juegoData.almacenEdificiosDisponibles.push({
                 uuid: uuidEvacuado,
                 id: uuidEvacuado,
@@ -556,25 +573,29 @@ io.on('connection', (socket) => {
             });
 
             // Evacuar recursos anidados acumulados dentro de la estructura si existieran
-            if (Array.isArray(slot.recursosAnidados)) {
+            if (Array.isArray(slot.recursosAnidados) && slot.recursosAnidados.length > 0) {
                 for (const item of slot.recursosAnidados) {
-                    agregarRecursoAlmacen(
-                        juegoData.almacenEdificiosDisponibles, 
-                        item.subtipo, 
-                        item.cantidad, 
-                        item.nombre
-                    );
+                    if (typeof agregarRecursoAlmacen === 'function') {
+                        agregarRecursoAlmacen(
+                            juegoData.almacenEdificiosDisponibles, 
+                            item.subtipo, 
+                            item.cantidad, 
+                            item.nombre
+                        );
+                    }
                 }
             }
 
-            // Liberar slot de cimiento
+            // Liberar slot de cimiento limpiando propiedades acumuladoras
             juegoData.cimientosFinca[slotIndex] = {
                 slotId: slotId,
                 estaOcupado: false,
                 subtipo: null,
                 nivel: 0,
                 nombre: null,
-                uuid: null
+                uuid: null,
+                produccionPendiente: 0,
+                recursosAnidados: []
             };
 
             juegoData.markModified('cimientosFinca');
@@ -609,14 +630,22 @@ io.on('connection', (socket) => {
             const tipoRecurso = slot.subtipo === 'granja' ? 'trigo' : (slot.subtipo === 'aserradero' ? 'madera' : 'material');
             if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
 
-            agregarRecursoAlmacen(juegoData.almacenEdificiosDisponibles, tipoRecurso, slot.produccionPendiente);
+            if (typeof agregarRecursoAlmacen === 'function') {
+                agregarRecursoAlmacen(juegoData.almacenEdificiosDisponibles, tipoRecurso, slot.produccionPendiente);
+            }
 
+            const cantidadRecolectada = slot.produccionPendiente;
             slot.produccionPendiente = 0;
+
             juegoData.markModified('cimientosFinca');
             juegoData.markModified('almacenEdificiosDisponibles');
             await juegoData.save();
 
-            socket.emit('finca:recoleccion-exitosa', { slotId, recurso: tipoRecurso });
+            socket.emit('finca:recoleccion-exitosa', { 
+                slotId, 
+                recurso: tipoRecurso, 
+                cantidad: cantidadRecolectada 
+            });
             socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles });
         } catch (err) {
             console.error('❌ Error en recolección:', err);
@@ -657,8 +686,10 @@ const apagarServidorLimpio = async (signal) => {
     server.close(async () => {
         console.log('🔌 Servidor HTTP y WebSockets cerrados.');
         try {
-            await mongoose.connection.close();
-            console.log('📦 Conexión a MongoDB cerrada con éxito.');
+            if (mongoose.connection.readyState !== 0) {
+                await mongoose.connection.close();
+                console.log('📦 Conexión a MongoDB cerrada con éxito.');
+            }
             process.exit(0);
         } catch (err) {
             console.error('❌ Error al cerrar MongoDB:', err);
