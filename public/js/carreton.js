@@ -37,6 +37,8 @@ function renderizarBloqueCarreton(elementoDOM, listaCartas, maxSlots, estaHabili
     if (elementoDOM.parentElement) elementoDOM.parentElement.classList.remove('bloqueado');
     
     let bloqueTipo = elementoDOM.id.replace('carreton-', '').replace('-lista', '');
+    
+    // 🎯 REGLA DE ORO DE UNIFICACIÓN: Sincronizar el espejo lateral 3D con las colecciones del carretón
     if (elementoDOM.id === 'finca-pobladores-lista') {
         bloqueTipo = 'finca';
     }
