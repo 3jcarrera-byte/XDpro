@@ -152,10 +152,14 @@ if (typeof socket !== 'undefined' && socket) {
     socket.on('almacen:actualizar-estado', (payload) => {
         console.log("🗃️ Datos del Almacén validados por el servidor recibidos:", payload);
         
-        if (payload && payload.recursos) {
-            datosAlmacen.recursos = payload.recursos;
-        } else if (payload && payload.almacenEdificiosDisponibles) {
+        // ==========================================================================
+        // 🛡️ RECEPTOR PRIORITARIO DE PLANOS ESTRUCTURALES (SOLUCIONADO)
+        // Prioriza la matriz completa almacenEdificiosDisponibles para evitar descarte de Casona
+        // ==========================================================================
+        if (payload && payload.almacenEdificiosDisponibles && payload.almacenEdificiosDisponibles.length > 0) {
             datosAlmacen.recursos = payload.almacenEdificiosDisponibles;
+        } else if (payload && payload.recursos) {
+            datosAlmacen.recursos = payload.recursos;
         } else if (payload && Array.isArray(payload)) {
             datosAlmacen.recursos = payload;
         } else {
