@@ -393,14 +393,14 @@ async function obtenerOGenerarJuegoData(username) {
 }
 
 // ==========================================================================
-// 📦 SINCRONIZACIÓN OMNICANAL DEL ALMACÉN (PROPIEDADES MULTI-ALIAS Y FILTRADO)
+// 📦 SINCRONIZACIÓN OMNICANAL DEL ALMACÉN (PROPIEDADES MULTI-ALIAS Y MATRIZ COMPLETA)
 // ==========================================================================
 function enviarEstadoAlmacen(socket, juegoData) {
     if (!juegoData) return;
 
     const todasLasCartas = juegoData.almacenEdificiosDisponibles || [];
     
-    // Filtrar cartas que no estén anidadas/construidas en el terreno
+    // Sub-arreglo de cartas estrictamente disponibles (sin anidar)
     const cartasDisponibles = todasLasCartas.filter(carta => !carta.estaAnidado);
 
     const payload = {
@@ -408,7 +408,8 @@ function enviarEstadoAlmacen(socket, juegoData) {
         cartas: cartasDisponibles,
         edificios: cartasDisponibles,
         recursos: cartasDisponibles,
-        almacenEdificiosDisponibles: cartasDisponibles // Corregido: unificado con las cartas no anidadas
+        // Se envía la matriz completa para permitir que almacen.js haga el renderizado sin descartes fortuitos
+        almacenEdificiosDisponibles: todasLasCartas
     };
 
     socket.emit('almacen:actualizar-estado', payload);
@@ -423,7 +424,7 @@ async function enviarEstadoFincaActualizado(socket, username, juegoData) {
         juegoData = await obtenerOGenerarJuegoData(username);
     }
 
-    // Evaluación directa e inmediata sobre la carta Casona (soporta booleanos, strings y cimientos)
+    // Evaluación directa e inmediata sobre la carta Casona (almacén anidado o cimientos de la Finca)
     const casonaEnAlmacen = (juegoData.almacenEdificiosDisponibles || []).some(
         carta => carta.subtipo === 'casona' && (
             carta.estaAnidado === true || 
@@ -456,7 +457,7 @@ async function enviarEstadoFincaActualizado(socket, username, juegoData) {
 }
 
 // ==========================================================================
-// 🚚 GESTIÓN Y SINCRONIZACIÓN DEL CARRETÓN
+// 🚚 GESTIÓN Y SINCRONIZACIÓN DEL CARRETÓN (EVALUACIÓN DINÁMICA DE SLOTS)
 // ==========================================================================
 async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
     if (!juegoData) {
@@ -470,6 +471,24 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
         juegoData.carretonCartas = { cartasCentral: [] };
     }
 
+    // Evaluación en tiempo real de la presencia activa de la Casona Imperial
+    const casonaEnAlmacen = (juegoData.almacenEdificiosDisponibles || []).some(
+        carta => carta.subtipo === 'casona' && (
+            carta.estaAnidado === true || 
+            carta.estaAnidado === "true" || 
+            carta.slotAnidado !== null
+        )
+    );
+
+    const casonaEnCimientos = (juegoData.cimientosFinca || []).some(
+        c => c.estaOcupado && (c.subtipo === 'casona' || c.subtipo === 'casona_imperial')
+    );
+
+    const casonaActiva = casonaEnAlmacen || casonaEnCimientos;
+    
+    // Si la Casona no está activa/construida, los slots habilitados en la Finca deben ser 0 por regla de negocio
+    const slotsFincaHabilitados = casonaActiva ? 8 : 0;
+
     const cartasCentral = juegoData.carretonCartas.cartasCentral || [];
     const cartasFinca = cartasCentral.filter(c => c.bloque === 'finca' || c.ubicacion === 'finca' || c.bloqueDestino === 'finca');
     const cartasAldea = cartasCentral.filter(c => c.bloque === 'aldea' || c.ubicacion === 'aldea' || c.bloqueDestino === 'aldea');
@@ -482,7 +501,7 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
         slotsCentralMax: maxSlots,
         slotsFincaMax: 8,
         slotsAldeaMax: 16,
-        slotsFincaHabilitados: 8,
+        slotsFincaHabilitados, // Dinámico: 0 si no hay Casona, 8 si la Casona está en pie
         slotsAldeaHabilitados: poseeAldea ? 16 : 0,
         poseeAldea
     });
