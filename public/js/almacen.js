@@ -33,25 +33,26 @@ function renderizarAlmacen() {
     });
 
     // ==========================================================================
-    // DETECCIÓN MULTI-PANTALLA BASADA EN ESTILOS COMPUTADOS REALES (SOLUCIONADO)
+    // DETECCIÓN MULTI-PANTALLA CON SALVAVIDAS DE TRANSICIÓN SPA (SOLUCIONADO)
     // ==========================================================================
     const seccionFinca = document.getElementById('pantalla-finca');
     const seccionAldea = document.getElementById('pantalla-aldea');
     let contenedorGrid = null;
 
-    // Usar window.getComputedStyle para leer el estado real del CSS en la GPU (evita falsos negativos durante micro-transiciones)
+    // Leer el estado real del CSS computado en la GPU
     const fincaEstiloReal = seccionFinca ? window.getComputedStyle(seccionFinca).display : '';
     const aldeaEstiloReal = seccionAldea ? window.getComputedStyle(seccionAldea).display : '';
 
-    if (fincaEstiloReal === 'block' || (seccionFinca && seccionFinca.style.display === 'block')) {
+    // 🎯 SALVAVIDAS IMPERIAL: Si el contenedor de Three.js está activo en el DOM, forzar el ruteo a la barra inferior
+    if (fincaEstiloReal === 'block' || (seccionFinca && seccionFinca.style.display === 'block') || document.getElementById('canvas-finca-container')) {
         contenedorGrid = document.getElementById('finca-edificios-lista');
-    } else if (aldeaEstiloReal === 'block' || (seccionAldea && seccionAldea.style.display === 'block')) {
+    } else if (aldeaEstiloReal === 'block' || (seccionAldea && seccionAldea.style.display === 'block') || document.getElementById('canvas-aldea-container')) {
         contenedorGrid = document.getElementById('aldea-edificios-lista');
     } else {
         contenedorGrid = document.getElementById('grid-almacen-recursos');
     }
 
-    // Fallback de emergencia por si se ejecuta en medio de la transición SPA
+    // Fallback de contingencia absoluta
     if (!contenedorGrid) {
         contenedorGrid = document.getElementById('finca-edificios-lista') || document.getElementById('grid-almacen-recursos');
     }
