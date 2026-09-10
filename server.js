@@ -1,5 +1,5 @@
 // ========================================================
-// server.js - Servidor Principal Unificado (Production Ready) - BLOQUE 1 DE 2
+// server.js - Servidor Principal Unificado (Production Ready)
 // ========================================================
 
 const express = require('express');
@@ -460,7 +460,6 @@ io.on('connection', (socket) => {
     socket.on('carreton:solicitar-estado', responderCarreton);
 
     socket.on('carreton:mover-carta', async (data = {}) => {
-        // Soporta tanto 'uuidCarta' como 'cartaId' enviados desde el frontend
         const uuidCarta = data.uuidCarta || data.cartaId;
         const { haciaSlot } = data;
         const username = socket.username || data?.username;
@@ -551,10 +550,8 @@ io.on('connection', (socket) => {
             socket.emit('finca:error', 'Error al construir en la finca.');
         }
     });
-// ==========================================================================
-// 🪵 EVENTOS DE FINCA: DESMANTELAMIENTO Y RECOLECCIÓN (CONTINUACIÓN - BLOQUE 2 DE 2)
-// ==========================================================================
 
+    // 🪵 DESMANTELAMIENTO Y RECOLECCIÓN
     socket.on('finca:desmantelar', async (data = {}) => {
         const { slotId } = data;
         const username = socket.username || data?.username;
@@ -584,7 +581,7 @@ io.on('connection', (socket) => {
                 rareza: slot.rareza || 'comun'
             });
 
-            // Evacuar recursos anidados acumulados dentro de la estructura si existieran
+            // Evacuar recursos anidados
             if (Array.isArray(slot.recursosAnidados) && slot.recursosAnidados.length > 0) {
                 for (const item of slot.recursosAnidados) {
                     if (typeof agregarRecursoAlmacen === 'function') {
@@ -598,7 +595,7 @@ io.on('connection', (socket) => {
                 }
             }
 
-            // Liberar slot de cimiento limpiando propiedades acumuladoras
+            // Liberar slot
             juegoData.cimientosFinca[slotIndex] = {
                 slotId: slotId,
                 estaOcupado: false,
@@ -618,7 +615,6 @@ io.on('connection', (socket) => {
             socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca);
             socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles });
             
-            // Re-sincronizar los slots permitidos del carretón tras el desmantelamiento
             if (typeof forzarEnvioEstadoCarreton === 'function') {
                 await forzarEnvioEstadoCarreton(socket, username, juegoData);
             }
@@ -677,6 +673,7 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log(`🔌 Cliente desconectado: ${socket.id} (${socket.username || 'invitado'})`);
     });
+});
 
 // ==========================================================================
 // 🚀 INICIALIZACIÓN DEL SERVIDOR CON ENLACE UNIVERSAL (ANTI-502)
