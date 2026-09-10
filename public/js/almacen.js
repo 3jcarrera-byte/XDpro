@@ -2,7 +2,7 @@
 
 // Estado reactivo global del Almacén (Sincronizado dinámicamente con MongoDB)
 let datosAlmacen = {
-    recursos: [] // Estructura física real: [{ id: UUID, uuid: UUID, nombre: string, cantidad: number, rareza: string, nivel: number }]
+    recursos: [] // Estructura física real: [{ id: UUID, uuid: UUID, nombre: string, cantidad: number, rareza: string, nivel: number, estaAnidado: boolean }]
 };
 
 /**
@@ -58,8 +58,18 @@ function renderizarAlmacen() {
         return;
     }
 
+    // 🔥 FILTRADO IMPERIAL: Pintar solo las estructuras que NO estén construidas en el canvas 3D
+    const cartasMostrables = datosAlmacen.recursos.filter(recurso => {
+        return recurso.estaAnidado !== true && recurso.estaAnidado !== "true";
+    });
+
+    if (cartasMostrables.length === 0) {
+        contenedorGrid.innerHTML = '<div class="almacen-vacio-txt" style="color:#a89276; font-style:italic; padding:20px; text-align:center; width:100%; font-family:serif;">No tienes cartas disponibles en este sector.</div>';
+        return;
+    }
+
     // Recorrer e inyectar cada tarjeta de recurso/edificio con el diseño visual dorado y unificado
-    datosAlmacen.recursos.forEach(recurso => {
+    cartasMostrables.forEach(recurso => {
         const tarjeta = document.createElement('div');
 
         const rarezaLimpia = recurso.rareza ? recurso.rareza.toLowerCase().trim() : 'comun';
