@@ -383,32 +383,30 @@ async function obtenerOGenerarJuegoData(username) {
 }
 
 // ==========================================================================
-// 📊 CONTROL DEMOGRÁFICO DE POBLACIÓN ACTIVA
+// 📊 CONTROL DEMOGRÁFICO DE POBLACIÓN ACTIVA Y REPARTICIÓN DE POBLADORES
 // ==========================================================================
 async function enviarEstadoFincaActualizado(socket, username, juegoData) {
     if (!juegoData) {
         juegoData = await obtenerOGenerarJuegoData(username);
     }
 
-    // 1. Contar si la casona única está activa (anidada) en algún cimiento 3D
-    const casonaActiva = juegoData.almacenEdificiosDisponibles?.some(
+    // 1. Contar si la casona única está activa (anidada) en algún cimiento 3D o en el almacén
+    const casonaActiva = (juegoData.almacenEdificiosDisponibles || []).some(
         carta => carta.subtipo === 'casona' && carta.estaAnidado === true
-    ) || juegoData.cimientosFinca?.some(
+    ) || (juegoData.cimientosFinca || []).some(
         cimiento => cimiento.estaOcupado && cimiento.subtipo === 'casona'
     );
 
-    // 2. Establecer el límite demográfico dinámico
+    // 2. Establecer el límite demográfico dinámico (Casona otorga 2 de población máxima)
     const maxPobladores = casonaActiva ? 2 : 0;
 
-    // 3. Contar cuántos pobladores reales se encuentran trabajando en las parcelas
-    let actualesPobladores = 0;
-    juegoData.cimientosFinca?.forEach(cimiento => {
-        if (cimiento.pobladoresAsignados) {
-            actualesPobladores += cimiento.pobladoresAsignados.length;
-        }
-    });
+    // 3. Contar cuántos pobladores reales se encuentran asignados a las parcelas de la Finca
+    const cartasCentral = juegoData.carretonCartas?.cartasCentral || [];
+    const actualesPobladores = cartasCentral.filter(
+        c => c.bloque === 'finca' || c.ubicacion === 'finca'
+    ).length;
 
-    // Enviar los datos exactos que el frontend pintará en la misma línea
+    // Enviar los datos exactos en el canal que main.js escucha para pintar en la misma línea
     socket.emit('finca:actualizar-marcador-poblacion', {
         conteoTexto: `${actualesPobladores} / ${maxPobladores}`
     });
@@ -422,25 +420,44 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
     const poseeAldea = cachePartidas[username]?._poseeAldeaNFT || false;
     const maxSlots = poseeAldea ? 24 : 8;
 
+    // Calcular estructuras activas para abrir ranuras dinámicas
     const casonasFinca = (juegoData.cimientosFinca || []).filter(s => s.estaOcupado && (s.subtipo === 'casona' || s.subtipo === 'casa')).length;
     const casonasAldea = (juegoData.cimientosAldea || []).filter(s => s.estaOcupado && (s.subtipo === 'casona' || s.subtipo === 'casa')).length;
     const totalCasonas = casonasFinca + casonasAldea;
 
-    const slotsFincaHabilitados = Math.min(maxSlots, Math.max(2, totalCasonas * 2));
+    // Regla Imperial: Cada Casona habilita 2 ranuras elásticas de población
+    const slotsFincaHabilitados = Math.min(8, Math.max(2, casonasFinca * 2)); 
+    const slotsAldeaHabilitados = poseeAldea ? Math.min(16, casonasAldea * 2) : 0;
 
     if (!juegoData.carretonCartas) {
         juegoData.carretonCartas = { cartasCentral: [] };
     }
 
+    const todasLasCartas = juegoData.carretonCartas.cartasCentral || [];
+
+    // 🎯 REGLA DE ORO DE RED: Separar y mapear los sub-arreglos que exige de forma nativa tu carreton.js
+    const cartasCentral = todasLasCartas.filter(c => !c.bloque || c.bloque === 'central' || c.bloque === 'central');
+    const cartasFinca = todasLasCartas.filter(c => c.bloque === 'finca' || c.ubicacion === 'finca');
+    const cartasAldea = todasLasCartas.filter(c => c.bloque === 'aldea' || c.ubicacion === 'aldea');
+
+    // Emitir el payload unificado y completo para evitar variables undefined en el cliente
     socket.emit('carreton:actualizar-estado', {
-        cartasCentral: juegoData.carretonCartas.cartasCentral || [],
+        cartasCentral: cartasCentral,
+        cartasFinca: cartasFinca,
+        cartasAldea: cartasAldea,
         maxSlots: maxSlots,
+        slotsCentralMax: maxSlots,
+        slotsFincaMax: 8,
+        slotsAldeaMax: 16,
         slotsFincaHabilitados: slotsFincaHabilitados,
+        slotsAldeaHabilitados: slotsAldeaHabilitados,
         poseeAldea: poseeAldea
     });
 
+    // Sincronizar el marcador en paralelo
     await enviarEstadoFincaActualizado(socket, username, juegoData);
 }
+
 
 // ==========================================================================
 // 🔌 MANEJO DE EVENTOS WEBSOCKET (SOCKET.IO)
