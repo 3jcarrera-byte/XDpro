@@ -65,15 +65,22 @@ function renderizarAlmacen() {
     }
 
     // ==========================================================================
-    // 🔥 FILTRADO IMPERIAL: Forzar la inclusión de Estructuras Disponibles
+    // 🔥 FILTRADO IMPERIAL NORMALIZADO (TOLERANCIA CASE-INSENSITIVE SOLUCIONADA)
     // ==========================================================================
     const cartasMostrables = datosAlmacen.recursos.filter(recurso => {
         // Regla 1: Descartar si el plano ya está físicamente anidado en el terreno 3D
         if (recurso.estaAnidado === true || recurso.estaAnidado === "true") return false;
         
-        // Regla 2: Si estamos en la pantalla de la Finca o de la Aldea, forzar la inclusión de estructuras
+        // Normalización case-insensitive de strings para evitar fallos tipo/subtipo
+        const tipoLimpio = recurso.tipo ? recurso.tipo.toLowerCase().trim() : '';
+        const subtipoLimpio = recurso.subtipo ? recurso.subtipo.toLowerCase().trim() : '';
+
+        // Regla 2: Si estamos en la pantalla de la Finca o de la Aldea, forzar la inclusión de estructuras normalizadas
         if (contenedorGrid.id === 'finca-edificios-lista' || contenedorGrid.id === 'aldea-edificios-lista') {
-            return recurso.tipo === 'estructura' || recurso.subtipo === 'casona' || recurso.subtipo === 'granja' || recurso.subtipo === 'aserradero';
+            return tipoLimpio === 'estructura' || 
+                   subtipoLimpio === 'casona' || 
+                   subtipoLimpio === 'granja' || 
+                   subtipoLimpio === 'aserradero';
         }
         
         // Regla 3: Si estamos en el Almacén General, mostrar todo lo que no esté construido
