@@ -103,7 +103,7 @@ function renderizarAlmacen() {
 
         const rarezaLimpia = recurso.rareza ? recurso.rareza.toLowerCase().trim() : 'comun';
 
-        // Estilos limpios y robustos idénticos al estándar visual del Mercado y Carretón
+        // Estilos corregidos para evitar que Flexbox aplaste la tarjeta a 0px (SOLUCIONADO COLISEO)
         tarjeta.className = `almacen-card borde-rareza-${rarezaLimpia}`;
         tarjeta.style.cssText = `
             background: #181412;
@@ -111,12 +111,14 @@ function renderizarAlmacen() {
             border-radius: 8px;
             padding: 10px;
             width: 140px;
+            min-width: 140px; /* 🔥 Fuerza a que Flexbox respete los 140px */
             text-align: center;
             box-shadow: 0 4px 8px rgba(0,0,0,0.6);
             transition: transform 0.2s ease, box-shadow 0.2s ease;
             cursor: grab;
-            display: inline-block;
+            display: block; /* 🔥 Cambiado de inline-block a block para compatibilidad flex */
             margin: 6px;
+            flex-shrink: 0; /* 🔥 Impide que el contenedor reduzca la escala del plano */
             vertical-align: top;
         `;
 
