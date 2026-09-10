@@ -408,7 +408,7 @@ function enviarEstadoAlmacen(socket, juegoData) {
         cartas: cartasDisponibles,
         edificios: cartasDisponibles,
         recursos: cartasDisponibles,
-        almacenEdificiosDisponibles: todasLasCartas
+        almacenEdificiosDisponibles: cartasDisponibles // Corregido: unificado con las cartas no anidadas
     };
 
     socket.emit('almacen:actualizar-estado', payload);
