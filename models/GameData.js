@@ -18,7 +18,7 @@ const RecursoStackSchema = new mongoose.Schema({
         default: 1, 
         min: 0, 
         max: 99,
-        set: v => Math.floor(Number(v))
+        set: v => (isNaN(v) ? 0 : Math.min(99, Math.max(0, Math.floor(Number(v)))))
     }
 }, { _id: false });
 
@@ -53,7 +53,7 @@ const CimientoEstructuraSchema = new mongoose.Schema({
     slotId: { 
         type: Number, 
         required: true,
-        set: v => (isNaN(v) ? 0 : Math.max(0, Math.floor(Number(v)))) // 🛡️ Cast autoritario: asegura enteros no negativos
+        set: v => (isNaN(v) ? 0 : Math.max(0, Math.floor(Number(v)))) // Cast autoritario
     },
     estaOcupado: { type: Boolean, default: false },
     edificioUuid: { type: String, default: null },
@@ -63,7 +63,7 @@ const CimientoEstructuraSchema = new mongoose.Schema({
     nivel: { type: Number, default: 0, min: 0 },
     durabilidadActual: { type: Number, default: 100, min: 0, max: 100 },
     produccionGenerada: { type: Number, default: 0, min: 0 },
-    pobladoresAsignados: { type: [PobladorSchema], default: [] } // Mecánica de Personajes ➡ Edificios Civiles
+    pobladoresAsignados: { type: [PobladorSchema], default: [] } // Personajes ➡ Edificios Civiles
 }, { _id: false });
 
 // ==========================================================================
@@ -78,18 +78,18 @@ const GameDataSchema = new mongoose.Schema({
         index: true 
     },
     
-    // Áreas Geográficas del Imperio (Estructuras vinculadas al Canvas 3D de Three.js)
+    // Áreas Geográficas del Imperio (Canvas 3D / Three.js)
     cimientosFinca: { type: [CimientoEstructuraSchema], default: [] },  // Máx 5 parcelas
     cimientosAldea: { type: [CimientoEstructuraSchema], default: [] },  // Máx 12 parcelas
 
-    // El Carretón Logístico (3 Contenedores Persistentes Regulados)
+    // El Carretón Logístico
     carretonCartas: {
         cartasAldea: { type: [PobladorSchema], default: [] },   // Habilitación Máx 16
         cartasFinca: { type: [PobladorSchema], default: [] },    // Habilitación Máx 8
-        cartasCentral: { type: [PobladorSchema], default: [] }   // Slots Elásticos (Máx 24 total)
+        cartasCentral: { type: [PobladorSchema], default: [] }   // Slots Elásticos (Máx 24)
     },
 
-    // Almacén Central (Inventarios en reposo y cartas de obra civil)
+    // Almacén Central e Inventarios
     almacenCartas: { type: [PobladorSchema], default: [] },
     almacenEdificiosDisponibles: [{
         uuid: { type: String, required: true },
@@ -102,30 +102,28 @@ const GameDataSchema = new mongoose.Schema({
 
     updatedAt: { type: Date, default: Date.now }
 }, {
-    timestamps: false, // Desactivado para controlar manualmente updatedAt sin metadatos duplicados
-    versionKey: false  // Remueve __v para optimizar el peso de transmisión en sockets
+    timestamps: false,
+    versionKey: false
 });
 
 // ==========================================================================
-// 🛡️ MIDDLEWARE PRE-SAVE: Sanitización Atómica de Tipos
+// 🛡️ MIDDLEWARE PRE-SAVE: Sanitización Atómica
 // ==========================================================================
 GameDataSchema.pre('save', function(next) {
     this.updatedAt = new Date();
 
-    // Forzar parseo numérico en Finca para evitar colisiones String-Number en los findIndex
     if (Array.isArray(this.cimientosFinca)) {
         this.cimientosFinca.forEach(cimiento => {
             if (cimiento && cimiento.slotId !== undefined && cimiento.slotId !== null) {
-                cimiento.slotId = Math.max(0, Math.floor(Number(cimiento.slotId)));
+                cimiento.slotId = isNaN(cimiento.slotId) ? 0 : Math.max(0, Math.floor(Number(cimiento.slotId)));
             }
         });
     }
 
-    // Forzar parseo numérico en Aldea
     if (Array.isArray(this.cimientosAldea)) {
         this.cimientosAldea.forEach(cimiento => {
             if (cimiento && cimiento.slotId !== undefined && cimiento.slotId !== null) {
-                cimiento.slotId = Math.max(0, Math.floor(Number(cimiento.slotId)));
+                cimiento.slotId = isNaN(cimiento.slotId) ? 0 : Math.max(0, Math.floor(Number(cimiento.slotId)));
             }
         });
     }
@@ -134,10 +132,9 @@ GameDataSchema.pre('save', function(next) {
 });
 
 // ==========================================================================
-// 🛠️ MÉTODO: Inicializador Limpio de Parcelas Vacías (Lógica Pura)
+// 🛠️ MÉTODO: Inicializador Limpio de Parcelas Vacías
 // ==========================================================================
 GameDataSchema.methods.inicializarEspaciosVacios = function() {
-    // Inicialización controlada de la Finca Personal (5 Cimientos)
     if (!Array.isArray(this.cimientosFinca) || this.cimientosFinca.length === 0) {
         this.cimientosFinca = [];
         for (let i = 0; i < 5; i++) {
@@ -156,7 +153,6 @@ GameDataSchema.methods.inicializarEspaciosVacios = function() {
         }
     }
 
-    // Inicialización controlada de la Aldea Imperial (12 Cimientos)
     if (!Array.isArray(this.cimientosAldea) || this.cimientosAldea.length === 0) {
         this.cimientosAldea = [];
         for (let i = 0; i < 12; i++) {
@@ -177,10 +173,6 @@ GameDataSchema.methods.inicializarEspaciosVacios = function() {
 };
 
 // ==========================================================================
-// 📦 REGISTRO Y EXPORTACIÓN DEFENSIVA DEL MODELO
+// 📦 EXPORTACIÓN LIMPIA Y COMPATIBLE
 // ==========================================================================
-const GameDataModel = mongoose.models.GameData || mongoose.model('GameData', GameDataSchema);
-
-module.exports = GameDataModel;
-module.exports.GameDataModel = GameDataModel;
-module.exports.GameData = GameDataModel;
+module.exports = mongoose.models.GameData || mongoose.model('GameData', GameDataSchema);
