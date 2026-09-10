@@ -1,6 +1,4 @@
-// ==========================================================================
-// models/GameData.js - Esquema Mongoose de Datos de Juego del Gladiador
-// ==========================================================================
+// models/GameData.js - Esquema Mongoose de Datos de Juego del Gladiador (Corregido con soporte de mapas 3D)
 
 const mongoose = require('mongoose');
 
@@ -51,7 +49,9 @@ const AlmacenItemSchema = new mongoose.Schema({
     nombre: { type: String },
     nivel: { type: Number, default: 0 },
     rareza: { type: String, default: 'comun' },
-    cantidad: { type: Number, default: 1 }
+    cantidad: { type: Number, default: 1 },
+    estaAnidado: { type: Boolean, default: false }, // 🔥 Requerido para que MongoDB no borre la propiedad
+    slotAnidado: { type: Number, default: null }    // 🔥 Requerido para el tracking del canvas 3D
 }, { _id: false });
 
 // Esquema Principal GameData
