@@ -1,5 +1,5 @@
 // ========================================================
-// server.js - Servidor Principal Unificado (Production Ready)
+// server.js - Servidor Principal Unificado (Production Ready) - BLOQUE 1
 // ========================================================
 
 const express = require('express');
@@ -56,7 +56,7 @@ authRouter.post('/register', async (req, res) => {
         // Crear usuario
         const nuevoUsuario = new User({
             username: username.trim(),
-            password, // Si usas ganchos pre-save en User, se encriptará automáticamente
+            password, // Encriptado automático vía middleware pre-save en User
             email: email ? email.trim().toLowerCase() : null,
             pais: pais ? pais.trim() : null,
             nombre: nombre ? nombre.trim() : null,
@@ -67,7 +67,7 @@ authRouter.post('/register', async (req, res) => {
 
         await nuevoUsuario.save();
 
-        // Inicializar datos del juego de forma segura
+        // Inicializar datos del juego de forma segura inyectando el catálogo base
         let nuevoGameData = new GameDataModel({
             username: nuevoUsuario.username,
             inventarioRecursos: [
@@ -77,10 +77,11 @@ authRouter.post('/register', async (req, res) => {
             ]
         });
 
+        // 🔥 REGLA DE ORO IMPERIAL: Invocar el poblador de cimientos antes de ejecutar el save
         if (typeof nuevoGameData.inicializarEspaciosVacios === 'function') {
-            nuevoGameData.inicializarEspaciosVacios();
+            nuevoGameData.inicializarEspaciosVacios(); // Llena las matrices con los slots de Blender
         }
-        await nuevoGameData.save();
+        await nuevoGameData.save(); // Salva de forma permanente en la base de datos remota
 
         return res.status(201).json({
             success: true,
@@ -112,7 +113,6 @@ authRouter.post('/login', async (req, res) => {
             return res.status(403).json({ success: false, message: `Acceso restringido. Motivo: ${usuario.banReason || 'Sanción administrativa en curso.'}` });
         }
 
-        // Validación adaptada: intenta usar comparePassword si existe, si no, compara texto plano
         let esPasswordValida = false;
         if (typeof usuario.comparePassword === 'function') {
             esPasswordValida = await usuario.comparePassword(password);
@@ -147,6 +147,9 @@ authRouter.post('/login', async (req, res) => {
         return res.status(500).json({ success: false, message: 'Error interno al intentar autenticar al gladiador.' });
     }
 });
+
+// Registrar el router de autenticación inline en Express
+app.use('/api/auth', authRouter);
 
 // ========================================================
 // CONEXIÓN A LA BASE DE DATOS MONGODB
@@ -419,7 +422,8 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('carreton:solicitar-estado', async (data = {}) => {
+    // 🚚 RECEPTOR LOGÍSTICO MAPEADO CON EL FRONTEND (carreton.js)
+    socket.on('carreton:solicitar-datos', async (data = {}) => {
         const username = socket.username || data?.username;
         if (!username) return;
 
@@ -427,7 +431,7 @@ io.on('connection', (socket) => {
             const juegoData = await obtenerOGenerarJuegoData(username);
             await forzarEnvioEstadoCarreton(socket, username, juegoData);
         } catch (err) {
-            console.error('❌ Error en carreton:solicitar-estado:', err);
+            console.error('❌ Error en carreton:solicitar-datos:', err);
         }
     });
 
@@ -520,6 +524,10 @@ io.on('connection', (socket) => {
         }
     });
 
+   // ==========================================================================
+    // 🪵 EVENTOS DE FINCA: DESMANTELAMIENTO Y RECOLECCIÓN (CONTINUACIÓN)
+    // ==========================================================================
+
     socket.on('finca:desmantelar', async (data = {}) => {
         const { slotId } = data;
         const username = socket.username || data?.username;
@@ -547,6 +555,7 @@ io.on('connection', (socket) => {
                 rareza: slot.rareza || 'comun'
             });
 
+            // Evacuar recursos anidados acumulados dentro de la estructura si existieran
             if (Array.isArray(slot.recursosAnidados)) {
                 for (const item of slot.recursosAnidados) {
                     agregarRecursoAlmacen(
@@ -558,6 +567,7 @@ io.on('connection', (socket) => {
                 }
             }
 
+            // Liberar slot de cimiento
             juegoData.cimientosFinca[slotIndex] = {
                 slotId: slotId,
                 estaOcupado: false,
