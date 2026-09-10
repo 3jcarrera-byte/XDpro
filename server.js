@@ -1,5 +1,5 @@
 // ========================================================
-// server.js - Servidor Principal Unificado (Production Ready)
+// server.js - Servidor Principal Unificado (Parte 1 de 2)
 // ========================================================
 
 const express = require('express');
@@ -20,13 +20,13 @@ const rawGameData = require('./models/GameData');
 /**
  * 🛡️ RESOLUTORES DEFENSIVOS DE MODELOS
  * Resuelven el modelo directamente desde el módulo exportado o la caché activa 
- * de Mongoose (mongoose.models), evitando invocar mongoose.model('User') a ciegas.
+ * de Mongoose (mongoose.models), recurriendo a mongoose.model() si rawUser/rawGameData son objetos planos.
  */
 function obtenerModeloUsuario() {
     if (rawUser && typeof rawUser.findOne === 'function') return rawUser;
     if (rawUser && rawUser.User && typeof rawUser.User.findOne === 'function') return rawUser.User;
     if (mongoose.models && mongoose.models.User) return mongoose.models.User;
-    return rawUser;
+    return mongoose.model('User');
 }
 
 function obtenerModeloGameData() {
@@ -34,7 +34,7 @@ function obtenerModeloGameData() {
     if (rawGameData && rawGameData.GameData && typeof rawGameData.GameData.findOne === 'function') return rawGameData.GameData;
     if (rawGameData && rawGameData.GameDataModel && typeof rawGameData.GameDataModel.findOne === 'function') return rawGameData.GameDataModel;
     if (mongoose.models && mongoose.models.GameData) return mongoose.models.GameData;
-    return rawGameData;
+    return mongoose.model('GameData');
 }
 
 const app = express();
@@ -579,7 +579,11 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 🪵 DESMANTELAMIENTO Y RECOLECCIÓN
+   // ==========================================================================
+// server.js - Servidor Principal Unificado (Parte 2 de 2)
+// ==========================================================================
+
+    // 🪵 DESMANTELAMIENTO Y RECOLECCIÓN EN TERRENOS
     socket.on('finca:desmantelar', async (data = {}) => {
         const { slotId } = data;
         const username = socket.username || data?.username;
@@ -599,6 +603,7 @@ io.on('connection', (socket) => {
 
             if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
 
+            // Devolver la estructura al almacén del jugador
             juegoData.almacenEdificiosDisponibles.push({
                 uuid: uuidEvacuado,
                 id: uuidEvacuado,
@@ -608,6 +613,7 @@ io.on('connection', (socket) => {
                 rareza: slot.rareza || 'comun'
             });
 
+            // Evacuar recursos anidados acumulados si los hay
             if (Array.isArray(slot.recursosAnidados) && slot.recursosAnidados.length > 0) {
                 for (const item of slot.recursosAnidados) {
                     agregarRecursoAlmacen(
@@ -619,6 +625,7 @@ io.on('connection', (socket) => {
                 }
             }
 
+            // Vaciar el slot del terreno
             juegoData.cimientosFinca[slotIndex] = {
                 slotId: slotId,
                 estaOcupado: false,
@@ -638,6 +645,7 @@ io.on('connection', (socket) => {
             socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca);
             socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles });
             
+            // Recalcular la capacidad del carretón por si se desmanteló una Casona/Casa
             await forzarEnvioEstadoCarreton(socket, username, juegoData);
         } catch (err) {
             console.error('❌ Error desmantelando estructura:', err);
