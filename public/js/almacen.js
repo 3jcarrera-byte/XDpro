@@ -65,7 +65,7 @@ function renderizarAlmacen() {
     }
 
     // ==========================================================================
-    // 🔥 FILTRADO IMPERIAL NORMALIZADO (TOLERANCIA CASE-INSENSITIVE SOLUCIONADA)
+    // 🔥 FILTRADO IMPERIAL NORMALIZADO (TOLERANCIA CASE-INSENSITIVE + PARCHE MAESTRO)
     // ==========================================================================
     const cartasMostrables = datosAlmacen.recursos.filter(recurso => {
         // Regla 1: Descartar si el plano ya está físicamente anidado en el terreno 3D
@@ -74,13 +74,18 @@ function renderizarAlmacen() {
         // Normalización case-insensitive de strings para evitar fallos tipo/subtipo
         const tipoLimpio = recurso.tipo ? recurso.tipo.toLowerCase().trim() : '';
         const subtipoLimpio = recurso.subtipo ? recurso.subtipo.toLowerCase().trim() : '';
+        const nombreLimpio = recurso.nombre ? recurso.nombre.toLowerCase().trim() : '';
 
         // Regla 2: Si estamos en la pantalla de la Finca o de la Aldea, forzar la inclusión de estructuras normalizadas
         if (contenedorGrid.id === 'finca-edificios-lista' || contenedorGrid.id === 'aldea-edificios-lista') {
             return tipoLimpio === 'estructura' || 
                    subtipoLimpio === 'casona' || 
                    subtipoLimpio === 'granja' || 
-                   subtipoLimpio === 'aserradero';
+                   subtipoLimpio === 'aserradero' ||
+                   nombreLimpio.includes('casona') ||
+                   nombreLimpio.includes('granja') ||
+                   nombreLimpio.includes('aserradero') ||
+                   !recurso.tipo; // ⚡ PARCHE MAESTRO: Permitir elementos huérfanos o sin tipado directo si están en la Finca
         }
         
         // Regla 3: Si estamos en el Almacén General, mostrar todo lo que no esté construido
@@ -199,9 +204,13 @@ if (typeof socket !== 'undefined' && socket) {
         }
 
         // Asignar el pool unificado libre de fugas asíncronas
-        // 🔥 REPARACIÓN EN CALIENTE: Forzar propiedades de tipado para subdocumentos de Mongoose
+        // 🔥 REPARACIÓN EN CALIENTE: Forzar propiedades de tipado para subdocumentos de Mongoose y evitar omisiones por nomenclatura
         datosAlmacen.recursos = poolCartas.map(recurso => {
-            if (recurso.subtipo && recurso.subtipo.toLowerCase().trim() === 'casona') {
+            const subtipoStr = recurso.subtipo ? recurso.subtipo.toLowerCase().trim() : '';
+            const nombreStr = recurso.nombre ? recurso.nombre.toLowerCase().trim() : '';
+            
+            if (subtipoStr === 'casona' || subtipoStr === 'granja' || subtipoStr === 'aserradero' || 
+                nombreStr.includes('casona') || nombreStr.includes('granja') || nombreStr.includes('aserradero')) {
                 recurso.tipo = 'estructura';
             }
             return recurso;
