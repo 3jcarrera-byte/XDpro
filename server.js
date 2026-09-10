@@ -12,14 +12,15 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 
 // ========================================================
-// 📦 IMPORTACIÓN Y RESOLUCIÓN SEGURA DE MODELOS (ANTI-MISSINGSCHEMA)
+// 📦 IMPORTACIÓN Y RESOLUCIÓN DEFENSIVA DE MODELOS (ANTI-MISSINGSCHEMA)
 // ========================================================
 const rawUser = require('./models/User');
 const rawGameData = require('./models/GameData');
 
 /**
- * Resuelve de forma segura la referencia al modelo de Usuario sin forzar 
- * la llamada a mongoose.model('User') si el esquema no se ha registrado globalmente.
+ * 🛡️ RESOLUTORES DEFENSIVOS DE MODELOS
+ * Resuelven el modelo directamente desde el módulo exportado o la caché activa 
+ * de Mongoose (mongoose.models), evitando invocar mongoose.model('User') a ciegas.
  */
 function obtenerModeloUsuario() {
     if (rawUser && typeof rawUser.findOne === 'function') return rawUser;
@@ -28,9 +29,6 @@ function obtenerModeloUsuario() {
     return rawUser;
 }
 
-/**
- * Resuelve de forma segura la referencia al modelo de GameData.
- */
 function obtenerModeloGameData() {
     if (rawGameData && typeof rawGameData.findOne === 'function') return rawGameData;
     if (rawGameData && rawGameData.GameData && typeof rawGameData.GameData.findOne === 'function') return rawGameData.GameData;
@@ -60,7 +58,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ========================================================
-// 🔐 ENRUTADOR DE AUTENTICACIÓN IMPERIAL UNIFICADO (INLINE)
+// 🔐 ENRUTADOR DE AUTENTICACIÓN IMPERIAL UNIFICADO
 // ========================================================
 const authRouter = express.Router();
 
@@ -73,16 +71,16 @@ authRouter.post('/register', async (req, res) => {
             return res.status(400).json({ success: false, message: 'El nombre de usuario y la contraseña son obligatorios.' });
         }
 
-        const ModeloUsuario = obtenerModeloUsuario();
-        const ModeloGameData = obtenerModeloGameData();
+        const User = obtenerModeloUsuario();
+        const GameData = obtenerModeloGameData();
 
-        const usuarioExistente = await ModeloUsuario.findOne({ username: username.trim() });
+        const usuarioExistente = await User.findOne({ username: username.trim() });
         if (usuarioExistente) {
             return res.status(409).json({ success: false, message: 'El nombre de gladiador ya se encuentra registrado en el Imperio.' });
         }
 
-        // Crear usuario (el middleware pre-save del esquema User procesará el hash de la contraseña)
-        const nuevoUsuario = new ModeloUsuario({
+        // Crear usuario
+        const nuevoUsuario = new User({
             username: username.trim(),
             password, 
             email: email ? email.trim().toLowerCase() : null,
@@ -95,15 +93,15 @@ authRouter.post('/register', async (req, res) => {
 
         await nuevoUsuario.save();
 
-        // Inicializar datos del juego de forma segura
-        let nuevoGameData = new ModeloGameData({
+        // Inicializar datos del juego
+        let nuevoGameData = new GameData({
             username: nuevoUsuario.username,
             almacenEdificiosDisponibles: [],
             carretonCartas: { cartasCentral: [] }
         });
 
         if (typeof nuevoGameData.inicializarEspaciosVacios === 'function') {
-            nuevoGameData.inicializarEspaciosVacios(); // Llena las matrices con los slots
+            nuevoGameData.inicializarEspaciosVacios();
         }
         await nuevoGameData.save();
 
@@ -128,10 +126,10 @@ authRouter.post('/login', async (req, res) => {
             return res.status(400).json({ success: false, message: 'Debe proveer usuario y contraseña.' });
         }
 
-        const ModeloUsuario = obtenerModeloUsuario();
-        const ModeloGameData = obtenerModeloGameData();
+        const User = obtenerModeloUsuario();
+        const GameData = obtenerModeloGameData();
 
-        const usuario = await ModeloUsuario.findOne({ username: username.trim() });
+        const usuario = await User.findOne({ username: username.trim() });
         if (!usuario) {
             return res.status(401).json({ success: false, message: 'Credenciales inválidas o gladiador no encontrado.' });
         }
@@ -146,10 +144,8 @@ authRouter.post('/login', async (req, res) => {
         if (typeof usuario.comparePassword === 'function') {
             esPasswordValida = await usuario.comparePassword(password);
         } else if (usuario.password && typeof usuario.password === 'string' && usuario.password.startsWith('$2')) {
-            // Hash Bcrypt detectado ($2a$, $2b$, $2y$)
             esPasswordValida = await bcrypt.compare(password, usuario.password);
         } else {
-            // Fallback en texto plano
             esPasswordValida = (usuario.password === password);
         }
 
@@ -158,9 +154,9 @@ authRouter.post('/login', async (req, res) => {
         }
 
         // Auto-reparación y chequeo de GameData
-        let gameData = await ModeloGameData.findOne({ username: usuario.username });
+        let gameData = await GameData.findOne({ username: usuario.username });
         if (!gameData) {
-            gameData = new ModeloGameData({ 
+            gameData = new GameData({ 
                 username: usuario.username,
                 almacenEdificiosDisponibles: [],
                 carretonCartas: { cartasCentral: [] }
@@ -250,9 +246,6 @@ function inicializarTiendaSistema() {
 
 inicializarTiendaSistema();
 
-/**
- * Función auxiliar para apilar recursos en stacks de hasta 99 unidades en el almacén.
- */
 function agregarRecursoAlmacen(almacen, subtipo, cantidad, nombrePersonalizado = null) {
     if (!Array.isArray(almacen)) return;
     let cantidadRestante = Number(cantidad) || 0;
@@ -283,14 +276,11 @@ function agregarRecursoAlmacen(almacen, subtipo, cantidad, nombrePersonalizado =
     }
 }
 
-/**
- * Obtener o cargar en caché los datos de juego de un usuario.
- */
 async function obtenerOGenerarJuegoData(username) {
-    const ModeloGameData = obtenerModeloGameData();
-    let juegoData = cachePartidas[username] || await ModeloGameData.findOne({ username });
+    const GameData = obtenerModeloGameData();
+    let juegoData = cachePartidas[username] || await GameData.findOne({ username });
     if (!juegoData) {
-        juegoData = new ModeloGameData({ 
+        juegoData = new GameData({ 
             username, 
             ...inicializarCimientosPorDefecto(),
             almacenEdificiosDisponibles: [],
@@ -349,9 +339,9 @@ io.on('connection', (socket) => {
         console.log(`🏛️ Gladiador enlazado con éxito en sockets: ${socket.username}`);
         
         try {
-            const ModeloUsuario = obtenerModeloUsuario();
+            const User = obtenerModeloUsuario();
             const juegoData = await obtenerOGenerarJuegoData(usernameLimpio);
-            const usuarioBD = await ModeloUsuario.findOne({ username: usernameLimpio });
+            const usuarioBD = await User.findOne({ username: usernameLimpio });
             
             if (juegoData) {
                 cachePartidas[usernameLimpio] = juegoData;
@@ -374,7 +364,7 @@ io.on('connection', (socket) => {
         socket.emit('tienda:recibir-stock', stockTiendaSistema);
     });
 
-    // 📦 MANEJO DE ALMACÉN
+    // 📦 ALMACÉN
     const responderAlmacen = async (data = {}) => {
         const username = socket.username || data.username;
         if (!username) return socket.emit('almacen:error', 'Sesión no autenticada.');
@@ -409,8 +399,8 @@ io.on('connection', (socket) => {
         const cartaTienda = stockTiendaSistema[rubro][indexItem];
 
         try {
-            const ModeloUsuario = obtenerModeloUsuario();
-            const usuario = await ModeloUsuario.findOne({ username });
+            const User = obtenerModeloUsuario();
+            const usuario = await User.findOne({ username });
             if (!usuario || usuario.balance < cartaTienda.precio) {
                 return socket.emit('tienda:error', 'Monedas imperiales insuficientes en tus arcas.');
             }
@@ -459,7 +449,7 @@ io.on('connection', (socket) => {
             usuario.balance -= cartaTienda.precio;
             await Promise.all([usuario.save(), juegoData.save()]);
 
-            // Rotación de inventario en la tienda
+            // Rotación de inventario
             stockTiendaSistema[rubro].splice(indexItem, 1);
             const diseñoOriginal = CATALOGO_DISEÑOS[rubro]?.find(d => d.subtipo === cartaTienda.subtipo);
             if (diseñoOriginal) {
@@ -481,7 +471,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 🚚 MANEJO DEL CARRETÓN
+    // 🚚 CARRETÓN
     const responderCarreton = async (data = {}) => {
         const username = socket.username || data?.username;
         if (!username) return;
@@ -549,7 +539,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 🌾 MANEJO DE FINCA Y CONSTRUCCIÓN
+    // 🌾 FINCA Y CONSTRUCCIÓN
     socket.on('finca:construir', async (data = {}) => {
         const { slotId, uuidEdificio } = data;
         const username = socket.username || data?.username;
@@ -609,7 +599,6 @@ io.on('connection', (socket) => {
 
             if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
 
-            // Devolver edificio al inventario
             juegoData.almacenEdificiosDisponibles.push({
                 uuid: uuidEvacuado,
                 id: uuidEvacuado,
@@ -619,21 +608,17 @@ io.on('connection', (socket) => {
                 rareza: slot.rareza || 'comun'
             });
 
-            // Evacuar recursos anidados
             if (Array.isArray(slot.recursosAnidados) && slot.recursosAnidados.length > 0) {
                 for (const item of slot.recursosAnidados) {
-                    if (typeof agregarRecursoAlmacen === 'function') {
-                        agregarRecursoAlmacen(
-                            juegoData.almacenEdificiosDisponibles, 
-                            item.subtipo, 
-                            item.cantidad, 
-                            item.nombre
-                        );
-                    }
+                    agregarRecursoAlmacen(
+                        juegoData.almacenEdificiosDisponibles, 
+                        item.subtipo, 
+                        item.cantidad, 
+                        item.nombre
+                    );
                 }
             }
 
-            // Liberar slot
             juegoData.cimientosFinca[slotIndex] = {
                 slotId: slotId,
                 estaOcupado: false,
@@ -653,9 +638,7 @@ io.on('connection', (socket) => {
             socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca);
             socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles });
             
-            if (typeof forzarEnvioEstadoCarreton === 'function') {
-                await forzarEnvioEstadoCarreton(socket, username, juegoData);
-            }
+            await forzarEnvioEstadoCarreton(socket, username, juegoData);
         } catch (err) {
             console.error('❌ Error desmantelando estructura:', err);
             socket.emit('finca:error', 'Error al desmantelar la estructura.');
@@ -685,9 +668,7 @@ io.on('connection', (socket) => {
             const tipoRecurso = slot.subtipo === 'granja' ? 'trigo' : (slot.subtipo === 'aserradero' ? 'madera' : 'material');
             if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
 
-            if (typeof agregarRecursoAlmacen === 'function') {
-                agregarRecursoAlmacen(juegoData.almacenEdificiosDisponibles, tipoRecurso, slot.produccionPendiente);
-            }
+            agregarRecursoAlmacen(juegoData.almacenEdificiosDisponibles, tipoRecurso, slot.produccionPendiente);
 
             const cantidadRecolectada = slot.produccionPendiente;
             juegoData.cimientosFinca[slotIndex].produccionPendiente = 0;
@@ -714,7 +695,7 @@ io.on('connection', (socket) => {
 });
 
 // ==========================================================================
-// 🚀 INICIALIZACIÓN DEL SERVIDOR CON ENLACE UNIVERSAL (ANTI-502)
+// 🚀 INICIALIZACIÓN DEL SERVIDOR CON ENLACE UNIVERSAL
 // ==========================================================================
 const PORT = process.env.PORT || 3000;
 
@@ -726,7 +707,6 @@ server.listen(PORT, '0.0.0.0', () => {
 // ==========================================================================
 // 🛡️ MANEJO DE ERRORES GLOBALES Y CIERRE CONTROLADO (GRACEFUL SHUTDOWN)
 // ==========================================================================
-
 process.on('unhandledRejection', (reason, promise) => {
     console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
 });
