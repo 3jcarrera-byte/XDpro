@@ -551,7 +551,7 @@ io.on('connection', (socket) => {
             socket.emit('finca:error', 'Error al construir en la finca.');
         }
     });
- // ==========================================================================
+// ==========================================================================
 // 🪵 EVENTOS DE FINCA: DESMANTELAMIENTO Y RECOLECCIÓN (CONTINUACIÓN - BLOQUE 2 DE 2)
 // ==========================================================================
 
@@ -619,7 +619,9 @@ io.on('connection', (socket) => {
             socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles });
             
             // Re-sincronizar los slots permitidos del carretón tras el desmantelamiento
-            await forzarEnvioEstadoCarreton(socket, username, juegoData);
+            if (typeof forzarEnvioEstadoCarreton === 'function') {
+                await forzarEnvioEstadoCarreton(socket, username, juegoData);
+            }
         } catch (err) {
             console.error('❌ Error desmantelando estructura:', err);
             socket.emit('finca:error', 'Error al desmantelar la estructura.');
@@ -635,8 +637,12 @@ io.on('connection', (socket) => {
             const juegoData = await obtenerOGenerarJuegoData(username);
             if (!juegoData?.cimientosFinca) return socket.emit('finca:error', 'Datos no encontrados.');
 
-            const slot = juegoData.cimientosFinca.find(s => s.slotId === slotId);
-            if (!slot || !slot.estaOcupado) return socket.emit('finca:error', 'Estructura no encontrada.');
+            const slotIndex = juegoData.cimientosFinca.findIndex(s => s.slotId === slotId);
+            if (slotIndex === -1 || !juegoData.cimientosFinca[slotIndex].estaOcupado) {
+                return socket.emit('finca:error', 'Estructura no encontrada.');
+            }
+
+            const slot = juegoData.cimientosFinca[slotIndex];
 
             if (!slot.produccionPendiente || slot.produccionPendiente <= 0) {
                 return socket.emit('finca:error', 'No hay recursos pendientes para recolectar.');
@@ -650,7 +656,7 @@ io.on('connection', (socket) => {
             }
 
             const cantidadRecolectada = slot.produccionPendiente;
-            slot.produccionPendiente = 0;
+            juegoData.cimientosFinca[slotIndex].produccionPendiente = 0;
 
             juegoData.markModified('cimientosFinca');
             juegoData.markModified('almacenEdificiosDisponibles');
@@ -671,7 +677,6 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         console.log(`🔌 Cliente desconectado: ${socket.id} (${socket.username || 'invitado'})`);
     });
-});
 
 // ==========================================================================
 // 🚀 INICIALIZACIÓN DEL SERVIDOR CON ENLACE UNIVERSAL (ANTI-502)
@@ -701,7 +706,7 @@ const apagarServidorLimpio = async (signal) => {
     server.close(async () => {
         console.log('🔌 Servidor HTTP y WebSockets cerrados.');
         try {
-            if (mongoose.connection.readyState !== 0) {
+            if (typeof mongoose !== 'undefined' && mongoose.connection && mongoose.connection.readyState !== 0) {
                 await mongoose.connection.close();
                 console.log('📦 Conexión a MongoDB cerrada con éxito.');
             }
