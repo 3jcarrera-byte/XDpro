@@ -131,7 +131,6 @@ authRouter.post('/register', async (req, res) => {
             // ==========================================================================
             let nuevoGameData = new GameDataModel({
                 username: nuevoUsuario.username,
-                // Cada gladiador nace con su carta de estructura civil protegida
                 almacenEdificiosDisponibles: [
                     {
                         uuid: `carta-casona-${nuevoUsuario.username}`,
@@ -383,37 +382,37 @@ async function obtenerOGenerarJuegoData(username) {
 }
 
 // ==========================================================================
-// 📊 CONTROL DEMOGRÁFICO DE POBLACIÓN ACTIVA
+// 📊 CONTROL DEMOGRÁFICO DE POBLACIÓN ACTIVA (MODIFICADO - DIRECTIVA 1)
 // ==========================================================================
 async function enviarEstadoFincaActualizado(socket, username, juegoData) {
     if (!juegoData) {
         juegoData = await obtenerOGenerarJuegoData(username);
     }
 
-    // 1. Contar si la casona única está activa (anidada) en algún cimiento 3D
+    // 1. Análisis atómico para verificar si la casona está activa (almacén anidado o cimientos)
     const casonaActiva = juegoData.almacenEdificiosDisponibles?.some(
         carta => carta.subtipo === 'casona' && carta.estaAnidado === true
     ) || juegoData.cimientosFinca?.some(
         cimiento => cimiento.estaOcupado && cimiento.subtipo === 'casona'
     );
 
-    // 2. Establecer el límite demográfico dinámico
     const maxPobladores = casonaActiva ? 2 : 0;
 
-    // 3. Contar cuántos pobladores reales se encuentran trabajando en las parcelas
-    let actualesPobladores = 0;
-    juegoData.cimientosFinca?.forEach(cimiento => {
-        if (cimiento.pobladoresAsignados) {
-            actualesPobladores += cimiento.pobladoresAsignados.length;
-        }
-    });
+    // 2. Extraer y filtrar pobladores asignados a la finca desde carretonCartas.cartasCentral
+    const cartasCentral = juegoData.carretonCartas?.cartasCentral || [];
+    const actualesPobladores = cartasCentral.filter(
+        c => c.bloque === 'finca' || c.ubicacion === 'finca' || c.bloqueDestino === 'finca'
+    ).length;
 
-    // Enviar los datos exactos que el frontend pintará en la misma línea
+    // 3. Emitir marcador de población sincronizado al canal unificado
     socket.emit('finca:actualizar-marcador-poblacion', {
         conteoTexto: `${actualesPobladores} / ${maxPobladores}`
     });
 }
 
+// ==========================================================================
+// 🚚 GESTIÓN Y SINCRONIZACIÓN DEL CARRETÓN (MODIFICADO - DIRECTIVA 2)
+// ==========================================================================
 async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
     if (!juegoData) {
         juegoData = await obtenerOGenerarJuegoData(username);
@@ -422,21 +421,26 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
     const poseeAldea = cachePartidas[username]?._poseeAldeaNFT || false;
     const maxSlots = poseeAldea ? 24 : 8;
 
-    const casonasFinca = (juegoData.cimientosFinca || []).filter(s => s.estaOcupado && (s.subtipo === 'casona' || s.subtipo === 'casa')).length;
-    const casonasAldea = (juegoData.cimientosAldea || []).filter(s => s.estaOcupado && (s.subtipo === 'casona' || s.subtipo === 'casa')).length;
-    const totalCasonas = casonasFinca + casonasAldea;
-
-    const slotsFincaHabilitados = Math.min(maxSlots, Math.max(2, totalCasonas * 2));
-
     if (!juegoData.carretonCartas) {
         juegoData.carretonCartas = { cartasCentral: [] };
     }
 
+    // Mapear y filtrar sub-arreglos desde juegoData.carretonCartas.cartasCentral
+    const cartasCentral = juegoData.carretonCartas.cartasCentral || [];
+    const cartasFinca = cartasCentral.filter(c => c.bloque === 'finca' || c.ubicacion === 'finca');
+    const cartasAldea = cartasCentral.filter(c => c.bloque === 'aldea' || c.ubicacion === 'aldea');
+
     socket.emit('carreton:actualizar-estado', {
-        cartasCentral: juegoData.carretonCartas.cartasCentral || [],
-        maxSlots: maxSlots,
-        slotsFincaHabilitados: slotsFincaHabilitados,
-        poseeAldea: poseeAldea
+        cartasCentral: cartasCentral.filter(c => !c.bloque || c.bloque === 'central'),
+        cartasFinca,
+        cartasAldea,
+        maxSlots,
+        slotsCentralMax: maxSlots,
+        slotsFincaMax: 8,
+        slotsAldeaMax: 16,
+        slotsFincaHabilitados: 8,
+        slotsAldeaHabilitados: poseeAldea ? 16 : 0,
+        poseeAldea
     });
 
     await enviarEstadoFincaActualizado(socket, username, juegoData);
@@ -513,96 +517,7 @@ io.on('connection', (socket) => {
     socket.on('almacen:solicitar-recursos', responderAlmacen);
     socket.on('almacen:obtener-recursos', responderAlmacen);
 
-    // 🏪 TIENDA
-    socket.on('tienda:comprar-carta', async (datos = {}) => {
-        const { itemId, rubro } = datos;
-        const username = socket.username || datos.username;
-        
-        if (!username) return socket.emit('tienda:error', 'Sesión de juego no válida.');
-        if (!stockTiendaSistema[rubro]) return socket.emit('tienda:error', 'Categoría comercial no válida.');
-
-        const indexItem = stockTiendaSistema[rubro].findIndex(item => item.tiendaItemId === itemId);
-        if (indexItem === -1) return socket.emit('tienda:error', 'La carta ya fue adquirida por otro gladiador.');
-
-        const cartaTienda = stockTiendaSistema[rubro][indexItem];
-
-        try {
-            const User = obtenerModeloUsuario();
-            const usuario = await User.findOne({ username });
-            if (!usuario || usuario.balance < cartaTienda.precio) {
-                return socket.emit('tienda:error', 'Monedas imperiales insuficientes en tus arcas.');
-            }
-
-            const juegoData = await obtenerOGenerarJuegoData(username);
-            const poseeNFT = Boolean(cachePartidas[username]?._poseeAldeaNFT);
-            const maxSlotsCentral = poseeNFT ? 24 : 8;
-
-            if (!juegoData.carretonCartas) juegoData.carretonCartas = { cartasCentral: [] };
-
-            if (cartaTienda.tipo === 'aldeanos' && juegoData.carretonCartas.cartasCentral.length >= maxSlotsCentral) {
-                return socket.emit('tienda:error', 'Tu Carretón Central está lleno.');
-            }
-
-            const nuevoIdActivo = crypto.randomUUID();
-
-            if (cartaTienda.tipo === 'aldeanos') {
-                const slotsOcupados = new Set(juegoData.carretonCartas.cartasCentral.map(c => c.slotIndex));
-                let slotLibre = 0;
-                while (slotsOcupados.has(slotLibre)) slotLibre++;
-
-                juegoData.carretonCartas.cartasCentral.push({
-                    id: nuevoIdActivo,
-                    uuid: nuevoIdActivo,
-                    subtipo: cartaTienda.subtipo,
-                    nombre: cartaTienda.nombre,
-                    rareza: cartaTienda.rareza,
-                    nivel: 0, 
-                    slotIndex: slotLibre,
-                    equipamientoAnidado: []
-                });
-                juegoData.markModified('carretonCartas');
-            } else {
-                if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
-                juegoData.almacenEdificiosDisponibles.push({
-                    id: nuevoIdActivo,
-                    uuid: nuevoIdActivo,
-                    subtipo: cartaTienda.subtipo,
-                    nombre: cartaTienda.nombre,
-                    rareza: cartaTienda.rareza,
-                    nivel: 0,
-                    estaAnidado: false
-                });
-                juegoData.markModified('almacenEdificiosDisponibles');
-            }
-
-            usuario.balance -= cartaTienda.precio;
-            await Promise.all([usuario.save(), juegoData.save()]);
-
-            stockTiendaSistema[rubro].splice(indexItem, 1);
-            const diseñoOriginal = CATALOGO_DISEÑOS[rubro]?.find(d => d.subtipo === cartaTienda.subtipo);
-            if (diseñoOriginal) {
-                stockTiendaSistema[rubro].push(crearCartaParaTienda(diseñoOriginal, rubro));
-            }
-
-            socket.emit('tienda:compra-exitosa', {
-                nuevoBalance: usuario.balance,
-                carta: { id: nuevoIdActivo, nombre: cartaTienda.nombre, tipo: cartaTienda.tipo }
-            });
-
-            io.emit('tienda:recibir-stock', stockTiendaSistema);
-            socket.emit('almacen:actualizar-estado', { recursos: juegoData.almacenEdificiosDisponibles || [] });
-            socket.emit('almacen:actualizar-cartas', { almacenEdificiosDisponibles: juegoData.almacenEdificiosDisponibles || [] });
-            await forzarEnvioEstadoCarreton(socket, username, juegoData);
-
-        } catch (error) {
-            console.error('❌ Error en el procesamiento de compra:', error);
-            socket.emit('tienda:error', 'Error interno al procesar la compra.');
-        }
-    });
-
-    // ==========================================================================
     // 🚚 CARRETÓN
-    // ==========================================================================
     const responderCarreton = async (data = {}) => {
         const username = socket.username || data?.username;
         if (!username) return;
@@ -618,20 +533,32 @@ io.on('connection', (socket) => {
     socket.on('carreton:solicitar-datos', responderCarreton);
     socket.on('carreton:solicitar-estado', responderCarreton);
 
+    // 🚚 MOVER CARTA EN CARRETÓN (MODIFICADO - DIRECTIVA 3)
     socket.on('carreton:mover-carta', async (data = {}) => {
-        const uuidCarta = data.uuidCarta || data.cartaId;
-        const { haciaSlot } = data;
+        const { cartaId, bloqueDestino, slotDestinoIndex } = data;
+        const targetCartaId = cartaId || data.uuidCarta;
+        const targetSlotIndex = slotDestinoIndex !== undefined ? slotDestinoIndex : data.haciaSlot;
         const username = socket.username || data?.username;
         
-        if (!username || uuidCarta === undefined || haciaSlot === undefined) return;
+        if (!username || !targetCartaId) return;
 
         try {
             const juegoData = await obtenerOGenerarJuegoData(username);
             if (!juegoData?.carretonCartas?.cartasCentral) return;
 
-            const carta = juegoData.carretonCartas.cartasCentral.find(c => c.uuid === uuidCarta || c.id === uuidCarta);
+            const carta = juegoData.carretonCartas.cartasCentral.find(
+                c => c.uuid === targetCartaId || c.id === targetCartaId || c.cartaId === targetCartaId
+            );
+
             if (carta) {
-                carta.slotIndex = haciaSlot;
+                if (targetSlotIndex !== undefined) {
+                    carta.slotIndex = targetSlotIndex;
+                }
+                if (bloqueDestino) {
+                    carta.bloque = bloqueDestino;
+                    carta.ubicacion = bloqueDestino;
+                }
+                
                 juegoData.markModified('carretonCartas');
                 await juegoData.save();
                 await forzarEnvioEstadoCarreton(socket, username, juegoData);
@@ -672,7 +599,7 @@ io.on('connection', (socket) => {
     });
 
     // ==========================================================================
-    // 🌾 FINCA Y CONSTRUCCIÓN
+    // 🌾 FINCA Y CONSTRUCCIÓN (MODIFICADO - DIRECTIVA 3)
     // ==========================================================================
     socket.on('finca:construir', async (data = {}) => {
         const { slotId, uuidEdificio } = data;
@@ -683,20 +610,26 @@ io.on('connection', (socket) => {
             const juegoData = await obtenerOGenerarJuegoData(username);
 
             if (!juegoData.cimientosFinca) juegoData.cimientosFinca = [];
-            const slot = juegoData.cimientosFinca.find(s => s.slotId === slotId);
+            
+            // Búsqueda tolerante de slot según la firma/formato del string del modelo
+            const slot = juegoData.cimientosFinca.find(
+                s => s.slotId === `slot-${slotId}` || Number(s.slotId) === Number(slotId) || s.slotId === slotId
+            );
             
             if (!slot) return socket.emit('finca:error', 'Slot de finca no válido.');
             if (slot.estaOcupado) return socket.emit('finca:error', 'El slot ya está ocupado.');
 
             if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
-            const indexEdificio = juegoData.almacenEdificiosDisponibles.findIndex(e => e.uuid === uuidEdificio || e.id === uuidEdificio);
-            if (indexEdificio === -1) return socket.emit('finca:error', 'Edificio no encontrado en el almacén.');
+            const edificio = juegoData.almacenEdificiosDisponibles.find(
+                e => e.uuid === uuidEdificio || e.id === uuidEdificio
+            );
+            if (!edificio) return socket.emit('finca:error', 'Edificio no encontrado en el almacén.');
 
-            // Si es una carta del almacén, podemos marcarla como anidada o removerla según el flujo actual
-            const edificio = juegoData.almacenEdificiosDisponibles[indexEdificio];
+            // Marcar la carta como anidada para persistencia estricta en Mongoose
             edificio.estaAnidado = true;
-            edificio.slotAnidado = slotId;
+            edificio.slotAnidado = Number(slotId);
 
+            // Actualizar datos del slot en terreno 3D
             slot.estaOcupado = true;
             slot.subtipo = edificio.subtipo;
             slot.nivel = edificio.nivel || 0;
@@ -732,7 +665,7 @@ io.on('connection', (socket) => {
             const juegoData = await obtenerOGenerarJuegoData(username);
             if (!juegoData?.cimientosFinca) return socket.emit('finca:error', 'Datos de juego no encontrados.');
 
-            const slotIndex = juegoData.cimientosFinca.findIndex(s => s.slotId === slotId);
+            const slotIndex = juegoData.cimientosFinca.findIndex(s => s.slotId === slotId || Number(s.slotId) === Number(slotId));
             if (slotIndex === -1 || !juegoData.cimientosFinca[slotIndex].estaOcupado) {
                 return socket.emit('finca:error', 'El slot especificado no tiene ninguna estructura para desmantelar.');
             }
@@ -810,7 +743,7 @@ io.on('connection', (socket) => {
             const juegoData = await obtenerOGenerarJuegoData(username);
             if (!juegoData?.cimientosFinca) return socket.emit('finca:error', 'Datos no encontrados.');
 
-            const slotIndex = juegoData.cimientosFinca.findIndex(s => s.slotId === slotId);
+            const slotIndex = juegoData.cimientosFinca.findIndex(s => s.slotId === slotId || Number(s.slotId) === Number(slotId));
             if (slotIndex === -1 || !juegoData.cimientosFinca[slotIndex].estaOcupado) {
                 return socket.emit('finca:error', 'Estructura no encontrada.');
             }
