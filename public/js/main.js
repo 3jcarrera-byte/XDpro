@@ -110,17 +110,25 @@ window.cambiarPantalla = function(pantallaId) {
         }
 
         // ==========================================================================
-        // 🏗️ DISPARADOR LOGÍSTICO COMPENSADO: FINCA IMPERIAL (SOLUCIONADO DEFINITIVO)
+        // 🏗️ DISPARADOR LOGÍSTICO COMPENSADO: FINCA IMPERIAL (SINCRONIZACIÓN FÍSICA)
         // ==========================================================================
         if (pantallaId === 'pantalla-finca') {
             if (typeof init3D === 'function') {
                 init3D('canvas-finca-container', 5);
             }
-            // Forzar la solicitud de recursos en caliente al cambiar de vista
-            if (socket && socket.connected && typeof cargarAlmacen === 'function') {
-                console.log("🗄️ Forzando recarga de inventario arquitectónico...");
-                cargarAlmacen(); 
+            
+            // Autenticación de socket y solicitud de recursos diferida estrictamente al entrar a la Finca
+            if (socket && socket.connected) {
+                const nickActivo = sessionStorage.getItem('gladiador_nick');
+                if (nickActivo) {
+                    console.log('🔄 Vinculando socket y solicitando inventario arquitectónico para:', nickActivo);
+                    socket.emit('jugador:autenticado', { username: nickActivo });
+                }
+                if (typeof cargarAlmacen === 'function') {
+                    cargarAlmacen();
+                }
             }
+
             setTimeout(() => {
                 if (typeof renderizarAlmacen === 'function') renderizarAlmacen();
                 if (typeof cargarCarreton === 'function') cargarCarreton();
@@ -315,10 +323,8 @@ if (loginForm) {
                     setTimeout(inicializarMundo3D, 50);
                 }
                 
-                // Emite el evento directo tras verificar el login
-                if (socket && socket.connected) {
-                    socket.emit('jugador:autenticado', { username: data.username });
-                }
+                // Nota: Eliminada la emisión prematura de 'jugador:autenticado' desde el login
+                // para evitar colisiones asíncronas con el inventario antes de entrar a la Finca.
             } else {
                 alert('Acceso denegado: ' + (data.message || 'Credenciales erróneas imperial.'));
             }
