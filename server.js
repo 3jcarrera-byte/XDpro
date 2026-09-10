@@ -10,9 +10,14 @@ const path = require('path');
 const cors = require('cors');
 const crypto = require('crypto');
 
-// Modelos de Mongoose
-const User = require('./models/User');
-const GameDataModel = require('./models/GameData');
+// ========================================================
+// 🛡️ ADAPTADOR UNIVERSAL DE MODELOS MONGOOSE (ANTI-CRASH)
+// ========================================================
+const rawUser = require('./models/User');
+const User = rawUser.findOne ? rawUser : (rawUser.User || mongoose.models.User || mongoose.model('User'));
+
+const rawGameData = require('./models/GameData');
+const GameDataModel = rawGameData.findOne ? rawGameData : (rawGameData.GameData || rawGameData.GameDataModel || mongoose.models.GameData || mongoose.model('GameData'));
 
 const app = express();
 const server = http.createServer(app);
