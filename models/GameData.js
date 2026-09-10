@@ -1,178 +1,109 @@
 // ==========================================================================
-// models/GameData.js - Modelo de Estado del Juego y Persistencia Imperial
+// models/GameData.js - Esquema Mongoose de Datos de Juego del Gladiador
 // ==========================================================================
 
 const mongoose = require('mongoose');
 
-// ==========================================================================
-// 🌾 1. ESQUEMA DE RECURSOS APILABLES (Mazos de Máx. 99 Unidades)
-// ==========================================================================
-const RecursoStackSchema = new mongoose.Schema({
-    tipo: { 
-        type: String, 
-        required: true, 
-        enum: ['madera', 'oro', 'comida', 'piedra', 'hierro'] 
-    },
-    cantidad: { 
-        type: Number, 
-        default: 1, 
-        min: 0, 
-        max: 99,
-        set: v => (isNaN(v) ? 0 : Math.min(99, Math.max(0, Math.floor(Number(v)))))
-    }
+// Esquema de Recurso Anidado / Ítem
+const RecursoAnidadoSchema = new mongoose.Schema({
+    uuid: { type: String },
+    id: { type: String },
+    subtipo: { type: String, required: true },
+    nombre: { type: String },
+    cantidad: { type: Number, default: 1 }
 }, { _id: false });
 
-// ==========================================================================
-// ⚔️ 2. ESQUEMA DE EQUIPAMIENTO (ADN único vía UUID)
-// ==========================================================================
-const EquipamientoSchema = new mongoose.Schema({
-    uuid: { type: String, required: true },
-    subtipo: { type: String, required: true }, // 'espada_bronce', 'escudo_hierro', etc.
-    nombre: { type: String, required: true },
-    rareza: { type: String, required: true, default: 'comun' },
-    estado: { type: String, default: 'activo', enum: ['activo', 'bloqueado_mercado', 'destruido'] }
-}, { _id: false });
-
-// ==========================================================================
-// 👨‍🌾 3. ESQUEMA DE POBLADORES / ALDEANOS (Anidación de Ítems)
-// ==========================================================================
-const PobladorSchema = new mongoose.Schema({
-    uuid: { type: String, required: true },
-    subtipo: { type: String, required: true }, // 'gladiador_minero', 'guerrero_arena'
-    nombre: { type: String, required: true },
-    rareza: { type: String, required: true, default: 'comun' },
-    nivel: { type: Number, default: 0, min: 0 },
-    slotIndex: { type: Number, default: -1 }, // Ranura física dentro del Carretón logístico
-    equipamientoAnidado: { type: [EquipamientoSchema], default: [] } // Mecánica de Equipamiento ➡ Personaje
-}, { _id: false });
-
-// ==========================================================================
-// 🏛️ 4. ESQUEMA DE CIMIENTOS PARA ESTRUCTURAS 3D (Blindaje de Tipos)
-// ==========================================================================
-const CimientoEstructuraSchema = new mongoose.Schema({
-    slotId: { 
-        type: Number, 
-        required: true,
-        set: v => (isNaN(v) ? 0 : Math.max(0, Math.floor(Number(v)))) // Cast autoritario
-    },
+// Esquema de Cimientos de la Finca (Terrenos / Slots)
+const CimientoFincaSchema = new mongoose.Schema({
+    slotId: { type: String, required: true },
     estaOcupado: { type: Boolean, default: false },
-    edificioUuid: { type: String, default: null },
     subtipo: { type: String, default: null },
+    nivel: { type: Number, default: 0 },
     nombre: { type: String, default: null },
-    rareza: { type: String, default: null },
-    nivel: { type: Number, default: 0, min: 0 },
-    durabilidadActual: { type: Number, default: 100, min: 0, max: 100 },
-    produccionGenerada: { type: Number, default: 0, min: 0 },
-    pobladoresAsignados: { type: [PobladorSchema], default: [] } // Personajes ➡ Edificios Civiles
+    uuid: { type: String, default: null },
+    produccionPendiente: { type: Number, default: 0 },
+    recursosAnidados: [RecursoAnidadoSchema]
 }, { _id: false });
 
-// ==========================================================================
-// 🌍 5. ESQUEMA GLOBAL DE DATOS DE JUEGO (GameData)
-// ==========================================================================
+// Esquema de Carta del Carretón (Aldeano / Ítem Equipado)
+const CartaCarretonSchema = new mongoose.Schema({
+    uuid: { type: String },
+    id: { type: String },
+    slotIndex: { type: Number, required: true },
+    nombre: { type: String },
+    subtipo: { type: String },
+    rarity: { type: String, default: 'comun' },
+    role: { type: String },
+    lvl: { type: Number, default: 1 },
+    stats: {
+        fuerza: { type: Number, default: 0 },
+        agilidad: { type: Number, default: 0 },
+        vitalidad: { type: Number, default: 0 }
+    },
+    equipamientoAnidado: [RecursoAnidadoSchema]
+}, { _id: false });
+
+// Esquema del Almacén de Edificios / Recursos Disponibles
+const AlmacenItemSchema = new mongoose.Schema({
+    uuid: { type: String },
+    id: { type: String },
+    subtipo: { type: String, required: true },
+    nombre: { type: String },
+    nivel: { type: Number, default: 0 },
+    rareza: { type: String, default: 'comun' },
+    cantidad: { type: Number, default: 1 }
+}, { _id: false });
+
+// Esquema Principal GameData
 const GameDataSchema = new mongoose.Schema({
     username: { 
         type: String, 
         required: true, 
         unique: true, 
-        trim: true, 
         index: true 
     },
-    
-    // Áreas Geográficas del Imperio (Canvas 3D / Three.js)
-    cimientosFinca: { type: [CimientoEstructuraSchema], default: [] },  // Máx 5 parcelas
-    cimientosAldea: { type: [CimientoEstructuraSchema], default: [] },  // Máx 12 parcelas
-
-    // El Carretón Logístico
+    cimientosFinca: [CimientoFincaSchema],
+    almacenEdificiosDisponibles: [AlmacenItemSchema],
     carretonCartas: {
-        cartasAldea: { type: [PobladorSchema], default: [] },   // Habilitación Máx 16
-        cartasFinca: { type: [PobladorSchema], default: [] },    // Habilitación Máx 8
-        cartasCentral: { type: [PobladorSchema], default: [] }   // Slots Elásticos (Máx 24)
-    },
-
-    // Almacén Central e Inventarios
-    almacenCartas: { type: [PobladorSchema], default: [] },
-    almacenEdificiosDisponibles: [{
-        uuid: { type: String, required: true },
-        subtipo: { type: String, required: true },
-        nombre: { type: String, required: true },
-        rareza: { type: String, required: true },
-        nivel: { type: Number, default: 0, min: 0 }
-    }],
-    inventarioRecursos: { type: [RecursoStackSchema], default: [] },
-
-    updatedAt: { type: Date, default: Date.now }
-}, {
-    timestamps: false,
-    versionKey: false
+        cartasCentral: [CartaCarretonSchema]
+    }
+}, { 
+    timestamps: true 
 });
 
-// ==========================================================================
-// 🛡️ MIDDLEWARE PRE-SAVE: Sanitización Atómica
-// ==========================================================================
-GameDataSchema.pre('save', function(next) {
-    this.updatedAt = new Date();
-
-    if (Array.isArray(this.cimientosFinca)) {
-        this.cimientosFinca.forEach(cimiento => {
-            if (cimiento && cimiento.slotId !== undefined && cimiento.slotId !== null) {
-                cimiento.slotId = isNaN(cimiento.slotId) ? 0 : Math.max(0, Math.floor(Number(cimiento.slotId)));
-            }
-        });
-    }
-
-    if (Array.isArray(this.cimientosAldea)) {
-        this.cimientosAldea.forEach(cimiento => {
-            if (cimiento && cimiento.slotId !== undefined && cimiento.slotId !== null) {
-                cimiento.slotId = isNaN(cimiento.slotId) ? 0 : Math.max(0, Math.floor(Number(cimiento.slotId)));
-            }
-        });
-    }
-    
-    next();
-});
-
-// ==========================================================================
-// 🛠️ MÉTODO: Inicializador Limpio de Parcelas Vacías
-// ==========================================================================
+/**
+ * Método de instancia para inicializar los 12 espacios de la finca si están vacíos.
+ */
 GameDataSchema.methods.inicializarEspaciosVacios = function() {
-    if (!Array.isArray(this.cimientosFinca) || this.cimientosFinca.length === 0) {
-        this.cimientosFinca = [];
-        for (let i = 0; i < 5; i++) {
-            this.cimientosFinca.push({ 
-                slotId: i, 
-                estaOcupado: false,
-                edificioUuid: null,
-                subtipo: null,
-                nombre: null,
-                rareza: null,
-                nivel: 0,
-                durabilidadActual: 100,
-                produccionGenerada: 0,
-                pobladoresAsignados: []
-            });
-        }
-    }
-
-    if (!Array.isArray(this.cimientosAldea) || this.cimientosAldea.length === 0) {
-        this.cimientosAldea = [];
-        for (let i = 0; i < 12; i++) {
-            this.cimientosAldea.push({ 
-                slotId: i, 
-                estaOcupado: false,
-                edificioUuid: null,
-                subtipo: null,
-                nombre: null,
-                rareza: null,
-                nivel: 0,
-                durabilidadActual: 100,
-                produccionGenerada: 0,
-                pobladoresAsignados: []
-            });
-        }
+    if (!this.cimientosFinca || this.cimientosFinca.length === 0) {
+        this.cimientosFinca = Array.from({ length: 12 }, (_, i) => ({
+            slotId: `slot-${i}`,
+            estaOcupado: false,
+            subtipo: null,
+            nivel: 0,
+            nombre: null,
+            uuid: null,
+            produccionPendiente: 0,
+            recursosAnidados: []
+        }));
     }
 };
 
-// ==========================================================================
-// 📦 EXPORTACIÓN LIMPIA Y COMPATIBLE
-// ==========================================================================
-module.exports = mongoose.models.GameData || mongoose.model('GameData', GameDataSchema);
+/**
+ * Método de instancia para calcular el límite dinámico de cartas en el carretón
+ */
+GameDataSchema.methods.calcularCapacidadCarreton = function() {
+    let capacidadBase = 3;
+    if (Array.isArray(this.cimientosFinca)) {
+        for (const slot of this.cimientosFinca) {
+            if (slot.estaOcupado) {
+                if (slot.subtipo === 'casona' || slot.subtipo === 'casa') {
+                    capacidadBase += 1 + (slot.nivel || 0);
+                }
+            }
+        }
+    }
+    return capacidadBase;
+};
+
+module.exports = mongoose.model('GameData', GameDataSchema);
