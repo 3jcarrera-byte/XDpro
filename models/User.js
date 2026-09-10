@@ -7,31 +7,49 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-// Importaciones de archivos de modelos (pueden ser objetos o clases)
+// Importaciones defensivas de archivos de modelos
 const rawUser = require('../models/User');
 const rawGameData = require('../models/GameData');
 
 /**
  * 🛡️ RESOLUTORES DEFENSIVOS DE MODELOS
- * Garantizan extraer una instancia válida de Mongoose sin lanzar TypeError o MissingSchemaError.
+ * Evitan errores como MissingSchemaError o TypeError resolviendo la instancia 
+ * activa desde la memoria global de Mongoose o desde la exportación del módulo.
  */
 function obtenerModeloUsuario() {
+    if (mongoose.models && mongoose.models.User) return mongoose.models.User;
     if (rawUser && typeof rawUser.findOne === 'function') return rawUser;
     if (rawUser && rawUser.User && typeof rawUser.User.findOne === 'function') return rawUser.User;
-    if (mongoose.models && mongoose.models.User) return mongoose.models.User;
-    return mongoose.model('User');
+    if (rawUser && rawUser.UserModel && typeof rawUser.UserModel.findOne === 'function') return rawUser.UserModel;
+    
+    const schemaToCompile = rawUser?.schema || (rawUser?.obj ? rawUser : null);
+    if (schemaToCompile) return mongoose.model('User', schemaToCompile);
+
+    try {
+        return mongoose.model('User');
+    } catch (e) {
+        throw new Error('El modelo "User" no pudo ser resuelto ni registrado. Revisa ../models/User.js');
+    }
 }
 
 function obtenerModeloGameData() {
+    if (mongoose.models && mongoose.models.GameData) return mongoose.models.GameData;
     if (rawGameData && typeof rawGameData.findOne === 'function') return rawGameData;
     if (rawGameData && rawGameData.GameData && typeof rawGameData.GameData.findOne === 'function') return rawGameData.GameData;
     if (rawGameData && rawGameData.GameDataModel && typeof rawGameData.GameDataModel.findOne === 'function') return rawGameData.GameDataModel;
-    if (mongoose.models && mongoose.models.GameData) return mongoose.models.GameData;
-    return mongoose.model('GameData');
+
+    const schemaToCompile = rawGameData?.schema || (rawGameData?.obj ? rawGameData : null);
+    if (schemaToCompile) return mongoose.model('GameData', schemaToCompile);
+
+    try {
+        return mongoose.model('GameData');
+    } catch (e) {
+        throw new Error('El modelo "GameData" no pudo ser resuelto ni registrado. Revisa ../models/GameData.js');
+    }
 }
 
 /**
- * Auxiliar para escapar caracteres especiales en expresiones regulares
+ * Auxiliar para escapar caracteres especiales en expresiones regulares (Insensibilidad a mayúsculas)
  */
 function escapeRegex(text) {
     return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
@@ -78,7 +96,6 @@ router.post('/register', async (req, res) => {
         // Determinar si el modelo hashes de forma automática o si debemos hashear explícitamente
         let passwordFinal = password;
         const dummyUser = new User({});
-        // Si no tiene hook 'pre' o método para hashear y la contraseña no parece bcrypt, la encriptamos defensivamente
         if (typeof dummyUser.comparePassword !== 'function' && !password.startsWith('$2')) {
             const salt = await bcrypt.genSalt(10);
             passwordFinal = await bcrypt.hash(password, salt);
@@ -112,7 +129,7 @@ router.post('/register', async (req, res) => {
             await nuevoGameData.save();
         } catch (gameDataError) {
             console.error('⚠️ Error al crear GameData en el registro:', gameDataError);
-            // Si la inicialización de GameData falla, revertimos la creación del usuario si es posible
+            // Revertir la creación del usuario si falla GameData
             await User.deleteOne({ _id: nuevoUsuario._id });
             throw new Error('Fallo en la inicialización de los datos del juego del gladiador.');
         }
