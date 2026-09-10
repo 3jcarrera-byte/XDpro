@@ -114,30 +114,20 @@ window.cambiarPantalla = function(pantallaId) {
         // ==========================================================================
         if (pantallaId === 'pantalla-finca') {
             if (typeof init3D === 'function') {
-                console.log("🏗️ Inicializando terreno 3D de la Finca...");
                 init3D('canvas-finca-container', 5);
             }
-            
-            // Incrementar el desfase asíncrono a 180ms para permitir el redibujado de la GPU
             setTimeout(() => {
-                console.log("🚚 Hilo gráfico liberado: Forzando sincronización de inventario...");
+                if (typeof renderizarAlmacen === 'function') renderizarAlmacen();
                 if (typeof cargarCarreton === 'function') cargarCarreton();
-                if (typeof cargarAlmacen === 'function') cargarAlmacen();
-                
-                // Forzar un segundo redibujado de seguridad por si el WebSocket se adelantó
-                setTimeout(() => {
-                    if (typeof renderizarAlmacen === 'function') renderizarAlmacen();
-                }, 80);
-            }, 180);
+            }, 100);
         } else if (pantallaId === 'pantalla-aldea') {
             if (typeof init3D === 'function' && document.getElementById('canvas-aldea-container')) {
-                console.log("🏘️ Inicializando entorno 3D de la Aldea...");
                 init3D('canvas-aldea-container', 12);
             }
             setTimeout(() => {
+                if (typeof renderizarAlmacen === 'function') renderizarAlmacen();
                 if (typeof cargarCarreton === 'function') cargarCarreton();
-                if (typeof cargarAlmacen === 'function') cargarAlmacen();
-            }, 150);
+            }, 100);
         }
 
         // HERENCIA CONTINUA DE FONDOS REALES AL ENTRAR AL MERCADO
