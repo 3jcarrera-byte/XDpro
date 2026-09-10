@@ -1,9 +1,34 @@
-// routes/auth.js (Controlador de Autenticación y Registro Sincronizado con GameData)
+// ==========================================================================
+// routes/auth.js - Controlador de Autenticación y Registro Defensivo
+// ==========================================================================
 
 const express = require('express');
 const router = express.Router();
-const User = require('../models/User');
-const GameData = require('../models/GameData');
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
+
+// Importaciones de archivos de modelos (pueden ser objetos o clases)
+const rawUser = require('../models/User');
+const rawGameData = require('../models/GameData');
+
+/**
+ * 🛡️ RESOLUTORES DEFENSIVOS DE MODELOS
+ * Garantizan extraer una instancia válida de Mongoose sin lanzar TypeError o MissingSchemaError.
+ */
+function obtenerModeloUsuario() {
+    if (rawUser && typeof rawUser.findOne === 'function') return rawUser;
+    if (rawUser && rawUser.User && typeof rawUser.User.findOne === 'function') return rawUser.User;
+    if (mongoose.models && mongoose.models.User) return mongoose.models.User;
+    return mongoose.model('User');
+}
+
+function obtenerModeloGameData() {
+    if (rawGameData && typeof rawGameData.findOne === 'function') return rawGameData;
+    if (rawGameData && rawGameData.GameData && typeof rawGameData.GameData.findOne === 'function') return rawGameData.GameData;
+    if (rawGameData && rawGameData.GameDataModel && typeof rawGameData.GameDataModel.findOne === 'function') return rawGameData.GameDataModel;
+    if (mongoose.models && mongoose.models.GameData) return mongoose.models.GameData;
+    return mongoose.model('GameData');
+}
 
 // ==========================================================================
 // 📝 1. RUTA DE REGISTRO DE GLADIADORES
@@ -20,7 +45,10 @@ router.post('/register', async (req, res) => {
             });
         }
 
-        // Verificar si el usuario ya existe en la base de datos
+        const User = obtenerModeloUsuario();
+        const GameData = obtenerModeloGameData();
+
+        // Verificar si el usuario ya existe
         const usuarioExistente = await User.findOne({ username: username.trim() });
         if (usuarioExistente) {
             return res.status(409).json({ 
@@ -29,7 +57,7 @@ router.post('/register', async (req, res) => {
             });
         }
 
-        // Crear y guardar el nuevo usuario en la colección User
+        // Crear y guardar el nuevo usuario
         const nuevoUsuario = new User({
             username: username.trim(),
             password,
@@ -38,25 +66,21 @@ router.post('/register', async (req, res) => {
             nombre: nombre ? nombre.trim() : null,
             apellido: apellido ? apellido.trim() : null,
             wallet: wallet ? wallet.trim() : null,
-            balance: 100.00 // Bono inicial de bienvenida opcional para el Imperio
+            balance: 100.00
         });
 
         await nuevoUsuario.save();
 
-        // Inicializar de forma síncrona el documento GameData asociado al gladiador
+        // Inicializar documento GameData de forma defensiva
         let nuevoGameData = new GameData({
             username: nuevoUsuario.username,
-            cimientosFinca: [],
-            cimientosAldea: [],
-            inventarioRecursos: [
-                { tipo: 'madera', cantidad: 50 },
-                { tipo: 'oro', cantidad: 100 },
-                { tipo: 'comida', cantidad: 30 }
-            ]
+            almacenEdificiosDisponibles: [],
+            carretonCartas: { cartasCentral: [] }
         });
 
-        // Ejecutar el método del esquema para poblar las parcelas 3D vacías (5 Finca, 12 Aldea)
-        nuevoGameData.inicializarEspaciosVacios();
+        if (typeof nuevoGameData.inicializarEspaciosVacios === 'function') {
+            nuevoGameData.inicializarEspaciosVacios();
+        }
         await nuevoGameData.save();
 
         return res.status(201).json({
@@ -75,7 +99,7 @@ router.post('/register', async (req, res) => {
 });
 
 // ==========================================================================
-// 🔑 2. RUTA DE INICIO DE SESIÓN (LOGIN)
+// 🔑 2. RUTA DE INICIO DE SESIÓN (LOGIN ROBUSTO)
 // ==========================================================================
 router.post('/login', async (req, res) => {
     try {
@@ -88,7 +112,9 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // Buscar al usuario por su nombre exacto
+        const User = obtenerModeloUsuario();
+        const GameData = obtenerModeloGameData();
+
         const usuario = await User.findOne({ username: username.trim() });
         if (!usuario) {
             return res.status(401).json({ 
@@ -97,16 +123,25 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // Validar si el usuario se encuentra baneado del sistema
-        if (usuario.status !== 'active') {
+        // Validar si el usuario está baneado
+        if (usuario.status && usuario.status !== 'active') {
             return res.status(403).json({ 
                 success: false, 
                 message: `Acceso restringido. Motivo: ${usuario.banReason || 'Sanción administrativa en curso.'}` 
             });
         }
 
-        // Verificar la contraseña cifrada mediante el método del modelo
-        const esPasswordValida = await usuario.comparePassword(password);
+        // 🛡️ Validación Jerárquica de Contraseña
+        let esPasswordValida = false;
+
+        if (typeof usuario.comparePassword === 'function') {
+            esPasswordValida = await usuario.comparePassword(password);
+        } else if (usuario.password && typeof usuario.password === 'string' && usuario.password.startsWith('$2')) {
+            esPasswordValida = await bcrypt.compare(password, usuario.password);
+        } else {
+            esPasswordValida = (usuario.password === password);
+        }
+
         if (!esPasswordValida) {
             return res.status(401).json({ 
                 success: false, 
@@ -114,11 +149,17 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // Asegurar que el documento GameData exista al iniciar sesión (auto-reparación por seguridad)
+        // Auto-reparación o comprobación de GameData
         let gameData = await GameData.findOne({ username: usuario.username });
         if (!gameData) {
-            gameData = new GameData({ username: usuario.username });
-            gameData.inicializarEspaciosVacios();
+            gameData = new GameData({ 
+                username: usuario.username,
+                almacenEdificiosDisponibles: [],
+                carretonCartas: { cartasCentral: [] }
+            });
+            if (typeof gameData.inicializarEspaciosVacios === 'function') {
+                gameData.inicializarEspaciosVacios();
+            }
             await gameData.save();
         }
 
@@ -127,7 +168,7 @@ router.post('/login', async (req, res) => {
             message: 'Sesión iniciada con éxito.',
             username: usuario.username,
             balance: usuario.balance,
-            poseeAldea: usuario.poseeAldea
+            poseeAldea: usuario.poseeAldea || false
         });
 
     } catch (error) {
