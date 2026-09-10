@@ -1,55 +1,17 @@
 // ==========================================================================
-// routes/auth.js - Controlador de Autenticación y Registro Defensivo
+// routes/auth.js - Controlador de Autenticación y Registro
 // ==========================================================================
 
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
-// Importaciones defensivas de archivos de modelos
-const rawUser = require('../models/User');
-const rawGameData = require('../models/GameData');
+// Importaciones directas de los modelos
+const User = require('../models/User');
+const GameData = require('../models/GameData');
 
 /**
- * 🛡️ RESOLUTORES DEFENSIVOS DE MODELOS
- * Evitan errores como MissingSchemaError o TypeError resolviendo la instancia 
- * activa desde la memoria global de Mongoose o desde la exportación del módulo.
- */
-function obtenerModeloUsuario() {
-    if (mongoose.models && mongoose.models.User) return mongoose.models.User;
-    if (rawUser && typeof rawUser.findOne === 'function') return rawUser;
-    if (rawUser && rawUser.User && typeof rawUser.User.findOne === 'function') return rawUser.User;
-    if (rawUser && rawUser.UserModel && typeof rawUser.UserModel.findOne === 'function') return rawUser.UserModel;
-    
-    const schemaToCompile = rawUser?.schema || (rawUser?.obj ? rawUser : null);
-    if (schemaToCompile) return mongoose.model('User', schemaToCompile);
-
-    try {
-        return mongoose.model('User');
-    } catch (e) {
-        throw new Error('El modelo "User" no pudo ser resuelto ni registrado. Revisa ../models/User.js');
-    }
-}
-
-function obtenerModeloGameData() {
-    if (mongoose.models && mongoose.models.GameData) return mongoose.models.GameData;
-    if (rawGameData && typeof rawGameData.findOne === 'function') return rawGameData;
-    if (rawGameData && rawGameData.GameData && typeof rawGameData.GameData.findOne === 'function') return rawGameData.GameData;
-    if (rawGameData && rawGameData.GameDataModel && typeof rawGameData.GameDataModel.findOne === 'function') return rawGameData.GameDataModel;
-
-    const schemaToCompile = rawGameData?.schema || (rawGameData?.obj ? rawGameData : null);
-    if (schemaToCompile) return mongoose.model('GameData', schemaToCompile);
-
-    try {
-        return mongoose.model('GameData');
-    } catch (e) {
-        throw new Error('El modelo "GameData" no pudo ser resuelto ni registrado. Revisa ../models/GameData.js');
-    }
-}
-
-/**
- * Auxiliar para escapar caracteres especiales en expresiones regulares (Insensibilidad a mayúsculas)
+ * Auxiliar para escapar caracteres especiales en expresiones regulares
  */
 function escapeRegex(text) {
     return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
@@ -62,11 +24,10 @@ router.post('/register', async (req, res) => {
     try {
         const { username, password, email, pais, nombre, apellido, wallet } = req.body;
 
-        // Validar campos mínimos obligatorios
         if (!username || !password || typeof username !== 'string' || typeof password !== 'string') {
             return res.status(400).json({ 
                 success: false, 
-                message: 'El nombre de usuario y la contraseña son obligatorios y deben ser válidos.' 
+                message: 'El nombre de usuario y la contraseña son obligatorios.' 
             });
         }
 
@@ -77,9 +38,6 @@ router.post('/register', async (req, res) => {
                 message: 'El nombre de usuario debe tener al menos 3 caracteres.'
             });
         }
-
-        const User = obtenerModeloUsuario();
-        const GameData = obtenerModeloGameData();
 
         // Búsqueda insensible a mayúsculas/minúsculas
         const usuarioExistente = await User.findOne({ 
@@ -93,13 +51,9 @@ router.post('/register', async (req, res) => {
             });
         }
 
-        // Determinar si el modelo hashes de forma automática o si debemos hashear explícitamente
-        let passwordFinal = password;
-        const dummyUser = new User({});
-        if (typeof dummyUser.comparePassword !== 'function' && !password.startsWith('$2')) {
-            const salt = await bcrypt.genSalt(10);
-            passwordFinal = await bcrypt.hash(password, salt);
-        }
+        // Hashear contraseña explícitamente
+        const salt = await bcrypt.genSalt(10);
+        const passwordFinal = await bcrypt.hash(password, salt);
 
         // Crear instancia del usuario
         const nuevoUsuario = new User({
@@ -115,7 +69,7 @@ router.post('/register', async (req, res) => {
 
         await nuevoUsuario.save();
 
-        // Inicializar documento GameData de forma defensiva
+        // Inicializar documento GameData
         try {
             let nuevoGameData = new GameData({
                 username: nuevoUsuario.username,
@@ -129,7 +83,6 @@ router.post('/register', async (req, res) => {
             await nuevoGameData.save();
         } catch (gameDataError) {
             console.error('⚠️ Error al crear GameData en el registro:', gameDataError);
-            // Revertir la creación del usuario si falla GameData
             await User.deleteOne({ _id: nuevoUsuario._id });
             throw new Error('Fallo en la inicialización de los datos del juego del gladiador.');
         }
@@ -143,7 +96,6 @@ router.post('/register', async (req, res) => {
     } catch (error) {
         console.error('❌ Error crítico en ruta /register:', error);
 
-        // Control del error de clave duplicada de MongoDB (Index constraint)
         if (error.code === 11000) {
             return res.status(409).json({
                 success: false,
@@ -159,7 +111,7 @@ router.post('/register', async (req, res) => {
 });
 
 // ==========================================================================
-// 🔑 2. RUTA DE INICIO DE SESIÓN (LOGIN ROBUSTO)
+// 🔑 2. RUTA DE INICIO DE SESIÓN (LOGIN)
 // ==========================================================================
 router.post('/login', async (req, res) => {
     try {
@@ -173,10 +125,7 @@ router.post('/login', async (req, res) => {
         }
 
         const usernameLimpio = username.trim();
-        const User = obtenerModeloUsuario();
-        const GameData = obtenerModeloGameData();
 
-        // Buscar al usuario de manera insensible a mayúsculas/minúsculas
         const usuario = await User.findOne({ 
             username: new RegExp(`^${escapeRegex(usernameLimpio)}$`, 'i') 
         });
@@ -188,7 +137,6 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // Validar si el usuario está baneado
         if (usuario.status && usuario.status !== 'active') {
             return res.status(403).json({ 
                 success: false, 
@@ -196,12 +144,11 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // 🛡️ Validación Jerárquica de Contraseña
+        // Comparación de contraseña con bcrypt
         let esPasswordValida = false;
-
         if (typeof usuario.comparePassword === 'function') {
             esPasswordValida = await usuario.comparePassword(password);
-        } else if (usuario.password && typeof usuario.password === 'string' && usuario.password.startsWith('$2')) {
+        } else if (usuario.password && usuario.password.startsWith('$2')) {
             esPasswordValida = await bcrypt.compare(password, usuario.password);
         } else {
             esPasswordValida = (usuario.password === password);
