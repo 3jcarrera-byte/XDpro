@@ -199,7 +199,13 @@ if (typeof socket !== 'undefined' && socket) {
         }
 
         // Asignar el pool unificado libre de fugas asíncronas
-        datosAlmacen.recursos = poolCartas;
+        // 🔥 REPARACIÓN EN CALIENTE: Forzar propiedades de tipado para subdocumentos de Mongoose
+        datosAlmacen.recursos = poolCartas.map(recurso => {
+            if (recurso.subtipo && recurso.subtipo.toLowerCase().trim() === 'casona') {
+                recurso.tipo = 'estructura';
+            }
+            return recurso;
+        });
 
         // Forzar redibujado geométrico inmediato en la barra inferior activa de la SPA
         renderizarAlmacen();
