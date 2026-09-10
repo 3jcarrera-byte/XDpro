@@ -1,4 +1,6 @@
-// public/js/almacen.js
+// ==========================================================================
+// public/js/almacen.js - Gestor de Almacén e Inventario Visual Imperial
+// ==========================================================================
 
 // Estado reactivo global del Almacén (Sincronizado dinámicamente con MongoDB)
 let datosAlmacen = {
@@ -31,22 +33,25 @@ function renderizarAlmacen() {
     });
 
     // ==========================================================================
-    // DETECCIÓN MULTI-PANTALLA BASADA EN LA VISTA ACTIVA DE LA SPA (SOLUCIONADO)
+    // DETECCIÓN MULTI-PANTALLA BASADA EN ESTILOS COMPUTADOS REALES (SOLUCIONADO)
     // ==========================================================================
     const seccionFinca = document.getElementById('pantalla-finca');
     const seccionAldea = document.getElementById('pantalla-aldea');
     let contenedorGrid = null;
 
-    // Asignación directa comprobando si el elemento HTML está activo en el DOM
-    if (seccionFinca && seccionFinca.style.display === 'block') {
+    // Usar window.getComputedStyle para leer el estado real del CSS en la GPU (evita falsos negativos durante micro-transiciones)
+    const fincaEstiloReal = seccionFinca ? window.getComputedStyle(seccionFinca).display : '';
+    const aldeaEstiloReal = seccionAldea ? window.getComputedStyle(seccionAldea).display : '';
+
+    if (fincaEstiloReal === 'block' || (seccionFinca && seccionFinca.style.display === 'block')) {
         contenedorGrid = document.getElementById('finca-edificios-lista');
-    } else if (seccionAldea && seccionAldea.style.display === 'block') {
+    } else if (aldeaEstiloReal === 'block' || (seccionAldea && seccionAldea.style.display === 'block')) {
         contenedorGrid = document.getElementById('aldea-edificios-lista');
     } else {
         contenedorGrid = document.getElementById('grid-almacen-recursos');
     }
 
-    // Fallback de emergencia por si se ejecuta en medio de la transición
+    // Fallback de emergencia por si se ejecuta en medio de la transición SPA
     if (!contenedorGrid) {
         contenedorGrid = document.getElementById('finca-edificios-lista') || document.getElementById('grid-almacen-recursos');
     }
