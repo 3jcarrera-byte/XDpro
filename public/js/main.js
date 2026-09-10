@@ -17,7 +17,42 @@ if (socket) {
 }
 
 // ========================================================
-// 2. ELEMENTOS DE INTERFAZ Y NAVEGACIÓN SPA
+// 2. FUNCIONES AUXILIARES DE INTERFAZ Y DATOS
+// ========================================================
+
+/**
+ * Actualiza los elementos DOM que muestran el Nickname y el Saldo en todas las pantallas.
+ * @param {string} nick - Nombre de usuario
+ * @param {number|string} balance - Saldo del jugador
+ */
+window.actualizarInterfazUsuario = function(nick, balance) {
+    const valBalance = parseFloat(balance || 0);
+    const idsNicks = ['menu-player-nick', 'carreton-player-nick', 'mercado-player-nick', 'finca-player-nick', 'aldea-player-nick'];
+    const idsBalances = ['menu-player-balance', 'carreton-player-balance', 'mercado-player-balance', 'finca-player-balance', 'aldea-player-balance', 'finanzas-saldo-txt'];
+
+    idsNicks.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && nick) el.textContent = nick;
+    });
+
+    idsBalances.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            if (id === 'finanzas-saldo-txt') {
+                el.textContent = `$${valBalance.toFixed(2)}`;
+            } else {
+                el.textContent = valBalance.toFixed(2);
+            }
+        }
+    });
+
+    if (typeof window.datosFinanzas !== 'undefined') {
+        window.datosFinanzas.saldoDisponible = valBalance;
+    }
+};
+
+// ========================================================
+// 3. ELEMENTOS DE INTERFAZ Y NAVEGACIÓN SPA
 // ========================================================
 const loginForm = document.getElementById('loginForm');
 const registerForm = document.getElementById('registerForm');
@@ -40,6 +75,7 @@ if (btnToggleAuth && loginForm && registerForm) {
             loginForm.style.display = 'block';
             btnToggleAuth.textContent = 'Registrarse';
         }
+        
         // Recalcular validación al alternar vistas
         if (typeof verificarFormularioValido === 'function') {
             verificarFormularioValido();
@@ -48,7 +84,7 @@ if (btnToggleAuth && loginForm && registerForm) {
 }
 
 /**
- * Cambia la vista activa de la SPA y gestiona la detención/activación de hilos
+ * Cambia la vista activa de la SPA y gestiona la detención/activación de hilos 3D
  * @param {string} pantallaId - ID del contenedor HTML a visibilizar
  */
 window.cambiarPantalla = function(pantallaId) {
@@ -61,12 +97,12 @@ window.cambiarPantalla = function(pantallaId) {
     if (destino) {
         destino.style.display = 'block';
         
-        // CONTROL DE OPTIMIZACIÓN GPU PARA THREE.JS (MENÚ PRINCIPAL)
+        // CONTROL DE OPTIMIZACIÓN GPU PARA THREE.JS (MENÚ PRINCIPAL Y ESCENARIOS)
         if (typeof window.estadoMotor3D !== 'undefined') {
             if (pantallaId === 'pantalla-menu-principal') {
                 window.estadoMotor3D.activo = true;
                 if (typeof window.reanudarAnimacion3D === 'function') window.reanudarAnimacion3D();
-            } else {
+            } else if (pantallaId !== 'pantalla-finca' && pantallaId !== 'pantalla-aldea') {
                 window.estadoMotor3D.activo = false;
             }
         }
@@ -97,14 +133,12 @@ window.cambiarPantalla = function(pantallaId) {
 
         // HERENCIA CONTINUA DE FONDOS REALES AL ENTRAR AL MERCADO
         if (pantallaId === 'pantalla-mercado') {
-            const nickReal = document.getElementById('menu-player-nick')?.textContent;
+            const nickReal = sessionStorage.getItem('gladiador_nick') || document.getElementById('menu-player-nick')?.textContent;
             const balanceReal = document.getElementById('menu-player-balance')?.textContent;
             
-            const nickMercado = document.getElementById('mercado-player-nick');
-            const balanceMercado = document.getElementById('mercado-player-balance');
-            
-            if (nickMercado && nickReal) nickMercado.textContent = nickReal;
-            if (balanceMercado && balanceReal) balanceMercado.textContent = balanceReal;
+            if (nickReal) {
+                window.actualizarInterfazUsuario(nickReal, balanceReal);
+            }
 
             if (socket && socket.connected) {
                 console.log("🏪 Conexión activa: Solicitando stock de vitrina imperial...");
@@ -122,11 +156,7 @@ window.cambiarPantalla = function(pantallaId) {
 
         // Control inteligente del botón flotante de emergencia
         if (btnFloatingMenu) {
-            if (pantallaId === 'pantalla-menu-principal') {
-                btnFloatingMenu.style.display = 'none';
-            } else {
-                btnFloatingMenu.style.display = 'block';
-            }
+            btnFloatingMenu.style.display = (pantallaId === 'pantalla-menu-principal') ? 'none' : 'block';
         }
     } else {
         console.warn(`La vista con ID '${pantallaId}' no existe en el DOM.`);
@@ -134,7 +164,7 @@ window.cambiarPantalla = function(pantallaId) {
 };
 
 // ========================================================
-// 3. LÓGICA DE REGISTRO EXTENDIDO (DEFENSIVA Y REACTIVA)
+// 4. LÓGICA DE REGISTRO EXTENDIDO (DEFENSIVA Y REACTIVA)
 // ========================================================
 const btnEnviarRegistro = document.getElementById('btnEnviarRegistro');
 const regEmail = document.getElementById('reg-email');
@@ -176,7 +206,7 @@ function verificarFormularioValido() {
     btnEnviarRegistro.disabled = !esValido;
 }
 
-// Vinculación de eventos de escucha
+// Vinculación de eventos de escucha sin duplicaciones
 camposRegistro.forEach(elemento => {
     elemento.addEventListener('input', verificarFormularioValido);
     elemento.addEventListener('change', verificarFormularioValido);
@@ -226,7 +256,7 @@ if (registerForm) {
             const data = await response.json();
 
             if (response.ok && data.success) {
-                alert(`¡Gladiador registrado con éxito! Bienvenido al Imperio.`);
+                alert('¡Gladiador registrado con éxito! Bienvenido al Imperio.');
                 registerForm.reset();
                 verificarFormularioValido();
                 if (btnToggleAuth) btnToggleAuth.click();
@@ -245,7 +275,7 @@ if (registerForm) {
 }
 
 // ========================================================
-// 4. LÓGICA DE INICIO DE SESIÓN (AUTENTICACIÓN PERSISTENTE)
+// 5. LÓGICA DE INICIO DE SESIÓN (AUTENTICACIÓN PERSISTENTE)
 // ========================================================
 if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
@@ -270,30 +300,10 @@ if (loginForm) {
                 if (authScreen) authScreen.style.display = 'none';
                 
                 sessionStorage.setItem('gladiador_nick', data.username);
-                sessionStorage.setItem('gladiador_poseeAldea', data.poseeAldea);
+                sessionStorage.setItem('gladiador_poseeAldea', data.poseeAldea || false);
                 
-                const idsNicks = ['menu-player-nick', 'carreton-player-nick', 'mercado-player-nick', 'finca-player-nick'];
-                const idsBalances = ['menu-player-balance', 'carreton-player-balance', 'mercado-player-balance', 'finca-player-balance', 'finanzas-saldo-txt'];
-                
-                idsNicks.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) el.textContent = data.username;
-                });
-                
-                idsBalances.forEach(id => {
-                    const el = document.getElementById(id);
-                    if (el) {
-                        if (id === 'finanzas-saldo-txt') {
-                            el.textContent = `$${parseFloat(data.balance || 0).toFixed(2)}`;
-                        } else {
-                            el.textContent = parseFloat(data.balance || 0).toFixed(2);
-                        }
-                    }
-                });
-                
-                if (typeof datosFinanzas !== 'undefined') {
-                    datosFinanzas.saldoDisponible = parseFloat(data.balance || 0);
-                }
+                // Actualiza la interfaz globalmente
+                window.actualizarInterfazUsuario(data.username, data.balance);
                 
                 cambiarPantalla('pantalla-menu-principal');
                 
