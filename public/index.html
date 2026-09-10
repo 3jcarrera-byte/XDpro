@@ -208,7 +208,12 @@
 
       <!-- COLUMNA 3: BARRA LATERAL DERECHA -->
       <aside class="finca-population-drawer" style="width: 240px; min-width: 240px; background: #1a1512; padding: 15px; box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; overflow-y: auto;">
-        <h3 id="finca-poblacion-titulo" style="color: #d4af37; font-family: 'Cinzel', serif; font-size: 0.95rem; margin: 0; text-align: center; border-bottom: 1px solid #5c4033; padding-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px;">👨‍🌾 POBLADORES FINCA (0/0)</h3>
+        <div class="marcador-pologia-finca-wrapper" style="border-bottom: 1px solid #5c4033; padding-bottom: 5px; margin-bottom: 5px; text-align: center;">
+          <div class="marcador-poblacion-finca" style="color: #d4af37; font-family: 'Cinzel', serif; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px;">
+            <span class="emoji-indicator">👨‍🌾</span> 
+            <strong>POBLADORES FINCA:</strong> <span id="poblacion-finca-conteo">0 / 0</span>
+          </div>
+        </div>
         <div id="finca-pobladores-lista" style="display: grid; grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; width: 100% !important; margin-top: 5px !important;">
           <!-- Slots de población -->
         </div>
@@ -275,6 +280,7 @@
           <span id="carreton-central-capacidad" class="status-indicator-online" style="background: rgba(212, 175, 55, 0.2); color: #ffd700; border: 1px solid #d4af37; padding: 5px 12px; border-radius: 4px;">
             Slots Centrales: 0 / 0
           </span>
+
         </div>
 
         <div class="carreton-tres-bloques-grid" style="display: grid; grid-template-columns: 1fr 1.5fr 1fr; gap: 20px; min-height: 500px;">
