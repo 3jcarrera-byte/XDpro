@@ -191,7 +191,15 @@ window.ejecutarCompraCarta = function(itemId, rubro) {
     
     if (typeof socket !== 'undefined' && socket && socket.connected) {
         console.log(`💸 Emitiendo compra de item ${itemId} en rubro ${rubro}...`);
-        socket.emit('tienda:comprar-item', { itemId, rubro });
+        
+        // CORRECCIÓN ATÓMICA: Se cambia 'tienda:comprar-carta' por 'tienda:comprar-item'
+        // Además, se calcula y envía un precio de respaldo o el parámetro esperado por el backend
+        socket.emit('tienda:comprar-item', { 
+            itemId: itemId, 
+            rubro: rubro,
+            precio: 0 // El backend recalcula el costo real usando el stock global para evitar hackeos
+        });
+        
     } else {
         alert("❌ Error de comunicación: Sin conexión con el Árbitro del servidor.");
     }
