@@ -665,10 +665,24 @@ io.on('connection', (socket) => {
             const usuarioBD = await User.findOne({ username: usernameLimpio });
             
             if (juegoData) {
+                // Forzar resolución explícita como booleano estricto
+                const tieneAldeaReal = Boolean(usuarioBD?.poseeAldea);
+
+                // Sincronizar estados en la caché del servidor
                 cachePartidas[usernameLimpio] = juegoData;
-                cachePartidas[usernameLimpio]._poseeAldeaNFT = Boolean(usuarioBD?.poseeAldea);
+                cachePartidas[usernameLimpio]._poseeAldeaNFT = tieneAldeaReal;
                 
+                // 1. Emitir los cimientos físicos estrictos de la Finca y la Aldea
                 socket.emit('finca:actualizar-terreno', juegoData.cimientosFinca || []);
+                socket.emit('aldea:actualizar-terreno', juegoData.cimientosAldea || []);
+                
+                // 2. Emitir el flag NFT de validación para bloquear/desbloquear UI en el cliente
+                socket.emit('jugador:inicializar-restricciones', {
+                    poseeAldea: tieneAldeaReal,
+                    username: usernameLimpio
+                });
+
+                // 3. Sincronizar almacén y las estructuras logísticas
                 enviarEstadoAlmacen(socket, juegoData);
                 await forzarEnvioEstadoCarreton(socket, usernameLimpio, juegoData);
                 await enviarEstadoFincaActualizado(socket, usernameLimpio, juegoData);
