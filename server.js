@@ -440,8 +440,17 @@ function agregarRecursoAlmacen(almacen, subtipo, cantidad, nombrePersonalizado =
 }
 
 async function obtenerOGenerarJuegoData(username) {
+    if (!username) return null;
     const GameData = obtenerModeloGameData();
-    let juegoData = cachePartidas[username] || await GameData.findOne({ username });
+    
+    // 1. ESCUDO DE RAM: Si ya está en la caché activa, lo devolvemos de inmediato sin tocar MongoDB
+    if (cachePartidas[username]) {
+        return cachePartidas[username];
+    }
+
+    // 2. Si no estaba en RAM, buscamos en la Base de Datos
+    let juegoData = await GameData.findOne({ username });
+
     if (!juegoData) {
         juegoData = new GameData({ 
             username, 
@@ -482,12 +491,18 @@ async function obtenerOGenerarJuegoData(username) {
             ],
             carretonCartas: { cartasCentral: [] }
         });
+        
         if (typeof juegoData.inicializarEspaciosVacios === 'function') {
             juegoData.inicializarEspaciosVacios();
         }
+        
+        // Guardado exclusivo inicial
         await juegoData.save();
     } else {
+        // 3. JUGADOR EXISTENTE: Inyectar cartas faltantes de manera segura en el objeto
         if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
+        let huboCambios = false;
+
         const tieneCiudadela = juegoData.almacenEdificiosDisponibles.some(c => c.id === 'edificio_supremo_unico' || c.indestructible);
         if (!tieneCiudadela) {
             juegoData.almacenEdificiosDisponibles.unshift({
@@ -506,7 +521,9 @@ async function obtenerOGenerarJuegoData(username) {
                 nivel: 0,
                 rareza: 'mitica'
             });
+            huboCambios = true;
         }
+
         const tieneCasona = juegoData.almacenEdificiosDisponibles.some(c => c.subtipo === 'casona');
         if (!tieneCasona) {
             juegoData.almacenEdificiosDisponibles.push({
@@ -525,12 +542,26 @@ async function obtenerOGenerarJuegoData(username) {
                 nivel: 0,
                 rareza: 'epica'
             });
+            huboCambios = true;
         }
-        await juegoData.save();
+
+        // 4. CONTROL DE PARALELISMO: Si hubo cambios, intentamos guardar capturando colisiones
+        if (huboCambios) {
+            try {
+                await juegoData.save();
+            } catch (saveErr) {
+                // Si otro evento concurrente bloqueó el save(), lo ignoramos de forma segura.
+                // Los datos ya están actualizados en memoria para el resto del ciclo.
+                console.warn(`⚠️ Omitido save() concurrente y seguro para el gladiador: ${username}`);
+            }
+        }
     }
+
+    // 5. REGISTRO INMEDIATO EN CACHÉ: Las peticiones simultáneas leerán la RAM directamente desde aquí
     cachePartidas[username] = juegoData;
     return juegoData;
 }
+
 
 // ==========================================================================
 // 📦 SINCRONIZACIÓN OMNICANAL DEL ALMACÉN
