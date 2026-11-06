@@ -54,14 +54,13 @@ window.actualizarInterfazUsuario = function(nick, balance) {
 };
 
 /**
- * Gestiona de forma precisa la visibilidad de los accesos a la Aldea y su pestaña en el mercado.
+ * Gestiona la visibilidad de los accesos a la Aldea según la posesión del jugador.
  * @param {boolean|string} poseeAldea - Estado de la aldea del gladiador
  */
 window.gestionarVisibilidadAldea = function(poseeAldea) {
     const esValido = poseeAldea === true || poseeAldea === "true";
-    
-    // Seleccionamos ÚNICAMENTE los elementos de navegación y la pestaña de "Ubicar Aldeas" del mercado
-    const elementosAldea = document.querySelectorAll('.btn-ir-aldea, #btn-menu-aldea, [data-tab="ubicar-aldeas"], .tab-ubicar-aldeas');
+    // Selecciona botones, enlaces o elementos asociados a la Aldea en toda la SPA
+    const elementosAldea = document.querySelectorAll('.btn-ir-aldea, [onclick*="aldea"], [id*="aldea"], #btn-menu-aldea');
 
     elementosAldea.forEach(el => {
         if (!esValido) {
@@ -69,7 +68,7 @@ window.gestionarVisibilidadAldea = function(poseeAldea) {
             el.style.pointerEvents = 'none';
             el.disabled = true;
         } else {
-            el.style.display = ''; 
+            el.style.display = ''; // Restaura su visualización original por CSS
             el.style.pointerEvents = 'auto';
             el.disabled = false;
         }
@@ -101,6 +100,7 @@ if (btnToggleAuth && loginForm && registerForm) {
             btnToggleAuth.textContent = 'Registrarse';
         }
         
+        // Recalcular validación al alternar vistas
         if (typeof verificarFormularioValido === 'function') {
             verificarFormularioValido();
         }
@@ -121,9 +121,11 @@ window.cambiarPantalla = function(pantallaId) {
     if (destino) {
         destino.style.display = 'block';
         
+        // Aplicar estado de visibilidad de Aldea en cada cambio de pantalla
         const poseeAldeaReal = sessionStorage.getItem('gladiador_poseeAldea');
         window.gestionarVisibilidadAldea(poseeAldeaReal);
 
+        // CONTROL DE OPTIMIZACIÓN GPU PARA THREE.JS (MENÚ PRINCIPAL Y ESCENARIOS)
         if (typeof window.estadoMotor3D !== 'undefined') {
             if (pantallaId === 'pantalla-menu-principal') {
                 window.estadoMotor3D.activo = true;
@@ -133,14 +135,19 @@ window.cambiarPantalla = function(pantallaId) {
             }
         }
 
+        // ==========================================================================
+        // 🏗️ DISPARADOR LOGÍSTICO COMPENSADO: FINCA IMPERIAL (SINCRONIZACIÓN FÍSICA)
+        // ==========================================================================
         if (pantallaId === 'pantalla-finca') {
             if (typeof init3D === 'function') {
                 init3D('canvas-finca-container', 5);
             }
             
+            // Autenticación de socket y solicitud de recursos diferida estrictamente al entrar a la Finca
             if (socket && socket.connected) {
                 const nickActivo = sessionStorage.getItem('gladiador_nick');
                 if (nickActivo) {
+                    console.log('🔄 Vinculando socket y solicitando inventario arquitectónico para:', nickActivo);
                     socket.emit('jugador:autenticado', { username: nickActivo });
                 }
             }
@@ -163,6 +170,7 @@ window.cambiarPantalla = function(pantallaId) {
             }, 100);
         }
 
+        // HERENCIA CONTINUA DE FONDOS REALES AL ENTRAR AL MERCADO
         if (pantallaId === 'pantalla-mercado') {
             const nickReal = sessionStorage.getItem('gladiador_nick') || document.getElementById('menu-player-nick')?.textContent;
             const balanceReal = document.getElementById('menu-player-balance')?.textContent;
@@ -172,16 +180,20 @@ window.cambiarPantalla = function(pantallaId) {
             }
 
             if (socket && socket.connected) {
+                console.log("🏪 Conexión activa: Solicitando stock de vitrina imperial...");
                 socket.emit('tienda:solicitar-stock');
             }
         }
 
+        // SOLICITUD DE DATOS DE INVENTARIO LOGÍSTICO (CARRETÓN)
         if (pantallaId === 'pantalla-carreton') {
             if (typeof cargarCarreton === 'function') {
+                console.log("📦 Solicitando datos actualizados del Carretón al Árbitro...");
                 cargarCarreton();
             }
         }
 
+        // Control inteligente del botón flotante de emergencia
         if (btnFloatingMenu) {
             btnFloatingMenu.style.display = (pantallaId === 'pantalla-menu-principal') ? 'none' : 'block';
         }
@@ -191,7 +203,7 @@ window.cambiarPantalla = function(pantallaId) {
 };
 
 // ========================================================
-// 4. LÓGICA DE REGISTRO EXTENDIDO
+// 4. LÓGICA DE REGISTRO EXTENDIDO (DEFENSIVA Y REACTIVA)
 // ========================================================
 const btnEnviarRegistro = document.getElementById('btnEnviarRegistro');
 const regEmail = document.getElementById('reg-email');
@@ -215,6 +227,7 @@ const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function verificarFormularioValido() {
     if (!btnEnviarRegistro) return;
 
+    // Validación defensiva comprobando existencia previa de elementos
     const esValido = (
         regEmail && regEmail.value.trim() !== "" && regexEmail.test(regEmail.value.trim()) &&
         regPais && regPais.value.trim() !== "" &&
@@ -232,11 +245,13 @@ function verificarFormularioValido() {
     btnEnviarRegistro.disabled = !esValido;
 }
 
+// Vinculación de eventos de escucha sin duplicaciones
 camposRegistro.forEach(elemento => {
     elemento.addEventListener('input', verificarFormularioValido);
     elemento.addEventListener('change', verificarFormularioValido);
 });
 
+// Comprobación inicial al cargar el script
 verificarFormularioValido();
 
 if (registerForm) {
@@ -299,7 +314,7 @@ if (registerForm) {
 }
 
 // ========================================================
-// 5. LÓGICA DE INICIO DE SESIÓN
+// 5. LÓGICA DE INICIO DE SESIÓN (AUTENTICACIÓN PERSISTENTE)
 // ========================================================
 if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
@@ -326,6 +341,7 @@ if (loginForm) {
                 sessionStorage.setItem('gladiador_nick', data.username);
                 sessionStorage.setItem('gladiador_poseeAldea', data.poseeAldea || false);
                 
+                // Actualiza la interfaz globalmente y gestiona la aldea
                 window.actualizarInterfazUsuario(data.username, data.balance);
                 window.gestionarVisibilidadAldea(data.poseeAldea);
                 
@@ -345,9 +361,12 @@ if (loginForm) {
 }
 
 // ========================================================
-// 6. GESTIÓN DE CARTAS Y MERCADO
+// 6. GESTIÓN DE CARTAS (CIUDADELA Y CASONA COLONIAL) Y MERCADO
 // ========================================================
 window.cargarAlmacen = function() {
+    console.log("🏛️ Cargando inventario del almacén de la Finca...");
+    
+    // Definición obligatoria de cartas base para evitar contenedor vacío
     const cartasBaseFinca = [
         {
             id: "edificio_supremo_unico",
@@ -369,6 +388,7 @@ window.cargarAlmacen = function() {
 
     let inventarioActual = window.inventarioJugador || [];
     
+    // Fusionar de forma segura asegurando que existan en el almacén
     cartasBaseFinca.forEach(cartaBase => {
         if (!inventarioActual.some(c => c.id === cartaBase.id)) {
             inventarioActual.unshift(cartaBase);
@@ -420,6 +440,7 @@ window.renderizarAlmacen = function() {
             <p style="font-size: 11px; margin: 0; opacity: 0.85;">${carta.descripcion}</p>
         `;
 
+        // Evento de arrastre (Drag & Drop) hacia el cimiento 3D
         tarjetaEl.addEventListener('dragstart', (e) => {
             e.dataTransfer.setData('text/plain', JSON.stringify(carta));
         });
@@ -428,6 +449,11 @@ window.renderizarAlmacen = function() {
     });
 };
 
+/**
+ * Función sincronizada para comprar artículos en el Mercado Comercial con verificación de usuario y saldo
+ * @param {string} idItem - Identificador del ítem en la tienda
+ * @param {number} precioItem - Costo en monedas del ítem
+ */
 window.comprarCartaMercado = function(idItem, precioItem) {
     const nickActivo = sessionStorage.getItem('gladiador_nick');
     const balanceActual = parseFloat(document.getElementById('mercado-player-balance')?.textContent || 0);
@@ -443,6 +469,7 @@ window.comprarCartaMercado = function(idItem, precioItem) {
     }
 
     if (socket && socket.connected) {
+        console.log(`🛒 Solicitando compra de ${idItem} para el gladiador ${nickActivo}...`);
         socket.emit('tienda:comprar-item', {
             username: nickActivo,
             itemId: idItem,
