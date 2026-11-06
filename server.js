@@ -953,73 +953,94 @@ socket.on('finca:construir', async (data = {}) => {
 // ==========================================================================
 socket.on('finca:desmantelar', async (data) => {
     const { slotId } = data;
-    const nickActivo = socket.username; // O como manejes la sesión en el socket
+    const username = socket.username || data?.username;
 
-    if (!nickActivo) {
+    if (!username) {
         return socket.emit('finca:error', 'Sesión inválida del gladiador.');
     }
 
     try {
-        // 1. Buscar los datos de juego del usuario
-        const gameData = await GameData.findOne({ username: nickActivo });
-        if (!gameData) return socket.emit('finca:error', 'No se encontraron datos del jugador.');
+        const juegoData = await obtenerOGenerarJuegoData(username);
+        if (!juegoData || !Array.isArray(juegoData.cimientosFinca)) {
+            return socket.emit('finca:error', 'No se encontraron las parcelas de la finca.');
+        }
 
-        // 2. Encontrar el cimiento exacto en el array de la finca
-        const cimientoIndex = gameData.edificiosFinca.findIndex(e => e.slotId === Number(slotId));
-        if (cimentoIndex === -1) return socket.emit('finca:error', 'El cimiento seleccionado no existe o ya está vacío.');
+        const slotCanonical = normalizarSlotId(slotId);
+        const indexNum = obtenerIndiceSlot(slotId);
 
-        const edificioADesmantelar = gameData.edificiosFinca[cimentoIndex];
-
-        // 3. Devolver la carta del edificio al Almacén cambiándole el estado
-        await GameData.updateOne(
-            { username: nickActivo },
-            {
-                $push: {
-                    almacenEdificios: {
-                        uuid: edificioADesmantelar.uuid,
-                        tipo: edificioADesmantelar.tipo,
-                        subtipo: edificioADesmantelar.subtipo,
-                        nivel: edificioADesmantelar.nivel,
-                        estado: 'almacen', // Vuelve al almacén
-                        posicionCanvas: { slotId: null, x: 0, z: 0 }
-                    }
-                }
-            }
-        );
-
-        // 4. LIMPIEZA TOTAL DEL CIMIENTO EN LA FINCA (SOLUCIÓN AL BUG)
-        // En vez de dejar el objeto con datos viejos, reseteamos sus propiedades a vacío
-        await GameData.updateOne(
-            { username: nickActivo, "edificiosFinca.slotId": Number(slotId) },
-            {
-                $set: {
-                    "edificiosFinca.$.estaOcupado": false,
-                    "edificiosFinca.$.subtipo": null,
-                    "edificiosFinca.$.uuid": null,
-                    "edificiosFinca.$.tipo": "vacio",
-                    "edificiosFinca.$.nivel": 0
-                }
-            }
-        );
-
-        // 5. Buscar el terreno limpio actualizado para responderle al cliente
-        const datosActualizados = await GameData.findOne({ username: nickActivo });
-
-        // Enviar confirmación al jugador que desmanteló
-        socket.emit('finca:desmantelamiento-exitoso', {
-            slotId: Number(slotId),
-            terreno: datosActualizados.edificiosFinca
+        const cimientoIndex = juegoData.cimientosFinca.findIndex(s => {
+            const sIdLimpio = String(s.slotId || '').replace(/^slot-/, '');
+            return s.slotId === slotCanonical || sIdLimpio === String(indexNum);
         });
 
-        // Notificar al resto de jugadores en la sala si es necesario
-        socket.broadcast.emit('finca:actualizar-terreno', datosActualizados.edificiosFinca);
+        if (cimientoIndex === -1) {
+            return socket.emit('finca:error', 'El cimiento seleccionado no existe.');
+        }
+
+        const slot = juegoData.cimientosFinca[cimientoIndex];
+        if (slot.estaOcupado === false || slot.estaOcupado === "false") {
+            return socket.emit('finca:error', 'El cimiento ya se encuentra vacío.');
+        }
+
+        if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
+        const edificioEnAlmacen = juegoData.almacenEdificiosDisponibles.find(
+            e => e.uuid === slot.uuid || e.id === slot.uuid
+        );
+
+        if (edificioEnAlmacen) {
+            edificioEnAlmacen.estaAnidado = false;
+            edificioEnAlmacen.slotAnidado = null;
+        } else {
+            juegoData.almacenEdificiosDisponibles.push({
+                uuid: slot.uuid || crypto.randomUUID(),
+                id: crypto.randomUUID(),
+                tipo: 'estructura',
+                subtipo: slot.subtipo,
+                nombre: slot.nombre || slot.subtipo,
+                descripcion: 'Recuperada tras desmantelamiento civil.',
+                esTradeable: true,
+                esDestructible: true,
+                indestructible: false,
+                intradeable: false,
+                estaAnidado: false,
+                slotAnidado: null,
+                nivel: slot.nivel || 0,
+                rareza: 'comun'
+            });
+        }
+
+        juegoData.cimientosFinca[cimientoIndex] = {
+            slotId: slotCanonical || `slot-${indexNum}`,
+            estaOcupado: false,
+            subtipo: null,
+            nivel: 0,
+            nombre: null,
+            uuid: null,
+            produccionPendiente: 0,
+            recursosAnidados: []
+        };
+
+        juegoData.markModified('cimientosFinca');
+        juegoData.markModified('almacenEdificiosDisponibles');
+
+        const juegoDataGuardado = await juegoData.save();
+        cachePartidas[username] = juegoDataGuardado;
+
+        socket.emit('finca:desmantelamiento-exitoso', {
+            slotId: slotCanonical,
+            terreno: juegoDataGuardado.cimientosFinca
+        });
+
+        socket.broadcast.emit('finca:actualizar-terreno', juegoDataGuardado.cimientosFinca);
+        enviarEstadoAlmacen(socket, juegoDataGuardado);
+        await enviarEstadoFincaActualizado(socket, username, juegoDataGuardado);
+        await forzarEnvioEstadoCarreton(socket, username, juegoDataGuardado);
 
     } catch (error) {
         console.error('❌ Error en desmantelamiento:', error);
         socket.emit('finca:error', 'Error interno del Árbitro al desmantelar.');
     }
 });
-    
 
 socket.on('finca:recolectar-produccion', async (data = {}) => {
     const { slotId } = data;
@@ -1031,7 +1052,6 @@ socket.on('finca:recolectar-produccion', async (data = {}) => {
         if (!juegoData?.cimientosFinca) return socket.emit('finca:error', 'Datos no encontrados.');
 
         const indexNum = obtenerIndiceSlot(slotId);
-
         const slotIndex = juegoData.cimientosFinca.findIndex(s => {
             const sIdLimpio = String(s.slotId || '').replace(/^slot-/, '');
             return sIdLimpio === String(indexNum);
@@ -1042,7 +1062,6 @@ socket.on('finca:recolectar-produccion', async (data = {}) => {
         }
 
         const slot = juegoData.cimientosFinca[slotIndex];
-
         if (!slot.produccionPendiente || slot.produccionPendiente <= 0) {
             return socket.emit('finca:error', 'No hay recursos pendientes para recolectar.');
         }
@@ -1078,19 +1097,14 @@ socket.on('disconnect', () => {
     console.log(`🔌 Cliente desconectado: ${socket.id} (${socket.username || 'invitado'})`);
 });
 
-// ==========================================================================
-// 🚀 INICIALIZACIÓN DEL SERVIDOR CON ENLACE UNIVERSAL
-// ==========================================================================
-const PORT = process.env.PORT || 3000;
+});
 
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Servidor ejecutándose exitosamente en http://0.0.0.0:${PORT}`);
     console.log(`🏪 Canal de WebSockets enlazado a la par con el Motor 3D.`);
 });
 
-// ==========================================================================
-// 🛡️ MANEJO DE ERRORES GLOBALES Y CIERRE CONTROLADO (GRACEFUL SHUTDOWN)
-// ==========================================================================
 process.on('unhandledRejection', (reason, promise) => {
     console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
 });
@@ -1101,7 +1115,6 @@ process.on('uncaughtException', (err) => {
 
 const apagarServidorLimpio = async (signal) => {
     console.log(`\n⚠️ Recibida señal ${signal}. Cerrando servidor de forma limpia...`);
-    
     server.close(async () => {
         console.log('🔌 Servidor HTTP y WebSockets cerrados.');
         try {
