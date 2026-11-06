@@ -54,13 +54,13 @@ window.actualizarInterfazUsuario = function(nick, balance) {
 };
 
 /**
- * Gestiona la visibilidad de los accesos a la Aldea según la posesión del jugador.
+ * Gestiona de forma precisa la visibilidad de los accesos a la Aldea y su pestaña en el mercado.
  * @param {boolean|string} poseeAldea - Estado de la aldea del gladiador
  */
 window.gestionarVisibilidadAldea = function(poseeAldea) {
     const esValido = poseeAldea === true || poseeAldea === "true";
-    // Selecciona botones, enlaces o elementos asociados a la Aldea en toda la SPA
-    const elementosAldea = document.querySelectorAll('.btn-ir-aldea, [onclick*="aldea"], [id*="aldea"], #btn-menu-aldea');
+    // Seleccionamos ÚNICAMENTE los botones de navegación y la pestaña de ubicar aldeas para no romper el mercado general
+    const elementosAldea = document.querySelectorAll('.btn-ir-aldea, #btn-menu-aldea, [data-tab="ubicar-aldeas"], .tab-ubicar-aldeas');
 
     elementosAldea.forEach(el => {
         if (!esValido) {
@@ -161,9 +161,20 @@ window.cambiarPantalla = function(pantallaId) {
                 if (typeof cargarCarreton === 'function') cargarCarreton();
             }, 120);
         } else if (pantallaId === 'pantalla-aldea') {
-            if (typeof init3D === 'function' && document.getElementById('canvas-aldea-container')) {
-                init3D('canvas-aldea-container', 12);
+            const contenedorAldea = document.getElementById('canvas-aldea-container');
+            if (contenedorAldea) {
+                if (contenedorAldea.clientWidth === 0 || contenedorAldea.clientHeight === 0) {
+                    contenedorAldea.style.width = '100%';
+                    contenedorAldea.style.height = '100vh';
+                    contenedorAldea.style.display = 'block';
+                }
+                if (typeof init3D === 'function') {
+                    init3D('canvas-aldea-container', 12);
+                }
+            } else {
+                console.warn("⚠️ Advertencia: No se encontró el contenedor 'canvas-aldea-container' en el DOM.");
             }
+
             setTimeout(() => {
                 if (typeof renderizarAlmacen === 'function') renderizarAlmacen();
                 if (typeof cargarCarreton === 'function') cargarCarreton();
