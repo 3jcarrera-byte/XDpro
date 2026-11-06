@@ -124,13 +124,14 @@ window.cambiarPantalla = function(pantallaId) {
                     console.log('🔄 Vinculando socket y solicitando inventario arquitectónico para:', nickActivo);
                     socket.emit('jugador:autenticado', { username: nickActivo });
                 }
-                if (typeof cargarAlmacen === 'function') {
-                    cargarAlmacen();
-                }
             }
 
             setTimeout(() => {
-                if (typeof renderizarAlmacen === 'function') renderizarAlmacen();
+                if (typeof cargarAlmacen === 'function') {
+                    cargarAlmacen();
+                } else if (typeof renderizarAlmacen === 'function') {
+                    renderizarAlmacen();
+                }
                 if (typeof cargarCarreton === 'function') cargarCarreton();
             }, 120);
         } else if (pantallaId === 'pantalla-aldea') {
@@ -322,9 +323,6 @@ if (loginForm) {
                 if (typeof inicializarMundo3D === 'function') {
                     setTimeout(inicializarMundo3D, 50);
                 }
-                
-                // Nota: Eliminada la emisión prematura de 'jugador:autenticado' desde el login
-                // para evitar colisiones asíncronas con el inventario antes de entrar a la Finca.
             } else {
                 alert('Acceso denegado: ' + (data.message || 'Credenciales erróneas imperial.'));
             }
@@ -334,3 +332,62 @@ if (loginForm) {
         }
     });
 }
+
+// ========================================================
+// 6. GESTIÓN DE CARTA ÚNICA, INDESTRUCTIBLE E INTRADEABLE
+// ========================================================
+window.cargarAlmacen = function() {
+    console.log("🏛️ Cargando inventario del almacén de la Finca...");
+    
+    const cartaSupremaUnica = {
+        id: "edificio_supremo_unico",
+        nombre: "Ciudadela Ancestral",
+        descripcion: "Edificación primigenia del dominio. Totalmente indestructible e intradeable.",
+        indestructible: true,
+        intradeable: true,
+        rareza: "mitica"
+    };
+
+    let inventarioActual = window.inventarioJugador || [];
+    
+    if (!inventarioActual.some(c => c.id === cartaSupremaUnica.id || c.indestructible)) {
+        inventarioActual.unshift(cartaSupremaUnica);
+    }
+
+    window.inventarioJugador = inventarioActual;
+    window.renderizarAlmacen();
+};
+
+window.renderizarAlmacen = function() {
+    const contenedorAlmacen = document.querySelector('#almacen-edificios, .almacen-planos, [data-almacen]');
+    if (!contenedorAlmacen) return;
+
+    contenedorAlmacen.innerHTML = '';
+
+    (window.inventarioJugador || []).forEach(carta => {
+        const tarjetaEl = document.createElement('div');
+        tarjetaEl.className = `carta-item-inventario ${carta.indestructible ? 'carta-protegida-suprema' : ''}`;
+        tarjetaEl.setAttribute('draggable', 'true');
+        tarjetaEl.dataset.id = carta.id;
+        tarjetaEl.dataset.indestructible = carta.indestructible ? 'true' : 'false';
+        tarjetaEl.dataset.intradeable = carta.intradeable ? 'true' : 'false';
+
+        tarjetaEl.innerHTML = `
+            <div class="carta-header-supremo">
+                <span>🏛️</span>
+                <strong>${carta.nombre}</strong>
+                ${carta.indestructible ? '<span title="Carta Indestructible e Intradeable">🔒✨</span>' : ''}
+            </div>
+            <div class="carta-body-supremo">
+                <p>${carta.descripcion}</p>
+            </div>
+        `;
+
+        // Evento de arrastre (Drag & Drop) hacia el cimiento 3D
+        tarjetaEl.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('text/plain', JSON.stringify(carta));
+        });
+
+        contenedorAlmacen.appendChild(tarjetaEl);
+    });
+};
