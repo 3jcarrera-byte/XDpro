@@ -554,41 +554,57 @@ window.reanudarAnimacion3D = function() {
  * Actualiza los materiales de las mallas 3D según el estado recibido por red
  */
 function sincronizarTerrenoEnMallas(edificiosConstruidos) {
+    // 1. SIEMPRE resetear todos los estados previos de la escena 3D primero, 
+    // sin importar si el array viene vacío o con elementos.
+    if (window.listaCimientos3D && Array.isArray(window.listaCimientos3D)) {
+        window.listaCimientos3D.forEach(malla => {
+            malla.userData.estaOcupado = false;
+            malla.userData.tipoEdificio = null;
+            malla.userData.edificioUuid = null;
+            malla.userData.id = null;
+            
+            if (malla.material) {
+                malla.material.color.setHex(0xd4af37);
+                malla.material.opacity = 0.35;
+                malla.material.transparent = true;
+                malla.material.needsUpdate = true;
+            }
+        });
+    }
+
+    // 2. Si no hay edificios construidos que sincronizar, terminamos aquí con la escena limpia.
     if (!edificiosConstruidos || !Array.isArray(edificiosConstruidos)) return;
 
-    // Resetear estados previos de la escena 3D
-    listaCimientos3D.forEach(malla => {
-        malla.userData.estaOcupado = false;
-        malla.userData.tipoEdificio = null;
-        malla.userData.edificioUuid = null;
-        malla.userData.id = null;
-        malla.material.color.setHex(0xd4af37);
-        malla.material.opacity = 0.35;
-        malla.material.transparent = true;
-        malla.material.needsUpdate = true;
-    });
-
-    // Sincronizar datos del backend
+    // 3. Sincronizar únicamente los datos reales que manda el backend
     edificiosConstruidos.forEach(edificio => {
-        const rawSlot = edificio.slotId !== undefined ? edificio.slotId : (edificio.cimientoIndex !== undefined ? edificio.cimientoIndex : edificio.slotIndex);
+        // Ignorar estrictamente los elementos que estén en el almacén o sin posición asignada
+        if (!edificio || edificio.estado === 'almacen') return;
+
+        const rawSlot = edificio.slotId !== undefined ? edificio.slotId : 
+                        (edificio.cimientoIndex !== undefined ? edificio.cimientoIndex : 
+                        (edificio.posicionCanvas && edificio.posicionCanvas.slotId !== undefined ? edificio.posicionCanvas.slotId : null));
+        
+        if (rawSlot === null || rawSlot === undefined) return;
         const slotIdDestino = parseInt(rawSlot, 10);
         if (isNaN(slotIdDestino)) return;
 
-        const malla3D = listaCimientos3D.find(c => {
+        const malla3D = window.listaCimientos3D.find(c => {
             const sId = parseInt(c.userData.slotId !== undefined ? c.userData.slotId : c.userData.index, 10);
             return sId === slotIdDestino;
         });
 
         if (malla3D) {
-            const estaRealmenteOcupado = Boolean(edificio.estaOcupado === true && edificio.subtipo);
+            // Validación estricta: solo se marca ocupado si no está en almacén y tiene tipo o subtipo válido
+            const tipoValido = edificio.subtipo || edificio.tipo;
+            const estaRealmenteOcupado = Boolean(edificio.estado !== 'almacen' && tipoValido);
 
             if (estaRealmenteOcupado) {
                 malla3D.userData.estaOcupado = true;
-                malla3D.userData.tipoEdificio = edificio.subtipo;
+                malla3D.userData.tipoEdificio = tipoValido;
                 malla3D.userData.edificioUuid = edificio.uuid || edificio._id || edificio.edificioUuid;
                 malla3D.userData.id = edificio._id || edificio.id || edificio.uuid || null;
 
-                if (edificio.subtipo === 'casona') {
+                if (tipoValido === 'casona') {
                     malla3D.material.color.setHex(0x8b4513); 
                     malla3D.material.opacity = 0.98;         
                     malla3D.material.transparent = false;    
@@ -603,9 +619,8 @@ function sincronizarTerrenoEnMallas(edificiosConstruidos) {
         }
     });
 
-    console.log("🎨 Sincronización visual completada en la GPU.");
+    console.log("🎨 Sincronización visual completada en la GPU sin cimientos fantasma.");
 }
-
 // ==========================================================================
 // CONFIGURACIÓN GLOBAL DE RECEPTORES DE SOCKET.IO
 // ==========================================================================
