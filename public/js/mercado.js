@@ -191,7 +191,7 @@ window.ejecutarCompraCarta = function(itemId, rubro) {
     
     if (typeof socket !== 'undefined' && socket && socket.connected) {
         console.log(`💸 Emitiendo compra de item ${itemId} en rubro ${rubro}...`);
-        socket.emit('tienda:comprar-carta', { itemId, rubro });
+        socket.emit('tienda:comprar-item', { itemId, rubro });
     } else {
         alert("❌ Error de comunicación: Sin conexión con el Árbitro del servidor.");
     }
