@@ -359,10 +359,21 @@ window.cargarAlmacen = function() {
 };
 
 window.renderizarAlmacen = function() {
-    const contenedorAlmacen = document.querySelector('#almacen-edificios, .almacen-planos, [data-almacen]');
-    if (!contenedorAlmacen) return;
+    const zonaPlanos = document.querySelector('footer') || document.querySelector('#almacen-edificios, .almacen-planos, [data-almacen]');
+    if (!zonaPlanos) return;
 
-    contenedorAlmacen.innerHTML = '';
+    let gridCartas = document.getElementById('grid-cartas-almacen');
+    if (!gridCartas) {
+        gridCartas = document.createElement('div');
+        gridCartas.id = 'grid-cartas-almacen';
+        gridCartas.style.display = 'flex';
+        gridCartas.style.gap = '10px';
+        gridCartas.style.flexWrap = 'wrap';
+        gridCartas.style.marginTop = '10px';
+        zonaPlanos.appendChild(gridCartas);
+    }
+
+    gridCartas.innerHTML = '';
 
     (window.inventarioJugador || []).forEach(carta => {
         const tarjetaEl = document.createElement('div');
@@ -372,15 +383,20 @@ window.renderizarAlmacen = function() {
         tarjetaEl.dataset.indestructible = carta.indestructible ? 'true' : 'false';
         tarjetaEl.dataset.intradeable = carta.intradeable ? 'true' : 'false';
 
+        tarjetaEl.style.background = '#2a2416';
+        tarjetaEl.style.border = '1px solid #d4af37';
+        tarjetaEl.style.padding = '8px 12px';
+        tarjetaEl.style.borderRadius = '6px';
+        tarjetaEl.style.cursor = 'grab';
+        tarjetaEl.style.color = '#f3e5ab';
+        tarjetaEl.style.minWidth = '140px';
+
         tarjetaEl.innerHTML = `
-            <div class="carta-header-supremo">
-                <span>🏛️</span>
-                <strong>${carta.nombre}</strong>
-                ${carta.indestructible ? '<span title="Carta Indestructible e Intradeable">🔒✨</span>' : ''}
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <strong>🏛️ ${carta.nombre}</strong>
+                ${carta.indestructible ? '<span title="Indestructible e Intradeable">🔒✨</span>' : ''}
             </div>
-            <div class="carta-body-supremo">
-                <p>${carta.descripcion}</p>
-            </div>
+            <p style="font-size: 11px; margin: 0; opacity: 0.85;">${carta.descripcion}</p>
         `;
 
         // Evento de arrastre (Drag & Drop) hacia el cimiento 3D
@@ -388,6 +404,6 @@ window.renderizarAlmacen = function() {
             e.dataTransfer.setData('text/plain', JSON.stringify(carta));
         });
 
-        contenedorAlmacen.appendChild(tarjetaEl);
+        gridCartas.appendChild(tarjetaEl);
     });
 };
