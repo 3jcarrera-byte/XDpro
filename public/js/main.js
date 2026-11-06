@@ -54,28 +54,27 @@ window.actualizarInterfazUsuario = function(nick, balance) {
 };
 
 /**
- * Gestiona la visibilidad de los accesos de navegación a la Aldea según la posesión del jugador.
+ * Gestiona de forma precisa la visibilidad de los accesos a la Aldea y su pestaña en el mercado.
  * @param {boolean|string} poseeAldea - Estado de la aldea del gladiador
  */
 window.gestionarVisibilidadAldea = function(poseeAldea) {
     const esValido = poseeAldea === true || poseeAldea === "true";
     
-    // Seleccionamos ÚNICAMENTE los botones de navegación hacia la pantalla de la Aldea
-    const accesosNavegacionAldea = document.querySelectorAll('.btn-ir-aldea, #btn-navegar-aldea, [data-navegar="aldea"]');
+    // Seleccionamos ÚNICAMENTE el botón de navegación principal y la pestaña específica de Ubicar Aldeas
+    const elementosAldea = document.querySelectorAll('.btn-ir-aldea, #btn-menu-aldea, [data-tab="ubicar-aldeas"], .tab-ubicar-aldeas');
 
-    accesosNavegacionAldea.forEach(el => {
+    elementosAldea.forEach(el => {
         if (!esValido) {
             el.style.display = 'none';
             el.style.pointerEvents = 'none';
             el.disabled = true;
         } else {
-            el.style.display = ''; // Restaura el display CSS original
+            el.style.display = ''; // Restaura su visualización original por CSS
             el.style.pointerEvents = 'auto';
             el.disabled = false;
         }
     });
 };
-
 // ========================================================
 // 3. ELEMENTOS DE INTERFAZ Y NAVEGACIÓN SPA
 // ========================================================
