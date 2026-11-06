@@ -53,6 +53,28 @@ window.actualizarInterfazUsuario = function(nick, balance) {
     }
 };
 
+/**
+ * Gestiona la visibilidad de los accesos a la Aldea según la posesión del jugador.
+ * @param {boolean|string} poseeAldea - Estado de la aldea del gladiador
+ */
+window.gestionarVisibilidadAldea = function(poseeAldea) {
+    const esValido = poseeAldea === true || poseeAldea === "true";
+    // Selecciona botones, enlaces o elementos asociados a la Aldea en toda la SPA
+    const elementosAldea = document.querySelectorAll('.btn-ir-aldea, [onclick*="aldea"], [id*="aldea"], #btn-menu-aldea');
+
+    elementosAldea.forEach(el => {
+        if (!esValido) {
+            el.style.display = 'none';
+            el.style.pointerEvents = 'none';
+            el.disabled = true;
+        } else {
+            el.style.display = ''; // Restaura su visualización original por CSS
+            el.style.pointerEvents = 'auto';
+            el.disabled = false;
+        }
+    });
+};
+
 // ========================================================
 // 3. ELEMENTOS DE INTERFAZ Y NAVEGACIÓN SPA
 // ========================================================
@@ -99,6 +121,10 @@ window.cambiarPantalla = function(pantallaId) {
     if (destino) {
         destino.style.display = 'block';
         
+        // Aplicar estado de visibilidad de Aldea en cada cambio de pantalla
+        const poseeAldeaReal = sessionStorage.getItem('gladiador_poseeAldea');
+        window.gestionarVisibilidadAldea(poseeAldeaReal);
+
         // CONTROL DE OPTIMIZACIÓN GPU PARA THREE.JS (MENÚ PRINCIPAL Y ESCENARIOS)
         if (typeof window.estadoMotor3D !== 'undefined') {
             if (pantallaId === 'pantalla-menu-principal') {
@@ -315,8 +341,9 @@ if (loginForm) {
                 sessionStorage.setItem('gladiador_nick', data.username);
                 sessionStorage.setItem('gladiador_poseeAldea', data.poseeAldea || false);
                 
-                // Actualiza la interfaz globalmente
+                // Actualiza la interfaz globalmente y gestiona la aldea
                 window.actualizarInterfazUsuario(data.username, data.balance);
+                window.gestionarVisibilidadAldea(data.poseeAldea);
                 
                 cambiarPantalla('pantalla-menu-principal');
                 
@@ -334,25 +361,39 @@ if (loginForm) {
 }
 
 // ========================================================
-// 6. GESTIÓN DE CARTA ÚNICA, INDESTRUCTIBLE E INTRADEABLE
+// 6. GESTIÓN DE CARTAS (CIUDADELA Y CASONA COLONIAL) Y MERCADO
 // ========================================================
 window.cargarAlmacen = function() {
     console.log("🏛️ Cargando inventario del almacén de la Finca...");
     
-    const cartaSupremaUnica = {
-        id: "edificio_supremo_unico",
-        nombre: "Ciudadela Ancestral",
-        descripcion: "Edificación primigenia del dominio. Totalmente indestructible e intradeable.",
-        indestructible: true,
-        intradeable: true,
-        rareza: "mitica"
-    };
+    // Definición obligatoria de cartas base para evitar contenedor vacío
+    const cartasBaseFinca = [
+        {
+            id: "edificio_supremo_unico",
+            nombre: "Ciudadela Ancestral",
+            descripcion: "Edificación primigenia del dominio. Totalmente indestructible e intradeable.",
+            indestructible: true,
+            intradeable: true,
+            rareza: "mitica"
+        },
+        {
+            id: "carta_casona",
+            nombre: "Casona Colonial",
+            descripcion: "Plano principal de la Casona para la Finca.",
+            indestructible: false,
+            intradeable: false,
+            rareza: "rara"
+        }
+    ];
 
     let inventarioActual = window.inventarioJugador || [];
     
-    if (!inventarioActual.some(c => c.id === cartaSupremaUnica.id || c.indestructible)) {
-        inventarioActual.unshift(cartaSupremaUnica);
-    }
+    // Fusionar de forma segura asegurando que existan en el almacén
+    cartasBaseFinca.forEach(cartaBase => {
+        if (!inventarioActual.some(c => c.id === cartaBase.id)) {
+            inventarioActual.unshift(cartaBase);
+        }
+    });
 
     window.inventarioJugador = inventarioActual;
     window.renderizarAlmacen();
@@ -406,4 +447,35 @@ window.renderizarAlmacen = function() {
 
         gridCartas.appendChild(tarjetaEl);
     });
+};
+
+/**
+ * Función sincronizada para comprar artículos en el Mercado Comercial con verificación de usuario y saldo
+ * @param {string} idItem - Identificador del ítem en la tienda
+ * @param {number} precioItem - Costo en monedas del ítem
+ */
+window.comprarCartaMercado = function(idItem, precioItem) {
+    const nickActivo = sessionStorage.getItem('gladiador_nick');
+    const balanceActual = parseFloat(document.getElementById('mercado-player-balance')?.textContent || 0);
+
+    if (!nickActivo) {
+        alert('⚠️ Error de sesión: Debe iniciar sesión para adquirir bienes en el mercado.');
+        return;
+    }
+
+    if (balanceActual < precioItem) {
+        alert('🪙 Saldo insuficiente en el cofre imperial para adquirir esta carta.');
+        return;
+    }
+
+    if (socket && socket.connected) {
+        console.log(`🛒 Solicitando compra de ${idItem} para el gladiador ${nickActivo}...`);
+        socket.emit('tienda:comprar-item', {
+            username: nickActivo,
+            itemId: idItem,
+            precio: precioItem
+        });
+    } else {
+        alert('❌ Error de conexión: No hay enlace activo con el Árbitro del servidor.');
+    }
 };
