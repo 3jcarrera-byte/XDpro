@@ -1,3 +1,5 @@
+downloads/server.js
+100 %
 // ==========================================================================
 // server.js - Servidor Principal Definitivo, Unificado y Blindado
 // ==========================================================================
@@ -80,7 +82,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 const authRouter = express.Router();
 
 function escapeRegex(text) {
-    return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+    return text.replace(/[-[\]{}()*+?.,\^$|#\s]/g, '\$&');
 }
 
 // 📝 1. RUTA DE REGISTRO DE GLADIADORES
@@ -120,25 +122,44 @@ authRouter.post('/register', async (req, res) => {
             nombre: nombre && typeof nombre === 'string' ? nombre.trim() : null,
             apellido: apellido && typeof apellido === 'string' ? apellido.trim() : null,
             wallet: wallet && typeof wallet === 'string' ? wallet.trim() : null,
-            balance: 100.00
+            balance: 100.00,
+            poseeAldea: false
         });
 
         await nuevoUsuario.save();
 
         try {
-            // Inicialización de GameData con la Casona Imperial por defecto
+            // Inicialización de GameData con la Casona Imperial y Ciudadela Ancestral por defecto
             let nuevoGameData = new GameDataModel({
                 username: nuevoUsuario.username,
                 almacenEdificiosDisponibles: [
+                    {
+                        uuid: `edificio_supremo_unico-${nuevoUsuario.username}`,
+                        id: "edificio_supremo_unico",
+                        tipo: 'estructura',
+                        subtipo: 'ciudadela_ancestral',
+                        nombre: 'Ciudadela Ancestral',
+                        descripcion: 'Edificación primigenia del dominio. Totalmente indestructible e intradeable.',
+                        esTradeable: false,
+                        esDestructible: false,
+                        indestructible: true,
+                        intradeable: true,
+                        estaAnidado: false,
+                        slotAnidado: null,
+                        nivel: 0,
+                        rareza: 'mitica'
+                    },
                     {
                         uuid: `carta-casona-${nuevoUsuario.username}`,
                         id: `carta-casona-${nuevoUsuario.username}`,
                         tipo: 'estructura',
                         subtipo: 'casona',
-                        nombre: 'Casona Imperial',
+                        nombre: 'Casona Colonial',
                         descripcion: 'Estructura civil única. Habilita +2 slots de población en la Finca.',
                         esTradeable: false,
                         esDestructible: false,
+                        indestructible: false,
+                        intradeable: false,
                         estaAnidado: false,
                         slotAnidado: null,
                         nivel: 0,
@@ -214,14 +235,32 @@ authRouter.post('/login', async (req, res) => {
                 username: usuario.username,
                 almacenEdificiosDisponibles: [
                     {
+                        uuid: `edificio_supremo_unico-${usuario.username}`,
+                        id: "edificio_supremo_unico",
+                        tipo: 'estructura',
+                        subtipo: 'ciudadela_ancestral',
+                        nombre: 'Ciudadela Ancestral',
+                        descripcion: 'Edificación primigenia del dominio. Totalmente indestructible e intradeable.',
+                        esTradeable: false,
+                        esDestructible: false,
+                        indestructible: true,
+                        intradeable: true,
+                        estaAnidado: false,
+                        slotAnidado: null,
+                        nivel: 0,
+                        rareza: 'mitica'
+                    },
+                    {
                         uuid: `carta-casona-${usuario.username}`,
                         id: `carta-casona-${usuario.username}`,
                         tipo: 'estructura',
                         subtipo: 'casona',
-                        nombre: 'Casona Imperial',
+                        nombre: 'Casona Colonial',
                         descripcion: 'Estructura civil única. Habilita +2 slots de población en la Finca.',
                         esTradeable: false,
                         esDestructible: false,
+                        indestructible: false,
+                        intradeable: false,
                         estaAnidado: false,
                         slotAnidado: null,
                         nivel: 0,
@@ -234,6 +273,48 @@ authRouter.post('/login', async (req, res) => {
                 gameData.inicializarEspaciosVacios();
             }
             await gameData.save();
+        } else {
+            // Asegurar que exista la Ciudadela Ancestral y la Casona
+            if (!gameData.almacenEdificiosDisponibles) gameData.almacenEdificiosDisponibles = [];
+            const tieneCiudadela = gameData.almacenEdificiosDisponibles.some(c => c.id === 'edificio_supremo_unico' || c.indestructible);
+            if (!tieneCiudadela) {
+                gameData.almacenEdificiosDisponibles.unshift({
+                    uuid: `edificio_supremo_unico-${usuario.username}`,
+                    id: "edificio_supremo_unico",
+                    tipo: 'estructura',
+                    subtipo: 'ciudadela_ancestral',
+                    nombre: 'Ciudadela Ancestral',
+                    descripcion: 'Edificación primigenia del dominio. Totalmente indestructible e intradeable.',
+                    esTradeable: false,
+                    esDestructible: false,
+                    indestructible: true,
+                    intradeable: true,
+                    estaAnidado: false,
+                    slotAnidado: null,
+                    nivel: 0,
+                    rareza: 'mitica'
+                });
+            }
+            const tieneCasona = gameData.almacenEdificiosDisponibles.some(c => c.subtipo === 'casona');
+            if (!tieneCasona) {
+                gameData.almacenEdificiosDisponibles.push({
+                    uuid: `carta-casona-${usuario.username}`,
+                    id: `carta-casona-${usuario.username}`,
+                    tipo: 'estructura',
+                    subtipo: 'casona',
+                    nombre: 'Casona Colonial',
+                    descripcion: 'Estructura civil única. Habilita +2 slots de población en la Finca.',
+                    esTradeable: false,
+                    esDestructible: false,
+                    indestructible: false,
+                    intradeable: false,
+                    estaAnidado: false,
+                    slotAnidado: null,
+                    nivel: 0,
+                    rareza: 'epica'
+                });
+            }
+            await gameData.save();
         }
 
         return res.status(200).json({
@@ -241,7 +322,7 @@ authRouter.post('/login', async (req, res) => {
             message: 'Sesión iniciada con éxito.',
             username: usuario.username,
             balance: usuario.balance,
-            poseeAldea: usuario.poseeAldea || false
+            poseeAldea: Boolean(usuario.poseeAldea)
         });
 
     } catch (error) {
@@ -263,7 +344,7 @@ mongoose.connect(MONGO_URI)
 
 // ==========================================================================
 // 🏗️ FUNCIONES AUXILIARES Y ESTADO EN MEMORIA
-// ==========================================================================
+// ==========================================================
 const cachePartidas = {};
 let stockTiendaSistema = { edificios: [], aldeanos: [], equipamiento: [] };
 
@@ -304,6 +385,8 @@ function inicializarCimientosPorDefecto() {
 function crearCartaParaTienda(diseño, rubro) {
     return {
         tiendaItemId: crypto.randomUUID(),
+        uuid: crypto.randomUUID(),
+        id: crypto.randomUUID(),
         subtipo: diseño.subtipo,
         nombre: diseño.nombre,
         tipo: rubro,
@@ -367,14 +450,32 @@ async function obtenerOGenerarJuegoData(username) {
             ...inicializarCimientosPorDefecto(),
             almacenEdificiosDisponibles: [
                 {
+                    uuid: `edificio_supremo_unico-${username}`,
+                    id: "edificio_supremo_unico",
+                    tipo: 'estructura',
+                    subtipo: 'ciudadela_ancestral',
+                    nombre: 'Ciudadela Ancestral',
+                    descripcion: 'Edificación primigenia del dominio. Totalmente indestructible e intradeable.',
+                    esTradeable: false,
+                    esDestructible: false,
+                    indestructible: true,
+                    intradeable: true,
+                    estaAnidado: false,
+                    slotAnidado: null,
+                    nivel: 0,
+                    rareza: 'mitica'
+                },
+                {
                     uuid: `carta-casona-${username}`,
                     id: `carta-casona-${username}`,
                     tipo: 'estructura',
                     subtipo: 'casona',
-                    nombre: 'Casona Imperial',
+                    nombre: 'Casona Colonial',
                     descripcion: 'Estructura civil única. Habilita +2 slots de población en la Finca.',
                     esTradeable: false,
                     esDestructible: false,
+                    indestructible: false,
+                    intradeable: false,
                     estaAnidado: false,
                     slotAnidado: null,
                     nivel: 0,
@@ -387,20 +488,59 @@ async function obtenerOGenerarJuegoData(username) {
             juegoData.inicializarEspaciosVacios();
         }
         await juegoData.save();
+    } else {
+        if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
+        const tieneCiudadela = juegoData.almacenEdificiosDisponibles.some(c => c.id === 'edificio_supremo_unico' || c.indestructible);
+        if (!tieneCiudadela) {
+            juegoData.almacenEdificiosDisponibles.unshift({
+                uuid: `edificio_supremo_unico-${username}`,
+                id: "edificio_supremo_unico",
+                tipo: 'estructura',
+                subtipo: 'ciudadela_ancestral',
+                nombre: 'Ciudadela Ancestral',
+                descripcion: 'Edificación primigenia del dominio. Totalmente indestructible e intradeable.',
+                esTradeable: false,
+                esDestructible: false,
+                indestructible: true,
+                intradeable: true,
+                estaAnidado: false,
+                slotAnidado: null,
+                nivel: 0,
+                rareza: 'mitica'
+            });
+        }
+        const tieneCasona = juegoData.almacenEdificiosDisponibles.some(c => c.subtipo === 'casona');
+        if (!tieneCasona) {
+            juegoData.almacenEdificiosDisponibles.push({
+                uuid: `carta-casona-${username}`,
+                id: `carta-casona-${username}`,
+                tipo: 'estructura',
+                subtipo: 'casona',
+                nombre: 'Casona Colonial',
+                descripcion: 'Estructura civil única. Habilita +2 slots de población en la Finca.',
+                esTradeable: false,
+                esDestructible: false,
+                indestructible: false,
+                intradeable: false,
+                estaAnidado: false,
+                slotAnidado: null,
+                nivel: 0,
+                rareza: 'epica'
+            });
+        }
+        await juegoData.save();
     }
     cachePartidas[username] = juegoData;
     return juegoData;
 }
 
 // ==========================================================================
-// 📦 SINCRONIZACIÓN OMNICANAL DEL ALMACÉN (PROPIEDADES MULTI-ALIAS Y MATRIZ COMPLETA)
+// 📦 SINCRONIZACIÓN OMNICANAL DEL ALMACÉN
 // ==========================================================================
 function enviarEstadoAlmacen(socket, juegoData) {
     if (!juegoData) return;
 
     const todasLasCartas = juegoData.almacenEdificiosDisponibles || [];
-    
-    // Sub-arreglo de cartas estrictamente disponibles (sin anidar)
     const cartasDisponibles = todasLasCartas.filter(carta => !carta.estaAnidado);
 
     const payload = {
@@ -408,7 +548,6 @@ function enviarEstadoAlmacen(socket, juegoData) {
         cartas: cartasDisponibles,
         edificios: cartasDisponibles,
         recursos: cartasDisponibles,
-        // Se envía la matriz completa para permitir que almacen.js haga el renderizado sin descartes fortuitos
         almacenEdificiosDisponibles: todasLasCartas
     };
 
@@ -417,14 +556,13 @@ function enviarEstadoAlmacen(socket, juegoData) {
 }
 
 // ==========================================================================
-// 📊 CONTROL DEMOGRÁFICO DE POBLACIÓN ACTIVA (EVALUACIÓN DIRECTA DE CASONA)
+// 📊 CONTROL DEMOGRÁFICO DE POBLACIÓN ACTIVA
 // ==========================================================================
 async function enviarEstadoFincaActualizado(socket, username, juegoData) {
     if (!juegoData) {
         juegoData = await obtenerOGenerarJuegoData(username);
     }
 
-    // Evaluación directa e inmediata sobre la carta Casona (almacén anidado o cimientos de la Finca)
     const casonaEnAlmacen = (juegoData.almacenEdificiosDisponibles || []).some(
         carta => carta.subtipo === 'casona' && (
             carta.estaAnidado === true || 
@@ -457,7 +595,7 @@ async function enviarEstadoFincaActualizado(socket, username, juegoData) {
 }
 
 // ==========================================================================
-// 🚚 GESTIÓN Y SINCRONIZACIÓN DEL CARRETÓN (EVALUACIÓN DINÁMICA DE SLOTS)
+// 🚚 GESTIÓN Y SINCRONIZACIÓN DEL CARRETÓN
 // ==========================================================================
 async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
     if (!juegoData) {
@@ -471,7 +609,6 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
         juegoData.carretonCartas = { cartasCentral: [] };
     }
 
-    // Evaluación en tiempo real de la presencia activa de la Casona Imperial
     const casonaEnAlmacen = (juegoData.almacenEdificiosDisponibles || []).some(
         carta => carta.subtipo === 'casona' && (
             carta.estaAnidado === true || 
@@ -485,8 +622,6 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
     );
 
     const casonaActiva = casonaEnAlmacen || casonaEnCimientos;
-    
-    // Si la Casona no está activa/construida, los slots habilitados en la Finca deben ser 0 por regla de negocio
     const slotsFincaHabilitados = casonaActiva ? 8 : 0;
 
     const cartasCentral = juegoData.carretonCartas.cartasCentral || [];
@@ -501,7 +636,7 @@ async function forzarEnvioEstadoCarreton(socket, username, juegoData) {
         slotsCentralMax: maxSlots,
         slotsFincaMax: 8,
         slotsAldeaMax: 16,
-        slotsFincaHabilitados, // Dinámico: 0 si no hay Casona, 8 si la Casona está en pie
+        slotsFincaHabilitados,
         slotsAldeaHabilitados: poseeAldea ? 16 : 0,
         poseeAldea
     });
@@ -549,6 +684,85 @@ io.on('connection', (socket) => {
 
     socket.on('tienda:solicitar-stock', () => {
         socket.emit('tienda:recibir-stock', stockTiendaSistema);
+    });
+
+    // 🏪 TIENDA / MERCADO: COMPRA DE ÍTEMS
+    socket.on('tienda:comprar-item', async (data = {}) => {
+        const username = socket.username || data.username;
+        const { itemId, precio } = data;
+
+        if (!username) return socket.emit('tienda:error', 'Sesión no autenticada.');
+        if (!itemId) return socket.emit('tienda:error', 'Ítem no especificado.');
+
+        try {
+            const User = obtenerModeloUsuario();
+            const usuarioBD = await User.findOne({ username });
+            if (!usuarioBD) return socket.emit('tienda:error', 'Gladiador no encontrado en el Imperio.');
+
+            const costo = parseFloat(precio) || 0;
+            if (usuarioBD.balance < costo) {
+                return socket.emit('tienda:error', '🪙 Saldo insuficiente en el cofre imperial.');
+            }
+
+            // Buscar el ítem en stockTiendaSistema
+            let itemEncontrado = null;
+            let categoriaEncontrada = null;
+
+            for (const rubro in stockTiendaSistema) {
+                const idx = stockTiendaSistema[rubro].findIndex(i => i.tiendaItemId === itemId || i.uuid === itemId || i.id === itemId);
+                if (idx !== -1) {
+                    itemEncontrado = stockTiendaSistema[rubro][idx];
+                    // Remover del stock para simular AMM / tienda
+                    stockTiendaSistema[rubro].splice(idx, 1);
+                    categoriaEncontrada = rubro;
+                    break;
+                }
+            }
+
+            if (!itemEncontrado) {
+                return socket.emit('tienda:error', 'El ítem seleccionado ya no está disponible en la vitrina.');
+            }
+
+            // Descontar saldo y guardar usuario
+            usuarioBD.balance -= costo;
+            await usuarioBD.save();
+
+            // Agregar al almacén del jugador
+            const juegoData = await obtenerOGenerarJuegoData(username);
+            if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
+
+            const nuevaCarta = {
+                uuid: itemEncontrado.uuid || crypto.randomUUID(),
+                id: itemEncontrado.id || crypto.randomUUID(),
+                tipo: itemEncontrado.tipo || categoriaEncontrada || 'estructura',
+                subtipo: itemEncontrado.subtipo,
+                nombre: itemEncontrado.nombre,
+                descripcion: `Adquirido en el Mercado Imperial.`,
+                esTradeable: true,
+                esDestructible: true,
+                indestructible: false,
+                intradeable: false,
+                estaAnidado: false,
+                slotAnidado: null,
+                nivel: itemEncontrado.nivel || 0,
+                rareza: itemEncontrado.rareza || 'comun'
+            };
+
+            juegoData.almacenEdificiosDisponibles.push(nuevaCarta);
+            juegoData.markModified('almacenEdificiosDisponibles');
+            await juegoData.save();
+            cachePartidas[username] = juegoData;
+
+            // Emitir actualización de balance, stock y almacén
+            socket.emit('jugador:actualizar-balance', { balance: usuarioBD.balance });
+            socket.emit('tienda:compra-exitosa', { success: true, balance: usuarioBD.balance, item: nuevaCarta });
+            io.emit('tienda:recibir-stock', stockTiendaSistema); // Actualizar stock global para todos
+            enviarEstadoAlmacen(socket, juegoData);
+
+        } catch (err) {
+            console.error('❌ Error en tienda:comprar-item:', err);
+            socket.emit('tienda:error', 'Error interno al procesar la compra en el mercado.');
+        }
     });
 
     // 📦 ALMACÉN: MANEJADORES DE CONSULTA
@@ -654,7 +868,7 @@ io.on('connection', (socket) => {
     });
 
     // ==========================================================================
-    // 🌾 FINCA Y CONSTRUCCIÓN (TOLERANTE A SLOT-X Y NUMÉRICOS)
+    // 🌾 FINCA Y CONSTRUCCIÓN
     // ==========================================================================
     socket.on('finca:construir', async (data = {}) => {
         const { slotId, uuidEdificio } = data;
@@ -668,7 +882,6 @@ io.on('connection', (socket) => {
             const slotCanonical = normalizarSlotId(slotId);
             const indexNum = obtenerIndiceSlot(slotId);
 
-            // Búsqueda de la parcela combinando slotCanonical o índice numérico
             let slot = juegoData.cimientosFinca.find(s => {
                 const sIdLimpio = String(s.slotId).replace(/^slot-/, '');
                 return s.slotId === slotCanonical || sIdLimpio === String(indexNum);
@@ -687,11 +900,9 @@ io.on('connection', (socket) => {
             );
             if (!edificio) return socket.emit('finca:error', 'Edificio no encontrado en el almacén.');
 
-            // Marcar carta como anidada/construida
             edificio.estaAnidado = true;
             edificio.slotAnidado = indexNum;
 
-            // Actualizar ranura en terreno
             slot.slotId = slotCanonical;
             slot.estaOcupado = true;
             slot.subtipo = edificio.subtipo;
@@ -702,7 +913,6 @@ io.on('connection', (socket) => {
             juegoData.markModified('cimientosFinca');
             juegoData.markModified('almacenEdificiosDisponibles');
             
-            // Persistencia inmediata
             const juegoDataGuardado = await juegoData.save();
             cachePartidas[username] = juegoDataGuardado;
 
@@ -903,3 +1113,4 @@ const apagarServidorLimpio = async (signal) => {
 
 process.on('SIGTERM', () => apagarServidorLimpio('SIGTERM'));
 process.on('SIGINT', () => apagarServidorLimpio('SIGINT'));
+Mostrando downloads/server.js.
