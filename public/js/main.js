@@ -490,3 +490,18 @@ window.comprarCartaMercado = function(idItem, precioItem) {
         alert('❌ Error de conexión: No hay enlace activo con el Árbitro del servidor.');
     }
 };
+
+// ========================================================
+// 7. DELEGACIÓN GLOBAL DE EVENTOS (MERCADO Y BOTONES DINÁMICOS)
+// ========================================================
+document.addEventListener('click', (e) => {
+    const btnComprar = e.target.closest('[data-comprar-id], .btn-comprar-item, button[onclick*="comprarCartaMercado"]');
+    if (btnComprar) {
+        const idItem = btnComprar.dataset.id || btnComprar.getAttribute('data-comprar-id');
+        const precioItem = parseFloat(btnComprar.dataset.precio || btnComprar.getAttribute('data-precio') || 0);
+        
+        if (idItem && typeof window.comprarCartaMercado === 'function') {
+            window.comprarCartaMercado(idItem, precioItem);
+        }
+    }
+});
