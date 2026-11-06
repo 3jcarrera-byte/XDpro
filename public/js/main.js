@@ -54,21 +54,22 @@ window.actualizarInterfazUsuario = function(nick, balance) {
 };
 
 /**
- * Gestiona la visibilidad de los accesos a la Aldea según la posesión del jugador.
+ * Gestiona la visibilidad de los accesos de navegación a la Aldea según la posesión del jugador.
  * @param {boolean|string} poseeAldea - Estado de la aldea del gladiador
  */
 window.gestionarVisibilidadAldea = function(poseeAldea) {
     const esValido = poseeAldea === true || poseeAldea === "true";
-    // Selecciona botones, enlaces o elementos asociados a la Aldea en toda la SPA
-    const elementosAldea = document.querySelectorAll('.btn-ir-aldea, [onclick*="aldea"], [id*="aldea"], #btn-menu-aldea');
+    
+    // Seleccionamos ÚNICAMENTE los botones de navegación hacia la pantalla de la Aldea
+    const accesosNavegacionAldea = document.querySelectorAll('.btn-ir-aldea, #btn-navegar-aldea, [data-navegar="aldea"]');
 
-    elementosAldea.forEach(el => {
+    accesosNavegacionAldea.forEach(el => {
         if (!esValido) {
             el.style.display = 'none';
             el.style.pointerEvents = 'none';
             el.disabled = true;
         } else {
-            el.style.display = ''; // Restaura su visualización original por CSS
+            el.style.display = ''; // Restaura el display CSS original
             el.style.pointerEvents = 'auto';
             el.disabled = false;
         }
