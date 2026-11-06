@@ -902,7 +902,7 @@ io.on('connection', (socket) => {
             edificio.slotAnidado = indexNum;
 
             slot.slotId = slotCanonical;
-            slot.estaOcupado = true;
+            slot.estaOcupado = false;
             slot.subtipo = edificio.subtipo;
             slot.nivel = edificio.nivel || 0;
             slot.nombre = edificio.nombre || edificio.subtipo;
