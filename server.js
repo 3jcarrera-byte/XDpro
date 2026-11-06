@@ -951,89 +951,75 @@ socket.on('finca:construir', async (data = {}) => {
 // ==========================================================================
 // 🪵 DESMANTELAMIENTO Y RECOLECCIÓN EN TERRENOS
 // ==========================================================================
-socket.on('finca:desmantelar', async (data = {}) => {
+socket.on('finca:desmantelar', async (data) => {
     const { slotId } = data;
-    const username = socket.username || data?.username;
-    if (!username) return socket.emit('finca:error', 'Sesión no autenticada.');
+    const nickActivo = socket.username; // O como manejes la sesión en el socket
+
+    if (!nickActivo) {
+        return socket.emit('finca:error', 'Sesión inválida del gladiador.');
+    }
 
     try {
-        const juegoData = await obtenerOGenerarJuegoData(username);
-        if (!juegoData?.cimientosFinca) return socket.emit('finca:error', 'Datos de juego no encontrados.');
+        // 1. Buscar los datos de juego del usuario
+        const gameData = await GameData.findOne({ username: nickActivo });
+        if (!gameData) return socket.emit('finca:error', 'No se encontraron datos del jugador.');
 
-        const indexNum = obtenerIndiceSlot(slotId);
-        const slotCanonical = normalizarSlotId(slotId);
+        // 2. Encontrar el cimiento exacto en el array de la finca
+        const cimientoIndex = gameData.edificiosFinca.findIndex(e => e.slotId === Number(slotId));
+        if (cimentoIndex === -1) return socket.emit('finca:error', 'El cimiento seleccionado no existe o ya está vacío.');
 
-        const slotIndex = juegoData.cimientosFinca.findIndex(s => {
-            const sIdLimpio = String(s.slotId || '').replace(/^slot-/, '');
-            return s.slotId === slotCanonical || sIdLimpio === String(indexNum);
+        const edificioADesmantelar = gameData.edificiosFinca[cimentoIndex];
+
+        // 3. Devolver la carta del edificio al Almacén cambiándole el estado
+        await GameData.updateOne(
+            { username: nickActivo },
+            {
+                $push: {
+                    almacenEdificios: {
+                        uuid: edificioADesmantelar.uuid,
+                        tipo: edificioADesmantelar.tipo,
+                        subtipo: edificioADesmantelar.subtipo,
+                        nivel: edificioADesmantelar.nivel,
+                        estado: 'almacen', // Vuelve al almacén
+                        posicionCanvas: { slotId: null, x: 0, z: 0 }
+                    }
+                }
+            }
+        );
+
+        // 4. LIMPIEZA TOTAL DEL CIMIENTO EN LA FINCA (SOLUCIÓN AL BUG)
+        // En vez de dejar el objeto con datos viejos, reseteamos sus propiedades a vacío
+        await GameData.updateOne(
+            { username: nickActivo, "edificiosFinca.slotId": Number(slotId) },
+            {
+                $set: {
+                    "edificiosFinca.$.estaOcupado": false,
+                    "edificiosFinca.$.subtipo": null,
+                    "edificiosFinca.$.uuid": null,
+                    "edificiosFinca.$.tipo": "vacio",
+                    "edificiosFinca.$.nivel": 0
+                }
+            }
+        );
+
+        // 5. Buscar el terreno limpio actualizado para responderle al cliente
+        const datosActualizados = await GameData.findOne({ username: nickActivo });
+
+        // Enviar confirmación al jugador que desmanteló
+        socket.emit('finca:desmantelamiento-exitoso', {
+            slotId: Number(slotId),
+            terreno: datosActualizados.edificiosFinca
         });
 
-        if (slotIndex === -1 || (juegoData.cimientosFinca[slotIndex].estaOcupado !== true && juegoData.cimientosFinca[slotIndex].estaOcupado !== "true")) {
-            return socket.emit('finca:error', 'El slot especificado no tiene ninguna estructura para desmantelar.');
-        }
+        // Notificar al resto de jugadores en la sala si es necesario
+        socket.broadcast.emit('finca:actualizar-terreno', datosActualizados.edificiosFinca);
 
-        const slot = juegoData.cimientosFinca[slotIndex];
-        const uuidEvacuado = slot.uuid || crypto.randomUUID();
-
-        if (!juegoData.almacenEdificiosDisponibles) juegoData.almacenEdificiosDisponibles = [];
-
-        const cartaAlmacen = juegoData.almacenEdificiosDisponibles.find(c => c.uuid === uuidEvacuado || c.id === uuidEvacuado);
-        if (cartaAlmacen) {
-            cartaAlmacen.estaAnidado = false;
-            cartaAlmacen.slotAnidado = null;
-        } else {
-            juegoData.almacenEdificiosDisponibles.push({
-                uuid: uuidEvacuado,
-                id: uuidEvacuado,
-                subtipo: slot.subtipo,
-                nombre: slot.nombre || slot.subtipo,
-                nivel: slot.nivel || 0,
-                rareza: slot.rareza || 'comun',
-                estaAnidado: false,
-                slotAnidado: null
-            });
-        }
-
-        if (Array.isArray(slot.recursosAnidados) && slot.recursosAnidados.length > 0) {
-            for (const item of slot.recursosAnidados) {
-                agregarRecursoAlmacen(
-                    juegoData.almacenEdificiosDisponibles, 
-                    item.subtipo, 
-                    item.cantidad, 
-                    item.nombre
-                );
-            }
-        }
-
-        // Restablecer el slot de manera totalmente limpia y desocupada
-        juegoData.cimientosFinca[slotIndex] = {
-            slotId: `slot-${indexNum}`,
-            estaOcupado: false,
-            subtipo: null,
-            nivel: 0,
-            nombre: null,
-            uuid: null,
-            produccionPendiente: 0,
-            recursosAnidados: []
-        };
-
-        juegoData.markModified('cimientosFinca');
-        juegoData.markModified('almacenEdificiosDisponibles');
-        
-        const juegoDataGuardado = await juegoData.save();
-        cachePartidas[username] = juegoDataGuardado;
-
-        socket.emit('finca:desmantelamiento-exitoso', { slotId: slotCanonical });
-        socket.emit('finca:actualizar-terreno', juegoDataGuardado.cimientosFinca);
-        
-        enviarEstadoAlmacen(socket, juegoDataGuardado);
-        await enviarEstadoFincaActualizado(socket, username, juegoDataGuardado);
-        await forzarEnvioEstadoCarreton(socket, username, juegoDataGuardado);
-    } catch (err) {
-        console.error('❌ Error desmantelando estructura:', err);
-        socket.emit('finca:error', 'Error al desmantelar la estructura.');
+    } catch (error) {
+        console.error('❌ Error en desmantelamiento:', error);
+        socket.emit('finca:error', 'Error interno del Árbitro al desmantelar.');
     }
 });
+    
 
 socket.on('finca:recolectar-produccion', async (data = {}) => {
     const { slotId } = data;
